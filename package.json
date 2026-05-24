@@ -1,0 +1,23 @@
+{
+  "name": "sanity-remotion-cloudinary-template",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev": "pnpm --filter @template/web dev",
+    "dev:web": "pnpm --filter @template/web dev",
+    "dev:studio": "pnpm --filter @template/studio dev",
+    "build": "pnpm --filter @template/web build",
+    "build:web": "pnpm --filter @template/web build",
+    "build:studio": "pnpm --filter @template/studio build",
+    "build:remotion": "pnpm --filter @template/web build:remotion",
+    "start": "pnpm --filter @template/web start",
+    "lint": "pnpm --filter @template/web lint",
+    "deploy:studio": "pnpm --filter @template/studio deploy"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
