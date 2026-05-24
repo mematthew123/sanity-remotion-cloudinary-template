@@ -23,14 +23,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-const sanityClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
-  apiVersion: '2024-01-01',
-  useCdn: false,
-  token: process.env.SANITY_API_WRITE_TOKEN,
-})
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -50,6 +42,29 @@ export async function POST(req: NextRequest) {
   if (authHeader !== `Bearer ${RENDER_SECRET}`) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401, headers: corsHeaders})
   }
+
+  // Lazy-init the Sanity client so a not-yet-configured dev server returns a
+  // clean error instead of crashing at module load (createClient throws when
+  // projectId is undefined).
+  const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+  const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
+  const token = process.env.SANITY_API_WRITE_TOKEN
+  if (!projectId || !dataset || !token) {
+    return NextResponse.json(
+      {
+        error:
+          'Sanity not configured (set NEXT_PUBLIC_SANITY_PROJECT_ID, NEXT_PUBLIC_SANITY_DATASET, SANITY_API_WRITE_TOKEN)',
+      },
+      {status: 500, headers: corsHeaders},
+    )
+  }
+  const sanityClient = createClient({
+    projectId,
+    dataset,
+    apiVersion: '2024-01-01',
+    useCdn: false,
+    token,
+  })
 
   let outputPath: string | null = null
   let sanityDocId: string | null = null
