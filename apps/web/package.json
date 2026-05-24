@@ -1,0 +1,43 @@
+{
+  "name": "@template/web",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/bundle-remotion.mjs && next build",
+    "build:remotion": "node scripts/bundle-remotion.mjs",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@portabletext/react": "^6.0.2",
+    "@remotion/bundler": "4.0.321",
+    "@remotion/compositor-linux-x64-gnu": "4.0.321",
+    "@remotion/google-fonts": "4.0.321",
+    "@remotion/renderer": "4.0.321",
+    "@sanity/client": "^7.13.2",
+    "@sanity/image-url": "^2.0.2",
+    "@sparticuz/chromium": "^143.0.4",
+    "@template/video-core": "workspace:*",
+    "cloudinary": "^2.9.0",
+    "next": "16.1.1",
+    "next-sanity": "^12.0.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.321",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.321",
+    "@remotion/tailwind-v4": "4.0.321",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

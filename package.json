@@ -16,6 +16,10 @@
     "deploy:studio": "pnpm --filter @template/studio deploy"
   },
   "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    },
     "onlyBuiltDependencies": [
       "esbuild"
     ]

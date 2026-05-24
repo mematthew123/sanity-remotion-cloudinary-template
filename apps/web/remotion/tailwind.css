@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+/*
+ * Theme tokens for the Remotion bundle. Mirror app/globals.css so SSR renders
+ * pick up the same brand palette as the site. Sourced from COLORS in
+ * @template/video-core.
+ */
+@theme {
+  --color-background: #f5f4f0;
+  --color-foreground: #141414;
+  --color-accent: #3b5bdb;
+  --color-highlight: #ffd43b;
+  --color-muted: #6b7280;
+}

@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+/*
+ * Theme tokens. These mirror remotion/tailwind.css and COLORS in
+ * @template/video-core so the site and the rendered videos share one palette.
+ * Swap these five colors to rebrand the whole template.
+ */
+@theme {
+  --color-background: #f5f4f0;
+  --color-foreground: #141414;
+  --color-accent: #3b5bdb;
+  --color-highlight: #ffd43b;
+  --color-muted: #6b7280;
+
+  --font-mono: var(--font-jetbrains);
+  --font-serif: var(--font-instrument);
+  --font-sans: var(--font-inter);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

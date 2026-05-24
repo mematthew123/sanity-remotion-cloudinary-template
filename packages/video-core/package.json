@@ -15,5 +15,8 @@
     "@remotion/google-fonts": "4.0.321",
     "react": "^19",
     "remotion": "4.0.321"
+  },
+  "devDependencies": {
+    "@types/react": "^19"
   }
 }
