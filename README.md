@@ -129,7 +129,7 @@ The Remotion bundle (`apps/web/.remotion-bundle/`) is produced by `pnpm build:re
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-Edit `apps/studio/brand-voice-instructions.md` to change the voice, then re-run the seed. Assist is free on Sanity v5 projects and uses Sanity-hosted AI (no external API key).
+Edit `apps/studio/brand-voice-instructions.md` to change the voice, then re-run the seed. No external API key is needed (Sanity-hosted AI), but the AI field actions call **Agent Actions** (Transform/Generate) — a **paid Growth-plan feature** that consumes usage — and require the schema to be deployed (`npx sanity schema deploy`). See [docs/assist.md](docs/assist.md).
 
 **Cloudinary variants.** Each composition opts into a set of variants (site MP4/poster/preview-GIF + square/vertical social crops) in `packages/video-core/src/registry.ts`. At render time the route eager-generates them on Cloudinary and stores their URLs on `video.variants[]` — no extra Remotion renders. `variantUrl(cloudName, …)` takes the cloud name as a parameter, so `video-core` stays free of Cloudinary config.
 

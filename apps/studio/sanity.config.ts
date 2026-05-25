@@ -37,6 +37,7 @@ export default defineConfig({
             path,
             schemaType,
             getConditionalPaths,
+            getDocumentValue,
           } = props
           // Agent Actions require the `vX` API version at this time.
           const client = useClient({apiVersion: 'vX'})
@@ -65,7 +66,7 @@ export default defineConfig({
                         field: {type: 'field', path},
                         voice: {type: 'document', documentId: BRAND_VOICE_DOC_ID},
                       },
-                      target: {path},
+                      target: path.length ? {path} : undefined,
                       conditionalPaths: {paths: getConditionalPaths()},
                     })
                   },
@@ -81,7 +82,15 @@ export default defineConfig({
                   onAction: async () => {
                     await client.agent.action.generate({
                       schemaId,
-                      documentId: documentIdForAction,
+                      // createIfNotExists so this also works on a brand-new,
+                      // unsaved post: it drafts the doc with the current form
+                      // values first, which feed the $title/$excerpt/$body params.
+                      targetDocument: {
+                        operation: 'createIfNotExists',
+                        _id: documentIdForAction,
+                        _type: documentSchemaType.name,
+                        initialValues: getDocumentValue(),
+                      },
                       instruction: [
                         'Fill every slot of $field with short copy for a promo video about this article.',
                         'Follow the brand voice and tone rules in $voice EXACTLY.',
@@ -104,7 +113,7 @@ export default defineConfig({
                         excerpt: {type: 'field', path: ['excerpt']},
                         body: {type: 'field', path: ['body']},
                       },
-                      target: {path},
+                      target: path.length ? {path} : undefined,
                       conditionalPaths: {paths: getConditionalPaths()},
                     })
                   },
@@ -121,6 +130,7 @@ export default defineConfig({
             path,
             schemaType,
             getConditionalPaths,
+            getDocumentValue,
             client,
           ])
         },

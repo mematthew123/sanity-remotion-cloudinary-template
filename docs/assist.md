@@ -1,6 +1,6 @@
 # Sanity Assist + brand voice
 
-The Studio adds AI copy generation grounded in an editable **brand-voice** document, via `@sanity/assist` and `@sanity/agent-context`. Assist is **free on Sanity v5 projects** and uses **Sanity-hosted AI** — no external API key.
+The Studio adds AI copy generation grounded in an editable **brand-voice** document, via `@sanity/assist` and `@sanity/agent-context`. No external API key is needed (Sanity-hosted AI), but note: the custom field actions run **Agent Actions** (Transform/Generate), which are a **paid feature on the Growth plan** and consume usage. The `@sanity/assist` plugin itself is free; the Actions it calls are not.
 
 ## What it adds
 
@@ -35,5 +35,8 @@ The script `createOrReplace`s the `brand-voice` doc with the markdown contents a
 
 ## Requirements
 
-- A Sanity v5 project (Assist is included).
+- A Sanity project on the **Growth plan** (or higher) — custom field actions run **Agent Actions** (Transform/Generate), a paid feature that consumes usage.
+- `@sanity/assist` **v4.3.0+** for custom field actions (this template pins `^6`).
+- The **schema must be deployed** so Agent Actions have a `schemaId`: `cd apps/studio && npx sanity schema deploy` (or `npx sanity deploy`). Re-deploy after schema changes.
+- Agent Action **Generate is experimental** — its API may change.
 - The seed script needs CLI auth: `sanity login`, then run with `--with-user-token`.
