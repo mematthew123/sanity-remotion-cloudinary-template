@@ -2,7 +2,7 @@ import {NextRequest, NextResponse} from 'next/server'
 import {renderMedia, selectComposition} from '@remotion/renderer'
 import {createClient} from '@sanity/client'
 import {v2 as cloudinary} from 'cloudinary'
-import chromium from '@sparticuz/chromium'
+import chromium from '@sparticuz/chromium-min'
 import path from 'path'
 import fs from 'fs'
 // Import from /registry, not the package barrel: the barrel re-exports Remotion
@@ -16,6 +16,13 @@ export const maxDuration = 300 // Vercel Pro: up to 300s
 
 // Secrets come from the environment only — no hardcoded fallbacks.
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
+
+// @sparticuz/chromium-min downloads the browser at runtime instead of bundling
+// it, keeping the Vercel function under the 250 MB unzipped limit. Pin the pack
+// to the installed chromium-min version; override via env if you self-host it.
+const CHROMIUM_PACK_URL =
+  process.env.CHROMIUM_PACK_URL ||
+  'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -142,9 +149,9 @@ export async function POST(req: NextRequest) {
     sanityDocId = sanityDoc._id
     console.log('Video document created with status: rendering', sanityDocId)
 
-    // On Vercel, use @sparticuz/chromium; locally use system Chrome.
+    // On Vercel, download + use @sparticuz/chromium-min; locally use system Chrome.
     const isVercel = !!process.env.VERCEL
-    const browserExecutable = isVercel ? await chromium.executablePath() : undefined
+    const browserExecutable = isVercel ? await chromium.executablePath(CHROMIUM_PACK_URL) : undefined
 
     // Resolve the composition
     const composition = await selectComposition({

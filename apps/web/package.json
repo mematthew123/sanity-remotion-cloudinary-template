@@ -18,7 +18,7 @@
     "@remotion/renderer": "4.0.321",
     "@sanity/client": "^7.13.2",
     "@sanity/image-url": "^2.0.2",
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "@template/video-core": "workspace:*",
     "cloudinary": "^2.9.0",
     "next": "16.1.1",

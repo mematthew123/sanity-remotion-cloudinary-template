@@ -29,6 +29,7 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_API_WRITE_TOKEN` | **Editor** token — the render route creates `video` docs. Server-only. |
 | `VIDEO_RENDER_SECRET` | bearer the render trigger must send |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | server-only |
+| `CHROMIUM_PACK_URL` | optional — Chromium pack for `@sparticuz/chromium-min` on Vercel; defaults to the matching Sparticuz GitHub release |
 
 ### `apps/studio/.env`
 | Var | Notes |

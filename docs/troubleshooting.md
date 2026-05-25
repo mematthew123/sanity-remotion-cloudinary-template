@@ -53,10 +53,15 @@ Something imported the `@template/video-core` **barrel** into a server route or 
 
 Pinned to a single version via `pnpm.overrides` in the root `package.json`. If warnings reappear after a dependency bump, align `react` and `react-dom` to the same exact version there.
 
+## Vercel: "A Serverless Function has exceeded the unzipped maximum size of 250 MB"
+
+Vercel functions are hard-capped at 250 MB unzipped. Bundling full Chromium (`@sparticuz/chromium` ≈ 64 MB) plus the Remotion Linux compositor tips `/api/video/render` over. This template uses **`@sparticuz/chromium-min`** (≈ 120 KB) instead: it downloads the Chromium pack at runtime from `CHROMIUM_PACK_URL` (default: the matching Sparticuz GitHub release), so the browser is **not** traced into the function. If you bump `@sparticuz/chromium-min`, point `CHROMIUM_PACK_URL` at a pack of the same Chromium version. (To diagnose what else is large, redeploy with `VERCEL_ANALYZE_BUILD_OUTPUT=1`.)
+
 ## First local render pauses to download Chrome
 
-Expected. Locally, Remotion downloads a headless Chrome on the first render; subsequent renders are fast. On Vercel it uses `@sparticuz/chromium` (kept in `serverExternalPackages` + traced into the function via `outputFileTracingIncludes`).
+Expected. Locally, `browserExecutable` is undefined and Remotion downloads/uses a headless Chrome on the first render. On Vercel, `@sparticuz/chromium-min` downloads its pack to `/tmp` on the first (cold) invocation — a few extra seconds — then renders.
 
 ## Vercel: "Could not find Chrome" in the render function
 
-The tracing globs didn't include `@sparticuz/chromium` / `@remotion/compositor-linux-x64-gnu`. Check `outputFileTracingIncludes['/api/video/render']` in `apps/web/next.config.ts` covers both the hoisted (`../../node_modules`) and local (`./node_modules`) paths, and set the function max duration to 300s.
+- **Compositor not traced:** check `outputFileTracingIncludes['/api/video/render']` in `apps/web/next.config.ts` includes `@remotion/compositor-linux-x64-gnu` (both the `../../node_modules` and `./node_modules` paths), and that the function max duration is 300s.
+- **Pack unreachable / version mismatch:** confirm `CHROMIUM_PACK_URL` points to a real Sparticuz pack matching your installed `@sparticuz/chromium-min` version.

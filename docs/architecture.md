@@ -10,7 +10,7 @@ POST /api/video/render            (Next.js route, bearer-authed)
    │  1. validate inputProps (Zod) + idempotency check
    │  2. create a `video` doc            → status: rendering
    │  3. render the Remotion composition server-side
-   │       @remotion/renderer + @sparticuz/chromium (Vercel) / system Chrome (local)
+   │       @remotion/renderer + @sparticuz/chromium-min (Vercel) / system Chrome (local)
    │  4. upload MP4 to Cloudinary, eager-generate variants → status: uploading
    │  5. patch the doc: cloudinaryUrl + variants[]          → status: ready
    ▼
