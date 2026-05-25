@@ -21,6 +21,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
   publishedAt,
   excerpt,
   mainImageUrl,
+  videoCopy,
 }) => {
   const frame = useCurrentFrame()
   const {fps, durationInFrames} = useVideoConfig()
@@ -194,7 +195,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
               transformOrigin: 'left center',
             }}
           >
-            New Article
+            {videoCopy?.kicker ?? 'New Article'}
           </div>
         </Sequence>
 
@@ -208,7 +209,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
               opacity: titleReveal,
             }}
           >
-            {title}
+            {videoCopy?.headline ?? title}
           </div>
         </Sequence>
 
@@ -227,7 +228,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
               overflow: 'hidden',
             }}
           >
-            &ldquo;{excerpt}&rdquo;
+            &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
           </div>
         </Sequence>
 
@@ -294,7 +295,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
                 letterSpacing: '0.05em',
               }}
             >
-              Read more
+              {videoCopy?.ctaPrimary ?? 'Read more'}
             </div>
             <div
               style={{

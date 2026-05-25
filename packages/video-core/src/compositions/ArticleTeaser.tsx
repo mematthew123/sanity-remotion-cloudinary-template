@@ -18,6 +18,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
   title,
   authorName,
   excerpt,
+  videoCopy,
 }) => {
   const frame = useCurrentFrame()
   const {fps, durationInFrames} = useVideoConfig()
@@ -150,7 +151,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
             opacity: tagSlide,
           }}
         >
-          Article
+          {videoCopy?.kicker ?? 'Article'}
         </div>
 
         {/* Title */}
@@ -164,7 +165,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
             opacity: titleProgress,
           }}
         >
-          {title}
+          {videoCopy?.headline ?? title}
         </div>
 
         {/* "New Article" badge */}
@@ -204,7 +205,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
               lineHeight: 1.4,
             }}
           >
-            &ldquo;{excerpt}&rdquo;
+            &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
           </div>
         </div>
 
@@ -242,7 +243,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
               letterSpacing: '0.05em',
             }}
           >
-            Read more
+            {videoCopy?.ctaPrimary ?? 'Read more'}
           </div>
         </div>
       </div>
