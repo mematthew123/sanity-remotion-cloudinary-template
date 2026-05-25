@@ -34,7 +34,7 @@ export type VariantDef = {
   label: string
   surface: VariantSurface
   format: VariantFormat
-  /** Cloudinary transformation segment, e.g. 'w_1080,h_1080,c_fill,g_auto'. */
+  /** Cloudinary transformation segment, e.g. 'w_1080,h_1080,c_fill,g_center'. */
   transformation: string
   width?: number
   height?: number
@@ -77,7 +77,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Instagram Square',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1080,
     eager: true,
@@ -87,7 +87,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Twitter/X Square',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1080,
     eager: true,
@@ -97,7 +97,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Facebook Square',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1080,
     eager: true,
@@ -109,7 +109,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Instagram Reel',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1920,
     eager: true,
@@ -119,7 +119,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'TikTok',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1920,
     eager: true,
@@ -129,7 +129,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'YouTube Short',
     surface: 'social',
     format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_auto,f_mp4,q_auto',
+    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1920,
     eager: true,
@@ -141,7 +141,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'YouTube Thumbnail',
     surface: 'social',
     format: 'jpg',
-    transformation: 'w_1280,h_720,c_fill,g_auto,so_10p,f_jpg,q_auto',
+    transformation: 'w_1280,h_720,c_fill,g_center,so_10p,f_jpg,q_auto',
     width: 1280,
     height: 720,
     eager: true,
@@ -268,14 +268,19 @@ export function variantUrl(cloudName: string, publicId: string, variantId: Varia
 /**
  * The `eager` array for `cloudinary.uploader.upload_stream` — only variants
  * flagged `eager: true`; the rest derive on first request.
+ *
+ * Use `raw_transformation` (not `transformation`): our values are raw Cloudinary
+ * transformation strings like `so_10p,f_jpg,q_auto`. Passed under `transformation`
+ * the SDK treats them as *named* transformations and Cloudinary 400s with
+ * "Unknown transformation so_10p".
  */
 export function eagerTransformsFor(
   variantIds: readonly VariantId[],
-): Array<{transformation: string; format: VariantFormat}> {
+): Array<{raw_transformation: string; format: VariantFormat}> {
   return variantIds
     .map((id) => VARIANTS[id])
     .filter((v) => v.eager)
-    .map((v) => ({transformation: v.transformation, format: v.format}))
+    .map((v) => ({raw_transformation: v.transformation, format: v.format}))
 }
 
 /** Variants applicable to a composition, optionally filtered by surface. */

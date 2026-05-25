@@ -27,6 +27,10 @@ The token authenticates but its identity **isn't a member of this project** — 
 
 The web client reads published content with **no token**, which requires a **public** dataset. Either make the dataset public (Manage → API → Datasets) or add a read token to `apps/web/lib/sanity.client.ts`.
 
+## A social variant URL returns 400
+
+Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-on; without it the derived URL 400s (image crops are fine). The template's social variants use **`g_center`** instead, which is universally supported. If you add a video-crop variant in `video-core/src/registry.ts`, prefer `g_center` (or another fixed gravity) over `g_auto` unless your account has the add-on. Note: the `eager` upload array must use `raw_transformation` (not `transformation`) for raw transformation strings, or Cloudinary 400s with "Unknown transformation".
+
 ## `Remotion bundle not found. Run: pnpm build:remotion`
 
 The render route serves compositions from `apps/web/.remotion-bundle/`, produced by `pnpm build:remotion` (which also runs before `next build`). If you render in `dev`, run `pnpm build:remotion` once. Re-run it after changing compositions.
