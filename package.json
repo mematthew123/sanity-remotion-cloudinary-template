@@ -13,7 +13,13 @@
     "build:remotion": "pnpm --filter @template/web build:remotion",
     "start": "pnpm --filter @template/web start",
     "lint": "pnpm --filter @template/web lint",
-    "deploy:studio": "pnpm --filter @template/studio deploy"
+    "deploy:studio": "pnpm --filter @template/studio deploy",
+    "dev:video": "pnpm --filter @template/video dev",
+    "build:video": "pnpm --filter @template/video build",
+    "deploy:video": "pnpm --filter @template/video deploy",
+    "dev:cloudinary": "pnpm --filter @template/cloudinary dev",
+    "build:cloudinary": "pnpm --filter @template/cloudinary build",
+    "deploy:cloudinary": "pnpm --filter @template/cloudinary deploy"
   },
   "pnpm": {
     "overrides": {

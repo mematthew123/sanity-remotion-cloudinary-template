@@ -1,4 +1,4 @@
-import {defineField, defineType} from 'sanity'
+import {defineArrayMember, defineField, defineType} from 'sanity'
 import {PlayIcon} from '@sanity/icons'
 import {COMPOSITIONS} from '@template/video-core/registry'
 
@@ -113,6 +113,34 @@ export const videoType = defineType({
       title: 'Height',
       type: 'number',
       group: 'technical',
+    }),
+    defineField({
+      name: 'variants',
+      title: 'Variants',
+      type: 'array',
+      group: 'technical',
+      readOnly: true,
+      description: 'Cloudinary derivatives generated at render time.',
+      of: [
+        defineArrayMember({
+          type: 'object',
+          fields: [
+            defineField({name: 'variantId', title: 'Variant ID', type: 'string'}),
+            defineField({name: 'surface', title: 'Surface', type: 'string'}),
+            defineField({name: 'format', title: 'Format', type: 'string'}),
+            defineField({name: 'url', title: 'URL', type: 'url'}),
+            defineField({name: 'width', title: 'Width', type: 'number'}),
+            defineField({name: 'height', title: 'Height', type: 'number'}),
+          ],
+          preview: {
+            select: {title: 'variantId', surface: 'surface', format: 'format'},
+            prepare({title, surface, format}) {
+              const meta = [surface, format].filter(Boolean).join(' · ')
+              return {title: title || 'Variant', subtitle: meta || undefined}
+            },
+          },
+        }),
+      ],
     }),
     defineField({
       name: 'renderedAt',

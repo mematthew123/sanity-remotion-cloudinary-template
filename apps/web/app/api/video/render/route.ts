@@ -10,7 +10,7 @@ import fs from 'fs'
 // Pulling those into a server route breaks page-data collection ("Remotion
 // requires React.createContext") and causes Turbopack export-resolution
 // flakiness on Vercel. /registry is pure, React-free metadata.
-import {findComposition} from '@template/video-core/registry'
+import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
 
 export const maxDuration = 300 // Vercel Pro: up to 300s
 
@@ -193,6 +193,12 @@ export async function POST(req: NextRequest) {
             folder: 'template/videos',
             public_id: filename,
             overwrite: true,
+            // Materialize the composition's eager variants synchronously at
+            // upload time so their URLs are valid the moment we patch the doc.
+            // The canonical render stays a single MP4; variants are Cloudinary
+            // derivations of it (no extra renders).
+            eager: eagerTransformsFor(meta.variantIds),
+            eager_async: false,
           },
           (error, result) => {
             if (error) reject(error)
@@ -203,6 +209,14 @@ export async function POST(req: NextRequest) {
       },
     )
 
+    // Snapshot every variant URL for this composition onto the doc. cloudName
+    // comes from the env only; it's required for the upload above, so it should
+    // be present here — but guard anyway and skip variants gracefully if not.
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+    const variants = cloudName
+      ? snapshotVariants(cloudName, uploadResult.public_id, meta.variantIds)
+      : undefined
+
     // Cloudinary videos are immediately available — no webhook needed.
     await sanityClient
       .patch(sanityDocId)
@@ -212,6 +226,7 @@ export async function POST(req: NextRequest) {
         cloudinaryUrl: uploadResult.secure_url,
         duration: Math.round(durationSeconds * 10) / 10,
         renderedAt: new Date().toISOString(),
+        ...(variants ? {variants} : {}),
       })
       .commit()
 
