@@ -35,6 +35,16 @@ packages/video-core/ @template/video-core — Remotion compositions, registry, C
 
 **The React-free registry boundary.** `packages/video-core` exposes two entry points: the barrel `@template/video-core` (the actual Remotion components) and `@template/video-core/registry` (pure metadata — composition ids, dimensions, Zod schemas, no React). The server render route and the Sanity schema import only from `/registry`, so Remotion's render-time hooks never evaluate in a server or Studio bundle. Only `apps/web/remotion/Root.tsx` imports the barrel.
 
+## Documentation
+
+Deeper guides live in [`docs/`](./docs/):
+
+- [Architecture](./docs/architecture.md) — pipeline, registry boundary, variant system
+- [Configuration](./docs/configuration.md) — env prefixes, full env reference, the Sanity token
+- [App SDK apps](./docs/apps.md) — the video editor + Cloudinary apps, and deploying them
+- [Assist + brand voice](./docs/assist.md) — AI field actions and the brand-voice doc
+- [Troubleshooting](./docs/troubleshooting.md) — the common gotchas, with fixes
+
 ## Prerequisites
 
 - Node 20+
