@@ -8,8 +8,9 @@ import {
   Easing,
 } from 'remotion'
 import type {ArticleVideoProps} from '../types'
-import {COLORS} from '../types'
-import {fonts, borderBrutal, headline, accent} from '../styles'
+// Side-effect import: runs loadFont() so the families behind the Tailwind
+// `font-mono` / `font-serif` / `font-sans` utilities are available at render.
+import '../fonts'
 
 // Placeholder wordmark — replace with your brand.
 const BRAND = 'ACME'
@@ -68,85 +69,41 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
   )
 
   // Background flash on badge slam
-  const flashOpacity = frame >= 60 && frame < 70
-    ? interpolate(frame, [60, 70], [0.3, 0], {extrapolateRight: 'clamp'})
-    : 0
+  const flashOpacity =
+    frame >= 60 && frame < 70
+      ? interpolate(frame, [60, 70], [0.3, 0], {extrapolateRight: 'clamp'})
+      : 0
 
   return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: COLORS.foreground,
-        fontFamily: fonts.mono,
-        opacity: outroOpacity,
-      }}
-    >
+    <AbsoluteFill className="bg-foreground font-mono" style={{opacity: outroOpacity}}>
       {/* Flash overlay */}
-      <AbsoluteFill
-        style={{
-          backgroundColor: COLORS.highlight,
-          opacity: flashOpacity,
-        }}
-      />
+      <AbsoluteFill className="bg-highlight" style={{opacity: flashOpacity}} />
 
-      {/* Diagonal accent lines */}
-      <AbsoluteFill style={{overflow: 'hidden', opacity: 0.05}}>
+      {/* Diagonal accent lines (dynamic left offset stays inline) */}
+      <AbsoluteFill className="overflow-hidden opacity-5">
         {Array.from({length: 20}).map((_, i) => (
           <div
             key={i}
-            style={{
-              position: 'absolute',
-              top: -200,
-              left: i * 80 - 200,
-              width: 2,
-              height: 2400,
-              backgroundColor: COLORS.highlight,
-              transform: 'rotate(30deg)',
-            }}
+            className="absolute top-[-200px] h-[2400px] w-[2px] rotate-[30deg] bg-highlight"
+            style={{left: i * 80 - 200}}
           />
         ))}
       </AbsoluteFill>
 
       {/* Brand watermark */}
       <div
-        style={{
-          position: 'absolute',
-          top: 30,
-          left: 40,
-          ...headline(16),
-          color: COLORS.accent,
-          opacity: tagSlide,
-        }}
+        className="absolute left-10 top-[30px] font-mono text-base font-extrabold uppercase tracking-[-0.02em] text-accent"
+        style={{opacity: tagSlide}}
       >
         {BRAND}
       </div>
 
       {/* Center content */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 24,
-          width: '80%',
-        }}
-      >
+      <div className="absolute left-1/2 top-1/2 flex w-4/5 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-6">
         {/* Tag */}
         <div
+          className="border-[3px] border-highlight bg-highlight px-5 py-2 font-mono text-sm font-extrabold uppercase tracking-[0.1em] text-foreground"
           style={{
-            padding: '8px 20px',
-            backgroundColor: COLORS.highlight,
-            color: COLORS.foreground,
-            fontFamily: fonts.mono,
-            fontWeight: 800,
-            fontSize: 14,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            ...borderBrutal,
-            borderColor: COLORS.highlight,
             transform: `translateY(${interpolate(tagSlide, [0, 1], [30, 0])}px)`,
             opacity: tagSlide,
           }}
@@ -156,11 +113,8 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* Title */}
         <div
+          className="text-center font-mono text-5xl font-extrabold uppercase leading-[1.1] tracking-[-0.02em] text-background"
           style={{
-            ...headline(48),
-            color: COLORS.background,
-            textAlign: 'center',
-            lineHeight: 1.1,
             transform: `translateY(${interpolate(titleSlide, [0, 1], [50, 0])}px)`,
             opacity: titleProgress,
           }}
@@ -170,17 +124,8 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* "New Article" badge */}
         <div
+          className="border-[3px] border-accent bg-accent px-7 py-3 font-mono text-lg font-extrabold uppercase tracking-[0.05em] text-white"
           style={{
-            padding: '12px 28px',
-            backgroundColor: COLORS.accent,
-            color: '#FFFFFF',
-            fontFamily: fonts.mono,
-            fontWeight: 800,
-            fontSize: 18,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            ...borderBrutal,
-            borderColor: COLORS.accent,
             transform: `scale(${badgeSlam})`,
             transformOrigin: 'center',
             opacity: badgeSlam,
@@ -191,74 +136,36 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* Excerpt */}
         <div
+          className="max-w-[700px] text-center"
           style={{
-            maxWidth: 700,
-            textAlign: 'center',
             transform: `translateY(${interpolate(excerptReveal, [0, 1], [20, 0])}px)`,
             opacity: excerptReveal,
           }}
         >
-          <div
-            style={{
-              ...accent(24),
-              color: COLORS.background,
-              lineHeight: 1.4,
-            }}
-          >
+          <div className="font-serif text-2xl italic leading-[1.4] text-background">
             &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
           </div>
         </div>
 
         {/* Author */}
         <div
+          className="mt-4 flex flex-col items-center gap-2"
           style={{
-            marginTop: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 8,
             transform: `translateY(${interpolate(authorReveal, [0, 1], [20, 0])}px)`,
             opacity: authorReveal,
           }}
         >
-          <div
-            style={{
-              ...headline(14),
-              color: COLORS.muted,
-              letterSpacing: '0.15em',
-            }}
-          >
+          <div className="font-mono text-sm font-extrabold uppercase tracking-[0.15em] text-muted">
             By {authorName}
           </div>
-          <div
-            style={{
-              marginTop: 12,
-              padding: '10px 24px',
-              border: `3px solid ${COLORS.background}`,
-              fontFamily: fonts.mono,
-              fontWeight: 800,
-              fontSize: 14,
-              color: COLORS.background,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
+          <div className="mt-3 border-[3px] border-background px-6 py-2.5 font-mono text-sm font-extrabold uppercase tracking-[0.05em] text-background">
             {videoCopy?.ctaPrimary ?? 'Read more'}
           </div>
         </div>
       </div>
 
       {/* Bottom accent bar */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          backgroundColor: COLORS.accent,
-        }}
-      />
+      <div className="absolute inset-x-0 bottom-0 h-1 bg-accent" />
     </AbsoluteFill>
   )
 }

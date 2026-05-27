@@ -1,6 +1,15 @@
 @import 'tailwindcss';
 
 /*
+ * The compositions live in `packages/video-core/src`, which Tailwind reaches
+ * only through the pnpm `node_modules` symlink — and v4 auto-detection skips
+ * `node_modules`. Without this `@source`, none of the utility classes used in
+ * the compositions get generated and the render comes out unstyled. Path is
+ * relative to THIS file (apps/web/remotion/ → repo root → packages/...).
+ */
+@source '../../../packages/video-core/src';
+
+/*
  * Theme tokens for the Remotion bundle. Mirror app/globals.css so SSR renders
  * pick up the same brand palette as the site. Sourced from COLORS in
  * @template/video-core.
@@ -11,4 +20,11 @@
   --color-accent: #3b5bdb;
   --color-highlight: #ffd43b;
   --color-muted: #6b7280;
+
+  /* Font families — match the Google fonts loaded in video-core/src/fonts.ts so
+   * the `font-mono` / `font-serif` / `font-sans` utilities resolve to a real
+   * loaded face during render. */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'Instrument Serif', Georgia, serif;
 }

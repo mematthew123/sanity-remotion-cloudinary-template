@@ -9,11 +9,16 @@ import {
   Img,
 } from 'remotion'
 import type {ArticleVideoProps} from '../types'
-import {COLORS} from '../types'
-import {fonts, borderBrutal, shadowBrutal, headline, label, accent, body} from '../styles'
+// Side-effect import: runs loadFont() so the families behind the Tailwind
+// `font-mono` / `font-serif` / `font-sans` utilities are available at render.
+import '../fonts'
 
 // Placeholder wordmark — replace with your brand.
 const BRAND = 'ACME'
+
+// Brutalist border + hard offset shadow as reusable Tailwind class strings.
+const BORDER = 'border-[3px] border-foreground'
+const SHADOW = 'shadow-[4px_4px_0px_var(--color-foreground)]'
 
 export const ArticlePromo: React.FC<ArticleVideoProps> = ({
   title,
@@ -27,43 +32,16 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
   const {fps, durationInFrames} = useVideoConfig()
 
   const introSlide = spring({frame, fps, config: {damping: 15, stiffness: 60}})
+  const tagPop = spring({frame: frame - 20, fps, config: {damping: 10, stiffness: 120}})
+  const titleReveal = spring({frame: frame - 30, fps, config: {damping: 15, stiffness: 70}})
+  const excerptReveal = spring({frame: frame - 70, fps, config: {damping: 15, stiffness: 80}})
+  const authorReveal = spring({frame: frame - 90, fps, config: {damping: 15, stiffness: 80}})
+  const ctaReveal = spring({frame: frame - 110, fps, config: {damping: 12, stiffness: 100}})
 
-  const tagPop = spring({
-    frame: frame - 20,
-    fps,
-    config: {damping: 10, stiffness: 120},
+  const outroOpacity = interpolate(frame, [durationInFrames - 30, durationInFrames], [1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
   })
-
-  const titleReveal = spring({
-    frame: frame - 30,
-    fps,
-    config: {damping: 15, stiffness: 70},
-  })
-
-  const excerptReveal = spring({
-    frame: frame - 70,
-    fps,
-    config: {damping: 15, stiffness: 80},
-  })
-
-  const authorReveal = spring({
-    frame: frame - 90,
-    fps,
-    config: {damping: 15, stiffness: 80},
-  })
-
-  const ctaReveal = spring({
-    frame: frame - 110,
-    fps,
-    config: {damping: 12, stiffness: 100},
-  })
-
-  const outroOpacity = interpolate(
-    frame,
-    [durationInFrames - 30, durationInFrames],
-    [1, 0],
-    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-  )
 
   const formattedDate = (() => {
     try {
@@ -78,21 +56,13 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
   })()
 
   return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: COLORS.background,
-        fontFamily: fonts.body,
-        opacity: outroOpacity,
-      }}
-    >
-      {/* Background grid pattern */}
+    <AbsoluteFill className="bg-background font-sans" style={{opacity: outroOpacity}}>
+      {/* Background grid pattern (complex multi-gradient — inline) */}
       <AbsoluteFill
         style={{
           opacity: 0.03,
-          backgroundImage: `
-            linear-gradient(${COLORS.foreground} 1px, transparent 1px),
-            linear-gradient(90deg, ${COLORS.foreground} 1px, transparent 1px)
-          `,
+          backgroundImage:
+            'linear-gradient(var(--color-foreground) 1px, transparent 1px), linear-gradient(90deg, var(--color-foreground) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
         }}
       />
@@ -100,78 +70,31 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
       {/* Header bar */}
       <Sequence from={0}>
         <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 60,
-            backgroundColor: COLORS.foreground,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 40px',
-            transform: `translateY(${interpolate(introSlide, [0, 1], [-60, 0])}px)`,
-          }}
+          className="absolute inset-x-0 top-0 flex h-[60px] items-center justify-between bg-foreground px-10"
+          style={{transform: `translateY(${interpolate(introSlide, [0, 1], [-60, 0])}px)`}}
         >
-          <div
-            style={{
-              fontFamily: fonts.mono,
-              fontWeight: 800,
-              fontSize: 20,
-              color: COLORS.accent,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
+          <div className="font-mono text-xl font-extrabold uppercase tracking-[0.05em] text-accent">
             {BRAND}
           </div>
-          <div
-            style={{
-              fontFamily: fonts.mono,
-              fontWeight: 700,
-              fontSize: 14,
-              color: COLORS.highlight,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-            }}
-          >
+          <div className="font-mono text-sm font-bold uppercase tracking-[0.1em] text-highlight">
             Article
           </div>
         </div>
       </Sequence>
 
       {/* Main content */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 80,
-          left: 40,
-          right: 40,
-          bottom: 60,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-        }}
-      >
+      <div className="absolute inset-x-10 bottom-[60px] top-20 flex flex-col gap-6">
         {/* Main image */}
         {mainImageUrl && (
           <Sequence from={5}>
             <div
+              className={`h-[340px] w-full overflow-hidden ${BORDER} ${SHADOW}`}
               style={{
-                width: '100%',
-                height: 340,
-                ...borderBrutal,
-                ...shadowBrutal,
-                overflow: 'hidden',
                 transform: `translateY(${interpolate(introSlide, [0, 1], [40, 0])}px)`,
                 opacity: introSlide,
               }}
             >
-              <Img
-                src={mainImageUrl}
-                style={{width: '100%', height: '100%', objectFit: 'cover'}}
-              />
+              <Img src={mainImageUrl} className="h-full w-full object-cover" />
             </div>
           </Sequence>
         )}
@@ -179,21 +102,8 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Tag */}
         <Sequence from={20}>
           <div
-            style={{
-              display: 'inline-flex',
-              alignSelf: 'flex-start',
-              padding: '6px 14px',
-              backgroundColor: COLORS.highlight,
-              color: COLORS.foreground,
-              fontFamily: fonts.mono,
-              fontWeight: 800,
-              fontSize: 12,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              ...borderBrutal,
-              transform: `scale(${tagPop})`,
-              transformOrigin: 'left center',
-            }}
+            className={`inline-flex self-start bg-highlight px-[14px] py-[6px] font-mono text-xs font-extrabold uppercase tracking-[0.05em] text-foreground ${BORDER}`}
+            style={{transform: `scale(${tagPop})`, transformOrigin: 'left center'}}
           >
             {videoCopy?.kicker ?? 'New Article'}
           </div>
@@ -202,9 +112,10 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Title */}
         <Sequence from={30}>
           <div
+            className={`font-mono font-extrabold uppercase leading-[1.1] tracking-[-0.02em] text-foreground ${
+              mainImageUrl ? 'text-4xl' : 'text-5xl'
+            }`}
             style={{
-              ...headline(mainImageUrl ? 36 : 48),
-              lineHeight: 1.1,
               transform: `translateY(${interpolate(titleReveal, [0, 1], [30, 0])}px)`,
               opacity: titleReveal,
             }}
@@ -216,16 +127,10 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Excerpt */}
         <Sequence from={70}>
           <div
+            className="line-clamp-3 font-serif text-[22px] italic leading-[1.4] text-muted"
             style={{
-              ...accent(22),
-              color: COLORS.muted,
-              lineHeight: 1.4,
               transform: `translateY(${interpolate(excerptReveal, [0, 1], [20, 0])}px)`,
               opacity: excerptReveal,
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
             }}
           >
             &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
@@ -235,92 +140,50 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Author + Date */}
         <Sequence from={90}>
           <div
+            className="mt-auto flex items-center justify-between"
             style={{
-              marginTop: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
               transform: `translateY(${interpolate(authorReveal, [0, 1], [20, 0])}px)`,
               opacity: authorReveal,
             }}
           >
-            <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
+            <div className="flex items-center gap-3">
               <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: COLORS.accent,
-                  ...borderBrutal,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: fonts.mono,
-                  fontWeight: 800,
-                  fontSize: 18,
-                  color: '#FFFFFF',
-                }}
+                className={`flex size-10 items-center justify-center bg-accent font-mono text-lg font-extrabold text-white ${BORDER}`}
               >
                 {authorName.charAt(0).toUpperCase()}
               </div>
               <div>
-                <div style={{...label(12), color: COLORS.muted}}>By</div>
-                <div style={{...headline(16)}}>{authorName}</div>
+                <div className="font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted">
+                  By
+                </div>
+                <div className="font-mono text-base font-extrabold uppercase tracking-[-0.02em] text-foreground">
+                  {authorName}
+                </div>
               </div>
             </div>
-            <div style={{...body(14), color: COLORS.muted}}>{formattedDate}</div>
+            <div className="font-sans text-sm text-muted">{formattedDate}</div>
           </div>
         </Sequence>
 
         {/* CTA */}
         <Sequence from={110}>
           <div
+            className={`flex items-center justify-between bg-foreground px-6 py-[14px] ${BORDER}`}
             style={{
-              padding: '14px 24px',
-              backgroundColor: COLORS.foreground,
-              ...borderBrutal,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
               transform: `translateY(${interpolate(ctaReveal, [0, 1], [30, 0])}px)`,
               opacity: ctaReveal,
             }}
           >
-            <div
-              style={{
-                fontFamily: fonts.mono,
-                fontWeight: 800,
-                fontSize: 14,
-                color: COLORS.background,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
+            <div className="font-mono text-sm font-extrabold uppercase tracking-[0.05em] text-background">
               {videoCopy?.ctaPrimary ?? 'Read more'}
             </div>
-            <div
-              style={{
-                fontFamily: fonts.mono,
-                fontSize: 24,
-                color: COLORS.accent,
-              }}
-            >
-              &rarr;
-            </div>
+            <div className="font-mono text-2xl text-accent">&rarr;</div>
           </div>
         </Sequence>
       </div>
 
       {/* Bottom accent bar */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          backgroundColor: COLORS.accent,
-        }}
-      />
+      <div className="absolute inset-x-0 bottom-0 h-1 bg-accent" />
     </AbsoluteFill>
   )
 }
