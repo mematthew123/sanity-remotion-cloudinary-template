@@ -1,6 +1,6 @@
-# The Sanity App SDK apps
+# The Sanity App SDK app
 
-Two dashboard apps built with `@sanity/sdk` + `@sanity/sdk-react`. They run locally with `sanity dev` and deploy to your Sanity organization's dashboard with `sanity deploy`.
+One dashboard app built with `@sanity/sdk` + `@sanity/sdk-react`. It runs locally with `sanity dev` and deploys to your Sanity organization's dashboard with `sanity deploy`.
 
 ## `apps/video` — the video editor
 
@@ -11,12 +11,9 @@ The interactive alternative to the Studio's "Render" document action:
 - **Edit captions** — the `videoCopy` slots are edited via `useEditDocument`, so changes **persist to the post** (per the App SDK rule: don't hold content in local state). Preview-only knobs (e.g. duration) stay local.
 - **Render** — POSTs `{compositionId, inputProps, postId}` to `SANITY_APP_RENDER_API_URL` with the bearer secret, and shows rendering/ready/error state.
 
-## `apps/cloudinary` — the asset manager
+## Cloudinary lives in the Studio (not a separate app)
 
-Four tabs:
-
-- **Assets** / **Transform** — browse, search, and transform Cloudinary assets via the web app's `/api/cloudinary/*` proxy (server-side Cloudinary auth; the app only needs `SANITY_APP_API_BASE`).
-- **Videos** / **Sync** — list `video` docs and a status dashboard, read via the App SDK (`useDocuments` / `useDocumentProjection`).
+There's no standalone Cloudinary app. The Cloudinary integration surfaces in two places the core template already owns: the **render pipeline** (upload + eager variants), and a **Variants** view on each `video` document in the Studio — a gallery of the generated derivatives plus a live transform preview, built entirely from public Cloudinary delivery URLs (no secret in the Studio). See [architecture.md](./architecture.md#the-cloudinary-variant-system).
 
 ## SDK conventions (from the `app-sdk` rule)
 
@@ -29,7 +26,6 @@ Four tabs:
 
 ```bash
 pnpm dev:video        # needs SANITY_APP_ORGANIZATION_ID
-pnpm dev:cloudinary
 ```
 
 You don't have to deploy to use the apps — `sanity dev` runs them locally against your project.
@@ -38,7 +34,6 @@ You don't have to deploy to use the apps — `sanity dev` runs them locally agai
 
 ```bash
 pnpm deploy:video
-pnpm deploy:cloudinary
 ```
 
 **First deploy is interactive.** With no `deployment.appId` configured, the CLI prompts for an application **title** (a free-text prompt — `-y` won't answer it, and it needs a real TTY). Run it directly in a terminal:
@@ -73,7 +68,7 @@ A deployed app runs at `https://<appHost>.sanity.studio` and makes **authenticat
 Request error while attempting to reach https://<projectId>.api.sanity.io/…/datasets/<dataset>/acl
 ```
 
-Add each app's host (find them under your org's Apps):
+Add the app's host (find it under your org's Apps):
 
 ```bash
 cd apps/studio && npx sanity cors add https://<appHost>.sanity.studio --credentials
@@ -83,11 +78,11 @@ Or use Manage → **API → CORS origins**. A single wildcard `https://*.sanity.
 
 ## Hosted apps & the localhost URL caveat
 
-`SANITY_APP_*` vars are baked into the app bundle **at build time**. If you deploy with `SANITY_APP_RENDER_API_URL` / `SANITY_APP_API_BASE` pointing at `http://localhost:3000`, the hosted app will call your local machine. That's fine while `pnpm dev:web` is running. To use the apps fully hosted:
+`SANITY_APP_*` vars are baked into the app bundle **at build time**. If you deploy with `SANITY_APP_RENDER_API_URL` pointing at `http://localhost:3000`, the hosted app will call your local machine. That's fine while `pnpm dev:web` is running. To use the app fully hosted:
 
 1. Deploy the web app (see the root README → Deploy).
-2. Set `SANITY_APP_RENDER_API_URL` / `SANITY_APP_API_BASE` to the deployed web URL.
-3. Re-run `pnpm deploy:video` / `pnpm deploy:cloudinary` (non-interactive now).
+2. Set `SANITY_APP_RENDER_API_URL` to the deployed web URL.
+3. Re-run `pnpm deploy:video` (non-interactive now).
 
 ## Security
 

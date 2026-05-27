@@ -24,10 +24,9 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 
 | Path | Package | Role |
 | --- | --- | --- |
-| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render`, `/api/cloudinary/*`, the Remotion bundle |
+| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render`, the Remotion bundle |
 | `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, "Render" document actions, Assist + brand voice |
 | `apps/video` | `@template/video` | Sanity App SDK app — the video editor (live preview + render trigger) |
-| `apps/cloudinary` | `@template/cloudinary` | Sanity App SDK app — Cloudinary asset browser / transform / sync |
 | `packages/video-core` | `@template/video-core` | Remotion compositions, the registry, the Cloudinary variant catalog |
 
 ## The React-free registry boundary
@@ -40,7 +39,7 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 Rule of thumb:
 
 - The **render route** and the **Studio `video` schema** import only `@template/video-core/registry`. Pulling the barrel into a server route or the Studio bundle breaks page-data collection ("Remotion requires React.createContext").
-- Only **`apps/web/remotion/Root.tsx`** (which runs inside the Remotion bundle) and the **React App SDK apps** import the barrel.
+- Only **`apps/web/remotion/Root.tsx`** (which runs inside the Remotion bundle) and the **video editor App SDK app** import the barrel.
 
 The `./registry` subpath in `video-core/package.json` `exports` is what enforces this.
 

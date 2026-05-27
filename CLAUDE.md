@@ -12,24 +12,22 @@ pnpm install
 pnpm dev:web          # Next.js site               http://localhost:3000
 pnpm dev:studio       # Sanity Studio              http://localhost:3333
 pnpm dev:video        # Sanity App SDK app — video editor      (needs SANITY_APP_ORGANIZATION_ID)
-pnpm dev:cloudinary   # Sanity App SDK app — Cloudinary asset  (needs SANITY_APP_ORGANIZATION_ID)
 
 pnpm build            # = pnpm build:web (which runs build:remotion → next build)
 pnpm build:remotion   # bundles Remotion compositions into apps/web/.remotion-bundle/
 pnpm lint             # ESLint on apps/web
 
 pnpm deploy:studio
-pnpm deploy:video         # first run is INTERACTIVE — needs a TTY for the title prompt
-pnpm deploy:cloudinary    # ditto; after first deploy the appId is pinned in sanity.cli.ts
+pnpm deploy:video         # first run is INTERACTIVE — needs a TTY for the title prompt; appId then pinned in sanity.cli.ts
 ```
 
-Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video`, `cloudinary`, `video-core`). No test suite is wired up.
+Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video`, `video-core`). No test suite is wired up.
 
 If the render route reports `Remotion bundle not found`, run `pnpm build:remotion`. `next build` runs it automatically; `next dev` does not.
 
 ## Architecture
 
-Four apps + one shared package, all driven by a single server-side render pipeline.
+Three apps + one shared package, all driven by a single server-side render pipeline.
 
 ```
 Sanity Studio "Render" action  ─┐
@@ -54,7 +52,7 @@ The render route (`apps/web/app/api/video/render/route.ts`) is **the only server
 Rules:
 
 - The render route and `apps/studio/src/schemaTypes/video.ts` must import only `@template/video-core/registry`. Pulling the barrel into a server route or Studio bundle breaks with "Remotion requires React.createContext" / Turbopack export errors.
-- Only `apps/web/remotion/Root.tsx` (which runs inside the Remotion bundle) and the App SDK React apps may import the barrel.
+- Only `apps/web/remotion/Root.tsx` (which runs inside the Remotion bundle) and the App SDK video editor app may import the barrel.
 
 ### Cloudinary variants (no re-renders)
 
@@ -87,7 +85,7 @@ Each surface reads env differently — vars without the right prefix don't reach
 | --- | --- | --- |
 | Next.js web | `apps/web/.env.local` | `NEXT_PUBLIC_*` (client) + plain (server) |
 | Sanity Studio (Vite) | `apps/studio/.env` | `SANITY_STUDIO_*` |
-| App SDK apps | `apps/{video,cloudinary}/.env` | `SANITY_APP_*` |
+| App SDK app | `apps/video/.env` | `SANITY_APP_*` |
 
 `VIDEO_RENDER_SECRET` is a value you invent and **mirror identically** into three places: `VIDEO_RENDER_SECRET` (web), `SANITY_STUDIO_RENDER_SECRET` (studio), `SANITY_APP_RENDER_SECRET` (video app). It is bundled into the Studio/video-app client JS — fine for local/demo, but for public production you must move the trigger behind a session-authenticated proxy instead.
 
@@ -97,13 +95,15 @@ The site reads published content with **no token** (`useCdn: true`, `perspective
 
 ## Sanity Assist + brand voice
 
-Studio adds two AI field actions ("Rewrite in brand voice", "Generate video copy in brand voice") backed by a `sanity.agentContext` doc with id `brand-voice`. The voice content's source of truth is `apps/studio/brand-voice-instructions.md`. After editing it, reseed:
+Studio adds two AI field actions ("Rewrite in brand voice", "Generate video copy in brand voice") backed by `sanity.agentContext` docs. Multiple voices are supported: each markdown file in `apps/studio/voices/` seeds one voice doc whose id is the filename stem (e.g. `brand-voice.md` → id `brand-voice`, `dead-head.md` → id `dead-head`). Bootstrap with:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-Do **not** edit the `brand-voice` doc directly in Studio — the next seed will overwrite it.
+The seed uses `createIfNotExists`, so once a voice doc exists, Studio is the source of truth — edit voices in Studio under **Brand Voices**, not in the markdown. To re-bootstrap a voice from its markdown, delete the doc in Studio first and reseed.
+
+Each `post` has an optional `voice` reference under the **Settings** group. The Assist actions read it via `resolveVoiceDocId()` in `apps/studio/sanity.config.ts` and fall back to the default `brand-voice` doc when unset (and for non-post document types).
 
 ## Deploy specifics
 

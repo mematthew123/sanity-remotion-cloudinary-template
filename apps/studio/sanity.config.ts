@@ -5,13 +5,19 @@ import {visionTool} from '@sanity/vision'
 import {agentContextPlugin} from '@sanity/agent-context/studio'
 import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {schemaTypes} from './src/schemaTypes'
-import {structure} from './src/structure'
+import {getDefaultDocumentNode, structure} from './src/structure'
 import {RenderArticlePromo, RenderArticleTeaser} from './src/actions/renderVideo'
 
-// The Agent Context document that holds the editable brand-voice rules. Seeded
-// via `scripts/seed-agent-context.ts`. All Assist field actions reference it so
-// generated/transformed copy stays on-brand.
-const BRAND_VOICE_DOC_ID = 'brand-voice'
+// Default brand-voice Agent Context document id. A `post` may override this
+// per-document via its `voice` reference field; everything else falls back
+// to this id. All voice docs are seeded from `voices/*.md` by
+// `scripts/seed-agent-context.ts`.
+const DEFAULT_VOICE_DOC_ID = 'brand-voice'
+
+function resolveVoiceDocId(getDocumentValue: () => unknown): string {
+  const doc = getDocumentValue() as {voice?: {_ref?: string}} | undefined
+  return doc?.voice?._ref || DEFAULT_VOICE_DOC_ID
+}
 
 export default defineConfig({
   name: 'default',
@@ -22,7 +28,7 @@ export default defineConfig({
   dataset: import.meta.env.SANITY_STUDIO_DATASET,
 
   plugins: [
-    structureTool({structure}),
+    structureTool({structure, defaultDocumentNode: getDefaultDocumentNode}),
     visionTool(),
     agentContextPlugin(),
     assist({
@@ -64,7 +70,10 @@ export default defineConfig({
                         'Rewrite $field to follow the brand voice and tone rules in $voice. Preserve meaning; change tone only. Do not add or remove facts.',
                       instructionParams: {
                         field: {type: 'field', path},
-                        voice: {type: 'document', documentId: BRAND_VOICE_DOC_ID},
+                        voice: {
+                          type: 'document',
+                          documentId: resolveVoiceDocId(getDocumentValue),
+                        },
                       },
                       target: path.length ? {path} : undefined,
                       conditionalPaths: {paths: getConditionalPaths()},
@@ -108,7 +117,10 @@ export default defineConfig({
                       ].join('\n'),
                       instructionParams: {
                         field: {type: 'field', path},
-                        voice: {type: 'document', documentId: BRAND_VOICE_DOC_ID},
+                        voice: {
+                          type: 'document',
+                          documentId: resolveVoiceDocId(getDocumentValue),
+                        },
                         title: {type: 'field', path: ['title']},
                         excerpt: {type: 'field', path: ['excerpt']},
                         body: {type: 'field', path: ['body']},

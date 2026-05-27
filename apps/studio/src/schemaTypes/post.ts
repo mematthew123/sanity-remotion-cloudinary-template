@@ -1,5 +1,5 @@
 import {defineField, defineType} from 'sanity'
-import {DocumentTextIcon} from '@sanity/icons'
+import {DocumentTextIcon, SparklesIcon} from '@sanity/icons'
 
 export const postType = defineType({
   name: 'post',
@@ -9,6 +9,7 @@ export const postType = defineType({
   groups: [
     {name: 'content', title: 'Content', default: true},
     {name: 'video', title: 'Video'},
+    {name: 'settings', title: 'Settings'},
   ],
   fields: [
     defineField({
@@ -66,6 +67,16 @@ export const postType = defineType({
       title: 'Body',
       type: 'blockContent',
       group: 'content',
+    }),
+    defineField({
+      name: 'voice',
+      title: 'Brand voice',
+      type: 'reference',
+      group: 'settings',
+      to: [{type: 'sanity.agentContext'}],
+      icon: SparklesIcon,
+      description:
+        'Which brand voice the AI field actions use on this post. Leave empty to use the default "brand-voice".',
     }),
     defineField({
       name: 'videoCopy',

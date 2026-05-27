@@ -43,7 +43,7 @@ The render route serves compositions from `apps/web/.remotion-bundle/`, produced
 
 ## A deployed app calls `http://localhost:3000`
 
-`SANITY_APP_*` vars are baked in at **build time**. Rebuild/redeploy the app with `SANITY_APP_RENDER_API_URL` / `SANITY_APP_API_BASE` set to your deployed web URL. See [apps.md](./apps.md#hosted-apps--the-localhost-url-caveat).
+`SANITY_APP_*` vars are baked in at **build time**. Rebuild/redeploy the app with `SANITY_APP_RENDER_API_URL` set to your deployed web URL. See [apps.md](./apps.md#hosted-apps--the-localhost-url-caveat).
 
 ## App SDK env vars not picked up
 

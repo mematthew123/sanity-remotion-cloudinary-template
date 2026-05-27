@@ -4,7 +4,7 @@
 
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token (see [Sanity token](#sanity-token) — this is the #1 setup pitfall)
-- A Sanity **organization id** — only if you run/deploy the App SDK apps (`apps/video`, `apps/cloudinary`)
+- A Sanity **organization id** — only if you run/deploy the App SDK app (`apps/video`)
 - A **Cloudinary** account (cloud name + API key + API secret)
 
 ## Three env prefixes (don't mix them)
@@ -15,7 +15,7 @@ Each surface reads env differently:
 | --- | --- | --- | --- |
 | Web (Next.js) | `apps/web/.env.local` | `NEXT_PUBLIC_*` (client) + plain (server) | `process.env.*` |
 | Studio (Vite) | `apps/studio/.env` | `SANITY_STUDIO_*` | `import.meta.env.*` (bundled to client) |
-| App SDK apps | `apps/{video,cloudinary}/.env` | `SANITY_APP_*` | `process.env.*` (bundled to client) |
+| App SDK app | `apps/video/.env` | `SANITY_APP_*` | `process.env.*` (bundled to client) |
 
 Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't appear in the Studio; a `SANITY_APP_*` var won't appear in the web app.
 
@@ -45,14 +45,6 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_APP_ORGANIZATION_ID` | your Sanity org id |
 | `SANITY_APP_RENDER_API_URL` | full render URL |
 | `SANITY_APP_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
-
-### `apps/cloudinary/.env`
-| Var | Notes |
-| --- | --- |
-| `SANITY_APP_PROJECT_ID` / `SANITY_APP_DATASET` | same project/dataset |
-| `SANITY_APP_ORGANIZATION_ID` | your Sanity org id |
-| `SANITY_APP_API_BASE` | web app base URL, e.g. `http://localhost:3000` (proxies `/api/cloudinary/*`) |
-| `SANITY_APP_CLOUDINARY_CLOUD_NAME` | for building Cloudinary URLs client-side |
 
 ## The shared render secret
 

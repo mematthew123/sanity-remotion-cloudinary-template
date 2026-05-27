@@ -1,5 +1,6 @@
-import type {StructureBuilder} from 'sanity/structure'
-import {DocumentTextIcon, UserIcon, PlayIcon, SparklesIcon} from '@sanity/icons'
+import type {DefaultDocumentNodeResolver, StructureBuilder} from 'sanity/structure'
+import {DocumentTextIcon, ImagesIcon, PlayIcon, SparklesIcon, UserIcon} from '@sanity/icons'
+import {VariantViewer} from '../components/VariantViewer'
 
 export const structure = (S: StructureBuilder) =>
   S.list()
@@ -10,7 +11,19 @@ export const structure = (S: StructureBuilder) =>
       S.divider(),
       S.documentTypeListItem('video').title('Videos').icon(PlayIcon),
       S.divider(),
-      // The brand-voice Agent Context doc (@sanity/agent-context). Surfaced so
-      // editors can read/tune the voice that AI Assist actions follow.
-      S.documentTypeListItem('sanity.agentContext').title('Brand Voice').icon(SparklesIcon),
+      // Brand-voice Agent Context docs (@sanity/agent-context). Surfaced so
+      // editors can read/tune the voices that AI Assist actions follow. Each
+      // voice is seeded from a markdown file in `apps/studio/voices/`.
+      S.documentTypeListItem('sanity.agentContext').title('Brand Voices').icon(SparklesIcon),
     ])
+
+// Add a "Variants" view to the `video` document type: a Cloudinary variant
+// gallery + live transform preview (see ../components/VariantViewer). Every
+// other type keeps just the default form view.
+export const getDefaultDocumentNode: DefaultDocumentNodeResolver = (S, {schemaType}) =>
+  schemaType === 'video'
+    ? S.document().views([
+        S.view.form(),
+        S.view.component(VariantViewer).id('variants').title('Variants').icon(ImagesIcon),
+      ])
+    : S.document().views([S.view.form()])

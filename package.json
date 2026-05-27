@@ -16,10 +16,7 @@
     "deploy:studio": "pnpm --filter @template/studio deploy",
     "dev:video": "pnpm --filter @template/video dev",
     "build:video": "pnpm --filter @template/video build",
-    "deploy:video": "pnpm --filter @template/video deploy",
-    "dev:cloudinary": "pnpm --filter @template/cloudinary dev",
-    "build:cloudinary": "pnpm --filter @template/cloudinary build",
-    "deploy:cloudinary": "pnpm --filter @template/cloudinary deploy"
+    "deploy:video": "pnpm --filter @template/video deploy"
   },
   "pnpm": {
     "overrides": {
