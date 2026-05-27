@@ -123,13 +123,13 @@ The Remotion bundle (`apps/web/.remotion-bundle/`) is produced by `pnpm build:re
 
 **Cloudinary app (`apps/cloudinary`).** A Sanity App SDK app to browse/search Cloudinary assets, apply transform presets, and review rendered `video` docs + a sync dashboard. Asset access goes through the web app's `/api/cloudinary/*` proxy routes (server-side Cloudinary auth); video docs are read via the App SDK. Run with `pnpm dev:cloudinary`.
 
-**Sanity Assist + brand voice.** The Studio adds two AI field actions — **Rewrite in brand voice** (on text fields) and **Generate video copy in brand voice** (on a post's `videoCopy` object). Both reference an editable `sanity.agentContext` doc. Seed it once (and after editing the voice):
+**Sanity Assist + brand voice.** The Studio adds two AI field actions — **Rewrite in brand voice** (on text fields) and **Generate video copy in brand voice** (on a post's `videoCopy` object). Both reference a `sanity.agentContext` doc surfaced in the Studio as **Brand Voice**. Bootstrap it once:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-Edit `apps/studio/brand-voice-instructions.md` to change the voice, then re-run the seed. No external API key is needed (Sanity-hosted AI), but the AI field actions call **Agent Actions** (Transform/Generate) — a **paid Growth-plan feature** that consumes usage — and require the schema to be deployed (`npx sanity schema deploy`). See [docs/assist.md](docs/assist.md).
+Then tune the voice by editing the **Brand Voice** doc in the Studio — that's the source of truth (the AI reads it live). The markdown + seed are only the initial bootstrap (`createIfNotExists`, won't overwrite Studio edits). No external API key is needed (Sanity-hosted AI), but the AI field actions call **Agent Actions** (Transform/Generate) — a **paid Growth-plan feature** that consumes usage — and require the schema to be deployed (`npx sanity schema deploy`). See [docs/assist.md](docs/assist.md).
 
 **Cloudinary variants.** Each composition opts into a set of variants (site MP4/poster/preview-GIF + square/vertical social crops) in `packages/video-core/src/registry.ts`. At render time the route eager-generates them on Cloudinary and stores their URLs on `video.variants[]` — no extra Remotion renders. `variantUrl(cloudName, …)` takes the cloud name as a parameter, so `video-core` stays free of Cloudinary config.
 
