@@ -65,6 +65,22 @@ export default defineCliConfig({
 
 After that, every deploy is **non-interactive** (`pnpm deploy:video` / CI just works). Forking into a different org? Run `npx sanity deploy` once to create your own app, then replace the id.
 
+## Allow the app's origin (CORS)
+
+A deployed app runs at `https://<appHost>.sanity.studio` and makes **authenticated** browser requests to the Sanity API. Add that origin to the project's CORS allowlist **with credentials**, or you'll see:
+
+```
+Request error while attempting to reach https://<projectId>.api.sanity.io/…/datasets/<dataset>/acl
+```
+
+Add each app's host (find them under your org's Apps):
+
+```bash
+cd apps/studio && npx sanity cors add https://<appHost>.sanity.studio --credentials
+```
+
+Or use Manage → **API → CORS origins**. A single wildcard `https://*.sanity.studio` (with credentials) covers every Sanity-hosted app and survives app re-creation, but it's broader — scope to the specific hosts if you prefer tighter security. (CORS only permits the request; the API still enforces auth.)
+
 ## Hosted apps & the localhost URL caveat
 
 `SANITY_APP_*` vars are baked into the app bundle **at build time**. If you deploy with `SANITY_APP_RENDER_API_URL` / `SANITY_APP_API_BASE` pointing at `http://localhost:3000`, the hosted app will call your local machine. That's fine while `pnpm dev:web` is running. To use the apps fully hosted:
