@@ -61,6 +61,10 @@ Pinned to a single version via `pnpm.overrides` in the root `package.json`. If w
 
 Vercel functions are hard-capped at 250 MB unzipped. Bundling full Chromium (`@sparticuz/chromium` ≈ 64 MB) plus the Remotion Linux compositor tips `/api/video/render` over. This template uses **`@sparticuz/chromium-min`** (≈ 120 KB) instead: it downloads the Chromium pack at runtime from `CHROMIUM_PACK_URL` (default: the matching Sparticuz GitHub release), so the browser is **not** traced into the function. If you bump `@sparticuz/chromium-min`, point `CHROMIUM_PACK_URL` at a pack of the same Chromium version. (To diagnose what else is large, redeploy with `VERCEL_ANALYZE_BUILD_OUTPUT=1`.)
 
+## Vercel: "invalid deployment package for a Serverless Function… files in symlinked directories"
+
+The render function traces the `@remotion/compositor-linux-x64-gnu` binary into the bundle. Under pnpm's *default* (isolated) linker, those `node_modules` paths are **symlinks** into `.pnpm`, and Vercel's packager rejects a function containing symlinked directories. The repo's root **`.npmrc`** sets `node-linker=hoisted` + `shamefully-hoist=true` so the traced files are real. If you hit this, make sure `.npmrc` exists and reinstall (`CI=true pnpm install` — the layout switch needs a non-interactive confirm). The harmless `Failed to create bin … @types/node/bin/node` warnings during install come from the hoisted layout and can be ignored.
+
 ## First local render pauses to download Chrome
 
 Expected. Locally, `browserExecutable` is undefined and Remotion downloads/uses a headless Chrome on the first render. On Vercel, `@sparticuz/chromium-min` downloads its pack to `/tmp` on the first (cold) invocation — a few extra seconds — then renders.
