@@ -13,21 +13,21 @@ Both reference the brand-voice doc via `instructionParams` (`{type: 'document', 
 
 ## The brand-voice document
 
-- Type: `sanity.agentContext` (provided by `@sanity/agent-context`), id **`brand-voice`**.
-- The content is authored in **`apps/studio/brand-voice-instructions.md`** — the source of truth.
-- Seeded into the dataset with:
+- Type: `sanity.agentContext` (provided by `@sanity/agent-context`), id **`brand-voice`**, surfaced in the Studio structure as **Brand Voice**.
+- That Studio document is the **source of truth** — the AI actions read it live. `apps/studio/brand-voice-instructions.md` is the initial template used to bootstrap it.
+- Bootstrap it once with:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-The script `createOrReplace`s the `brand-voice` doc with the markdown contents and a `groqFilter` scoping it to `post` / `author`.
+The script `createIfNotExists` the `brand-voice` doc from the markdown (with a `groqFilter` scoping it to `post` / `author`) — a one-time bootstrap that **won't overwrite** later Studio edits.
 
 ## Customizing the voice
 
-1. Edit `apps/studio/brand-voice-instructions.md` (voice pillars, do/don't, vocabulary, examples).
-2. Re-run the seed command above.
-3. **Don't** edit the `brand-voice` document directly in the Studio — the markdown file is the source of truth, and the next seed overwrites it.
+Edit the **Brand Voice** document directly in the Studio (surfaced in the structure). It's the source of truth — the AI actions read it live, so changes take effect on the next action.
+
+`apps/studio/brand-voice-instructions.md` + the seed script are only the **initial bootstrap** (`createIfNotExists`); re-running the seed won't overwrite your Studio edits. To re-bootstrap from the markdown, delete the `brand-voice` document first, then re-run the seed.
 
 ## `videoCopy` and the compositions
 

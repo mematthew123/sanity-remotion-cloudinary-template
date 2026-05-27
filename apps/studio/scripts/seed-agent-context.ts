@@ -1,10 +1,12 @@
 /**
  * Seeds the Brand Voice Agent Context document.
  *
- * This reads `brand-voice-instructions.md` (the editable source of truth for
- * your brand voice) and writes it into a `sanity.agentContext` document that
- * the Studio's Assist field actions reference. Edit the markdown, then re-run
- * this script to publish the updated voice.
+ * This bootstraps the brand-voice `sanity.agentContext` document (id
+ * "brand-voice") from `brand-voice-instructions.md`. It uses
+ * `createIfNotExists`, so it only creates the doc the FIRST time — after that,
+ * the **Brand Voice** document in the Studio is the source of truth and
+ * re-running this won't overwrite your edits. (To re-bootstrap from the
+ * markdown, delete the brand-voice document first.)
  *
  * Run with:
  *   cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
@@ -29,7 +31,7 @@ const instructions = readFileSync(resolve(scriptDir, '../brand-voice-instruction
 const client = getCliClient({apiVersion: '2024-01-01'})
 
 async function main() {
-  await client.createOrReplace({
+  await client.createIfNotExists({
     _id: DOC_ID,
     _type: 'sanity.agentContext',
     version: '1',
@@ -39,7 +41,10 @@ async function main() {
     instructions,
   })
 
-  console.log(`Seeded Agent Context "${NAME}" (id: ${DOC_ID})`)
+  console.log(
+    `Ensured Agent Context "${NAME}" exists (id: ${DOC_ID}). ` +
+      `Edit it in the Studio under "Brand Voice" to tune the voice.`,
+  )
 }
 
 main().catch((err) => {
