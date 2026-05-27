@@ -63,7 +63,9 @@ Vercel functions are hard-capped at 250 MB unzipped. Bundling full Chromium (`@s
 
 ## Vercel: "invalid deployment package for a Serverless Function… files in symlinked directories"
 
-The render function traces the `@remotion/compositor-linux-x64-gnu` binary into the bundle. Under pnpm's *default* (isolated) linker, those `node_modules` paths are **symlinks** into `.pnpm`, and Vercel's packager rejects a function containing symlinked directories. The repo's root **`.npmrc`** sets `node-linker=hoisted` + `shamefully-hoist=true` so the traced files are real. If you hit this, make sure `.npmrc` exists and reinstall (`CI=true pnpm install` — the layout switch needs a non-interactive confirm). The harmless `Failed to create bin … @types/node/bin/node` warnings during install come from the hoisted layout and can be ignored.
+The render function traces the `@remotion/compositor-linux-x64-gnu` binary into the bundle. Under pnpm's *default* (isolated) linker, those `node_modules` paths are **symlinks** into `.pnpm`, and Vercel's packager rejects a function containing symlinked directories. The repo's root **`.npmrc`** sets `node-linker=hoisted` so the traced files are real. If you hit this, ensure `.npmrc` exists and reinstall (`CI=true pnpm install` — the layout switch needs a non-interactive confirm).
+
+Do **not** add `shamefully-hoist=true`: it over-hoists every package to the repo-root `node_modules` and breaks per-app binary resolution on Vercel — `next build` fails with `Cannot find module …/apps/web/node_modules/next/dist/bin/next`. Plain `node-linker=hoisted` keeps each app's `next`/`tsc`/`sanity` bins resolvable while still giving real (non-symlinked) traced files.
 
 ## First local render pauses to download Chrome
 
