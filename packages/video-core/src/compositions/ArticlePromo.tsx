@@ -86,7 +86,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
       <div className="absolute inset-x-10 bottom-[60px] top-20 flex flex-col gap-6">
         {/* Main image */}
         {mainImageUrl && (
-          <Sequence from={5}>
+          <Sequence from={5} layout="none">
             <div
               className={`h-[340px] w-full overflow-hidden ${BORDER} ${SHADOW}`}
               style={{
@@ -100,7 +100,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         )}
 
         {/* Tag */}
-        <Sequence from={20}>
+        <Sequence from={20} layout="none">
           <div
             className={`inline-flex self-start bg-highlight px-[14px] py-[6px] font-mono text-xs font-extrabold uppercase tracking-[0.05em] text-foreground ${BORDER}`}
             style={{transform: `scale(${tagPop})`, transformOrigin: 'left center'}}
@@ -110,7 +110,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         </Sequence>
 
         {/* Title */}
-        <Sequence from={30}>
+        <Sequence from={30} layout="none">
           <div
             className={`font-mono font-extrabold uppercase leading-[1.1] tracking-[-0.02em] text-foreground ${
               mainImageUrl ? 'text-4xl' : 'text-5xl'
@@ -125,7 +125,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         </Sequence>
 
         {/* Excerpt */}
-        <Sequence from={70}>
+        <Sequence from={70} layout="none">
           <div
             className="line-clamp-3 font-serif text-[22px] italic leading-[1.4] text-muted"
             style={{
@@ -138,7 +138,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         </Sequence>
 
         {/* Author + Date */}
-        <Sequence from={90}>
+        <Sequence from={90} layout="none">
           <div
             className="mt-auto flex items-center justify-between"
             style={{
@@ -166,7 +166,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         </Sequence>
 
         {/* CTA */}
-        <Sequence from={110}>
+        <Sequence from={110} layout="none">
           <div
             className={`flex items-center justify-between bg-foreground px-6 py-[14px] ${BORDER}`}
             style={{
