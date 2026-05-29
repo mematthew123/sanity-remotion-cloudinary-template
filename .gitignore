@@ -6,7 +6,6 @@ node_modules/
 .next/
 out/
 dist/
-.remotion-bundle/
 
 # sanity
 apps/studio/dist/

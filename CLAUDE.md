@@ -13,32 +13,36 @@ pnpm dev:web          # Next.js site               http://localhost:3000
 pnpm dev:studio       # Sanity Studio              http://localhost:3333
 pnpm dev:video        # Sanity App SDK app — video editor      (needs SANITY_APP_ORGANIZATION_ID)
 
-pnpm build            # = pnpm build:web (which runs build:remotion → next build)
-pnpm build:remotion   # bundles Remotion compositions into apps/web/.remotion-bundle/
+pnpm build            # = pnpm build:web → next build
 pnpm lint             # ESLint on apps/web
 
 pnpm deploy:studio
 pnpm deploy:video         # first run is INTERACTIVE — needs a TTY for the title prompt; appId then pinned in sanity.cli.ts
+
+pnpm deploy:lambda:fn     # deploy/update the Remotion Lambda render function (per region + Remotion version)
+pnpm deploy:lambda:site   # bundle apps/web/remotion/index.ts and upload it to S3 (the "serve URL")
 ```
 
 Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video`, `video-core`). No test suite is wired up.
 
-If the render route reports `Remotion bundle not found`, run `pnpm build:remotion`. `next build` runs it automatically; `next dev` does not.
+Rendering runs on **AWS Lambda**, not in the Next.js function — see `docs/lambda.md` for first-time AWS/IAM setup and capturing the function name + serve URL into env.
 
 ## Architecture
 
-Three apps + one shared package, all driven by a single server-side render pipeline.
+Three apps + one shared package, all driven by a single render pipeline (rendering offloaded to AWS Lambda).
 
 ```
 Sanity Studio "Render" action  ─┐
 Sanity App SDK video editor    ─┴──► POST /api/video/render (apps/web)
                                        1. validate inputProps with composition's Zod schema
                                        2. create `video` doc       (status: rendering)
-                                       3. @remotion/renderer → MP4 in /tmp
-                                       4. Cloudinary upload + eager variants  (status: uploading)
+                                       3. renderMediaOnLambda → poll getRenderProgress → MP4 on S3
+                                       4. Cloudinary upload (from S3 URL) + eager variants  (status: uploading)
                                        5. patch doc cloudinaryUrl + variants[] (status: ready)
                                      ──► Next.js site reads ready video docs and plays them
 ```
+
+The route stays **synchronous** — it polls the Lambda render to completion inside the request (bounded by `maxDuration = 300`) — so the Studio action and video editor app keep reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes.
 
 The render route (`apps/web/app/api/video/render/route.ts`) is **the only server-side mutator** of Sanity content. Everything else (Studio, video editor app, site) triggers it or reads what it produced. That keeps `SANITY_API_WRITE_TOKEN` out of every client bundle.
 
@@ -107,9 +111,10 @@ Each `post` has an optional `voice` reference under the **Settings** group. The 
 
 ## Deploy specifics
 
-- `apps/web` deploys to Vercel with project root set to `apps/web`. Set `/api/video/render` max duration to **300s**.
-- Vercel functions hard-cap at 250 MB unzipped. This template uses **`@sparticuz/chromium-min`** (≈120 KB) instead of `@sparticuz/chromium` (≈64 MB) — Chromium downloads at runtime from `CHROMIUM_PACK_URL` (defaults to the matching Sparticuz GitHub release). If you bump `@sparticuz/chromium-min`, point `CHROMIUM_PACK_URL` at a pack of the same Chromium version.
-- The Remotion Linux compositor binary **is** traced into the function via `outputFileTracingIncludes` in `apps/web/next.config.ts` — both `../../node_modules/@remotion/compositor-linux-x64-gnu/**/*` and `./node_modules/...` paths are listed to cover hoisted vs isolated pnpm layouts.
+- `apps/web` deploys to Vercel with project root set to `apps/web`. Set `/api/video/render` max duration to **300s** (the route polls the Lambda render to completion within the request).
+- **Rendering is on AWS Lambda** — see `docs/lambda.md` for the one-time setup (IAM user, `npx remotion lambda policies user|role|validate`, `REMOTION_AWS_*` creds). Deploy/update the renderer with `pnpm deploy:lambda:fn` (one function per region + Remotion version) and upload the site bundle with `pnpm deploy:lambda:site`; set `REMOTION_LAMBDA_FUNCTION_NAME` + `REMOTION_LAMBDA_SERVE_URL` (+ optional `REMOTION_LAMBDA_REGION`) on the web app from their output. Bump Remotion → redeploy both.
+- Because rendering is off-box, the Vercel function carries no Chromium or compositor binary, so there's no 250 MB packaging concern and no `outputFileTracingIncludes` for the render route. The render route only imports `@remotion/lambda/client` (marked `serverExternalPackages` in `apps/web/next.config.ts`).
+- The Lambda render output is written to S3 with `privacy: 'public'` so Cloudinary can fetch it by URL; the route deletes that S3 object (`deleteRender`) right after the Cloudinary upload, so the canonical copy lives only in Cloudinary.
 - App SDK first deploy is interactive (free-text title prompt; `-y` won't answer it). After the first run, pin `deployment.appId` in the app's `sanity.cli.ts` — subsequent deploys are non-interactive.
 
 ## React version pinning
@@ -118,4 +123,4 @@ Each `post` has an optional `voice` reference under the **Settings** group. The 
 
 ## Further reading
 
-`docs/` has deeper guides: `architecture.md`, `configuration.md`, `apps.md`, `assist.md`, `troubleshooting.md`. Troubleshooting covers the common failure modes verbatim (token errors, missing bundle, "Remotion requires React.createContext", Vercel 250 MB, hosted-app-calling-localhost).
+`docs/` has deeper guides: `architecture.md`, `configuration.md`, `apps.md`, `assist.md`, `lambda.md`, `troubleshooting.md`. Troubleshooting covers the common failure modes verbatim (token errors, "Remotion requires React.createContext", Lambda not configured / version mismatch, hosted-app-calling-localhost).

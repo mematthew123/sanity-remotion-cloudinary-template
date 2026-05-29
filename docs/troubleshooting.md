@@ -31,9 +31,9 @@ The web client reads published content with **no token**, which requires a **pub
 
 Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-on; without it the derived URL 400s (image crops are fine). The template's social variants use **`g_center`** instead, which is universally supported. If you add a video-crop variant in `video-core/src/registry.ts`, prefer `g_center` (or another fixed gravity) over `g_auto` unless your account has the add-on. Note: the `eager` upload array must use `raw_transformation` (not `transformation`) for raw transformation strings, or Cloudinary 400s with "Unknown transformation".
 
-## `Remotion bundle not found. Run: pnpm build:remotion`
+## Render returns `Remotion Lambda not configured`
 
-The render route serves compositions from `apps/web/.remotion-bundle/`, produced by `pnpm build:remotion` (which also runs before `next build`). If you render in `dev`, run `pnpm build:remotion` once. Re-run it after changing compositions.
+The route renders on AWS Lambda and needs `REMOTION_LAMBDA_FUNCTION_NAME` and `REMOTION_LAMBDA_SERVE_URL` (plus `REMOTION_AWS_*` creds) in `apps/web/.env.local`. Deploy them with `pnpm deploy:lambda:fn` and `pnpm deploy:lambda:site` and copy the printed values into env. Full walkthrough in [lambda.md](./lambda.md).
 
 ## First `sanity deploy` of an app hangs or errors
 
@@ -57,21 +57,18 @@ Something imported the `@template/video-core` **barrel** into a server route or 
 
 Pinned to a single version via `pnpm.overrides` in the root `package.json`. If warnings reappear after a dependency bump, align `react` and `react-dom` to the same exact version there.
 
-## Vercel: "A Serverless Function has exceeded the unzipped maximum size of 250 MB"
+## Lambda render fails with `The function … does not exist` / version mismatch
 
-Vercel functions are hard-capped at 250 MB unzipped. Bundling full Chromium (`@sparticuz/chromium` ≈ 64 MB) plus the Remotion Linux compositor tips `/api/video/render` over. This template uses **`@sparticuz/chromium-min`** (≈ 120 KB) instead: it downloads the Chromium pack at runtime from `CHROMIUM_PACK_URL` (default: the matching Sparticuz GitHub release), so the browser is **not** traced into the function. If you bump `@sparticuz/chromium-min`, point `CHROMIUM_PACK_URL` at a pack of the same Chromium version. (To diagnose what else is large, redeploy with `VERCEL_ANALYZE_BUILD_OUTPUT=1`.)
+A Lambda function is bound to **one AWS region and one Remotion version**. After upgrading Remotion (or switching region), redeploy: `pnpm deploy:lambda:fn`, then update `REMOTION_LAMBDA_FUNCTION_NAME` / `REMOTION_LAMBDA_REGION`. The function name encodes the version (e.g. `remotion-render-4-0-321-…`), so a stale env value points at a function that no longer exists.
 
-## Vercel: "invalid deployment package for a Serverless Function… files in symlinked directories"
+## Lambda render can't open the site / blank or 403 on the serve URL
 
-The render function traces the `@remotion/compositor-linux-x64-gnu` binary into the bundle. Under pnpm's *default* (isolated) linker, those `node_modules` paths are **symlinks** into `.pnpm`, and Vercel's packager rejects a function containing symlinked directories. The repo's root **`.npmrc`** sets `node-linker=hoisted` so the traced files are real. If you hit this, ensure `.npmrc` exists and reinstall (`CI=true pnpm install` — the layout switch needs a non-interactive confirm).
+The serve URL must be a **deployed site bundle on S3**, regenerated whenever compositions change: `pnpm deploy:lambda:site`, then set `REMOTION_LAMBDA_SERVE_URL` to its output. Confirm the function's region matches the site's region.
 
-Do **not** add `shamefully-hoist=true`: it over-hoists every package to the repo-root `node_modules` and breaks per-app binary resolution on Vercel — `next build` fails with `Cannot find module …/apps/web/node_modules/next/dist/bin/next`. Plain `node-linker=hoisted` keeps each app's `next`/`tsc`/`sanity` bins resolvable while still giving real (non-symlinked) traced files.
+## Cloudinary upload fails to fetch the Lambda output
 
-## First local render pauses to download Chrome
+The route renders with `privacy: 'public'` so Cloudinary can fetch the S3 URL directly. If your S3 bucket policy blocks public objects, either allow them or change the route to download the output to a buffer and upload that instead. The route deletes the S3 object after upload, so the public exposure is brief.
 
-Expected. Locally, `browserExecutable` is undefined and Remotion downloads/uses a headless Chrome on the first render. On Vercel, `@sparticuz/chromium-min` downloads its pack to `/tmp` on the first (cold) invocation — a few extra seconds — then renders.
+## AWS permission errors during deploy or render
 
-## Vercel: "Could not find Chrome" in the render function
-
-- **Compositor not traced:** check `outputFileTracingIncludes['/api/video/render']` in `apps/web/next.config.ts` includes `@remotion/compositor-linux-x64-gnu` (both the `../../node_modules` and `./node_modules` paths), and that the function max duration is 300s.
-- **Pack unreachable / version mismatch:** confirm `CHROMIUM_PACK_URL` points to a real Sparticuz pack matching your installed `@sparticuz/chromium-min` version.
+Run `npx remotion lambda policies validate` to check the IAM user/role. If it fails, re-apply the policies printed by `npx remotion lambda policies user` and `npx remotion lambda policies role`. Confirm `REMOTION_AWS_ACCESS_KEY_ID` / `REMOTION_AWS_SECRET_ACCESS_KEY` are set for both the CLI (deploy) and the web app (render). See [lambda.md](./lambda.md).
