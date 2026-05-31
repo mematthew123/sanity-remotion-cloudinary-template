@@ -9,14 +9,16 @@ Sanity (post)
 POST /api/video/render            (Next.js route, bearer-authed)
    │  1. validate inputProps (Zod) + idempotency check
    │  2. create a `video` doc            → status: rendering
-   │  3. render the Remotion composition server-side
-   │       @remotion/renderer + @sparticuz/chromium-min (Vercel) / system Chrome (local)
-   │  4. upload MP4 to Cloudinary, eager-generate variants → status: uploading
+   │  3. render the composition on AWS Lambda
+   │       renderMediaOnLambda → poll getRenderProgress → MP4 on S3
+   │  4. upload MP4 to Cloudinary (from the S3 URL), eager-generate variants → status: uploading
    │  5. patch the doc: cloudinaryUrl + variants[]          → status: ready
    ▼
 Next.js site / apps
    read `video` docs where status == "ready" and play from Cloudinary
 ```
+
+The route polls the Lambda render to completion **inside the request** (bounded by `maxDuration = 300`), so it stays synchronous: the Studio action and video editor app read `status: ready` + `cloudinaryUrl` straight from the response.
 
 The **render route is the only server-side mutator.** Everything else (the Studio action, the video editor app, the site) either triggers it or reads what it produced. That keeps the Sanity write token on the server and out of any browser bundle.
 
@@ -24,7 +26,7 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 
 | Path | Package | Role |
 | --- | --- | --- |
-| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render`, the Remotion bundle |
+| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render` (invokes Remotion Lambda), the Remotion site entry (`remotion/`) deployed to S3 |
 | `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, "Render" document actions, Assist + brand voice |
 | `apps/video` | `@template/video` | Sanity App SDK app — the video editor (live preview + render trigger) |
 | `packages/video-core` | `@template/video-core` | Remotion compositions, the registry, the Cloudinary variant catalog |
@@ -52,8 +54,8 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 3. `findComposition(id)` → Zod `safeParse(inputProps)`.
 4. Idempotency: skip if a `video` for this `(post, template)` is already ready/in-flight.
 5. Create the `video` doc (`status: rendering`), back-referencing its `post`.
-6. `selectComposition` + `renderMedia` (codec h264) to `/tmp`.
-7. Upload to Cloudinary (`folder: template/videos`) with `eager: eagerTransformsFor(meta.variantIds)`.
+6. `renderMediaOnLambda` (codec h264, `privacy: 'public'`) then poll `getRenderProgress` until `done` — yields a public S3 URL for the MP4. Render runs on the deployed Lambda function against the deployed site (`REMOTION_LAMBDA_FUNCTION_NAME` / `REMOTION_LAMBDA_SERVE_URL`). See `lambda.md`.
+7. Upload to Cloudinary from that URL (`folder: template/videos`) with `eager: eagerTransformsFor(meta.variantIds)`, then `deleteRender` the S3 copy (best-effort).
 8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, variantIds)`.
 9. On any error: patch `status: failed` + `errorMessage`.
 

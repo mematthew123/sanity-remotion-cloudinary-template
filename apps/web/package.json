@@ -5,20 +5,18 @@
   "packageManager": "pnpm@10.26.2",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/bundle-remotion.mjs && next build",
-    "build:remotion": "node scripts/bundle-remotion.mjs",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy:lambda:fn": "remotion lambda functions deploy",
+    "deploy:lambda:site": "remotion lambda sites create remotion/index.ts --site-name=template-video"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.2",
-    "@remotion/bundler": "4.0.321",
-    "@remotion/compositor-linux-x64-gnu": "4.0.321",
     "@remotion/google-fonts": "4.0.321",
-    "@remotion/renderer": "4.0.321",
+    "@remotion/lambda": "4.0.321",
     "@sanity/client": "^7.13.2",
     "@sanity/image-url": "^2.0.2",
-    "@sparticuz/chromium-min": "^143.0.4",
     "@template/video-core": "workspace:*",
     "cloudinary": "^2.9.0",
     "next": "16.1.1",

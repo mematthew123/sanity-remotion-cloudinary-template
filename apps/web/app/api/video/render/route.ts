@@ -1,10 +1,12 @@
 import {NextRequest, NextResponse} from 'next/server'
-import {renderMedia, selectComposition} from '@remotion/renderer'
+import {
+  renderMediaOnLambda,
+  getRenderProgress,
+  deleteRender,
+  type AwsRegion,
+} from '@remotion/lambda/client'
 import {createClient} from '@sanity/client'
 import {v2 as cloudinary} from 'cloudinary'
-import chromium from '@sparticuz/chromium-min'
-import path from 'path'
-import fs from 'fs'
 // Import from /registry, not the package barrel: the barrel re-exports Remotion
 // components, which evaluate hooks like `useCurrentFrame` at module load.
 // Pulling those into a server route breaks page-data collection ("Remotion
@@ -17,12 +19,13 @@ export const maxDuration = 300 // Vercel Pro: up to 300s
 // Secrets come from the environment only — no hardcoded fallbacks.
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
 
-// @sparticuz/chromium-min downloads the browser at runtime instead of bundling
-// it, keeping the Vercel function under the 250 MB unzipped limit. Pin the pack
-// to the installed chromium-min version; override via env if you self-host it.
-const CHROMIUM_PACK_URL =
-  process.env.CHROMIUM_PACK_URL ||
-  'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
+// Remotion Lambda config. The function name + serve URL are produced by the
+// deploy commands (`pnpm deploy:lambda:fn` / `deploy:lambda:site`); see
+// docs/lambda.md. Rendering runs on AWS, so the Vercel function carries no
+// Chromium or compositor binary.
+const LAMBDA_REGION = (process.env.REMOTION_LAMBDA_REGION || 'us-east-1') as AwsRegion
+const LAMBDA_FUNCTION_NAME = process.env.REMOTION_LAMBDA_FUNCTION_NAME
+const LAMBDA_SERVE_URL = process.env.REMOTION_LAMBDA_SERVE_URL
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -40,6 +43,16 @@ export async function POST(req: NextRequest) {
   if (!RENDER_SECRET) {
     return NextResponse.json(
       {error: 'VIDEO_RENDER_SECRET not configured'},
+      {status: 500, headers: corsHeaders},
+    )
+  }
+
+  if (!LAMBDA_FUNCTION_NAME || !LAMBDA_SERVE_URL) {
+    return NextResponse.json(
+      {
+        error:
+          'Remotion Lambda not configured (set REMOTION_LAMBDA_FUNCTION_NAME and REMOTION_LAMBDA_SERVE_URL — see docs/lambda.md)',
+      },
       {status: 500, headers: corsHeaders},
     )
   }
@@ -73,7 +86,6 @@ export async function POST(req: NextRequest) {
     token,
   })
 
-  let outputPath: string | null = null
   let sanityDocId: string | null = null
 
   try {
@@ -120,17 +132,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check for the Remotion bundle (produced by `pnpm build:remotion`).
-    const bundleDir = path.resolve(process.cwd(), '.remotion-bundle')
-    if (!fs.existsSync(path.join(bundleDir, 'index.html'))) {
-      return NextResponse.json(
-        {error: 'Remotion bundle not found. Run: pnpm build:remotion'},
-        {status: 500, headers: corsHeaders},
-      )
-    }
-
-    const serveUrl = bundleDir
-
     // Create the Sanity video document with status: 'rendering'. The video
     // back-references its source post; we never write a videos[] array onto
     // the post.
@@ -149,72 +150,78 @@ export async function POST(req: NextRequest) {
     sanityDocId = sanityDoc._id
     console.log('Video document created with status: rendering', sanityDocId)
 
-    // On Vercel, download + use @sparticuz/chromium-min; locally use system Chrome.
-    const isVercel = !!process.env.VERCEL
-    const browserExecutable = isVercel ? await chromium.executablePath(CHROMIUM_PACK_URL) : undefined
-
-    // Resolve the composition
-    const composition = await selectComposition({
-      serveUrl,
-      id: compositionId,
-      inputProps: validatedProps,
-      browserExecutable,
-      chromeMode: 'headless-shell',
-    })
-
-    // Override dimensions/duration if provided
-    if (durationInFrames) composition.durationInFrames = durationInFrames
-    if (fps) composition.fps = fps
-    if (width) composition.width = width
-    if (height) composition.height = height
-
-    // Render to /tmp
-    const timestamp = Date.now()
     const filename = `${validatedProps.title}-${compositionId}`
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
-    outputPath = path.join('/tmp', `${filename}-${timestamp}.mp4`)
 
-    await renderMedia({
-      composition,
-      serveUrl,
-      codec: 'h264',
-      outputLocation: outputPath,
+    // Kick off the render on AWS Lambda. The serve URL is a Remotion site
+    // bundle uploaded to S3 (`pnpm deploy:lambda:site`); the function is a
+    // pre-deployed renderer (`pnpm deploy:lambda:fn`). `privacy: 'public'` makes
+    // the output a public S3 URL so Cloudinary can fetch it directly below.
+    const {renderId, bucketName} = await renderMediaOnLambda({
+      region: LAMBDA_REGION,
+      functionName: LAMBDA_FUNCTION_NAME,
+      serveUrl: LAMBDA_SERVE_URL,
+      composition: compositionId,
       inputProps: validatedProps,
-      browserExecutable,
-      chromeMode: 'headless-shell',
+      codec: 'h264',
+      privacy: 'public',
+      ...(width ? {forceWidth: width} : {}),
+      ...(height ? {forceHeight: height} : {}),
     })
 
-    const fileBuffer = fs.readFileSync(outputPath)
-    const durationSeconds =
-      (durationInFrames ?? composition.durationInFrames) / (fps ?? composition.fps)
+    // Poll until the Lambda render finishes. Bounded by maxDuration (300s).
+    let outputUrl: string | undefined
+    while (!outputUrl) {
+      const progress = await getRenderProgress({
+        renderId,
+        bucketName,
+        functionName: LAMBDA_FUNCTION_NAME,
+        region: LAMBDA_REGION,
+      })
+      if (progress.fatalErrorEncountered) {
+        throw new Error(progress.errors[0]?.message ?? 'Lambda render failed')
+      }
+      if (progress.done) {
+        outputUrl = progress.outputFile ?? undefined
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+    }
+    if (!outputUrl) {
+      throw new Error('Lambda render finished without an output file')
+    }
 
-    // Upload to Cloudinary
+    const durationSeconds =
+      (durationInFrames ?? meta.defaultDurationFrames) / (fps ?? meta.fps)
+
+    // Upload to Cloudinary directly from the Lambda output URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
-    const uploadResult = await new Promise<{public_id: string; secure_url: string}>(
-      (resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'video',
-            folder: 'template/videos',
-            public_id: filename,
-            overwrite: true,
-            // Materialize the composition's eager variants synchronously at
-            // upload time so their URLs are valid the moment we patch the doc.
-            // The canonical render stays a single MP4; variants are Cloudinary
-            // derivations of it (no extra renders).
-            eager: eagerTransformsFor(meta.variantIds),
-            eager_async: false,
-          },
-          (error, result) => {
-            if (error) reject(error)
-            else resolve(result as {public_id: string; secure_url: string})
-          },
-        )
-        uploadStream.end(fileBuffer)
-      },
-    )
+    const uploadResult = (await cloudinary.uploader.upload(outputUrl, {
+      resource_type: 'video',
+      folder: 'template/videos',
+      public_id: filename,
+      overwrite: true,
+      // Materialize the composition's eager variants synchronously at upload
+      // time so their URLs are valid the moment we patch the doc. The canonical
+      // render stays a single MP4; variants are Cloudinary derivations of it
+      // (no extra renders).
+      eager: eagerTransformsFor(meta.variantIds),
+      eager_async: false,
+    })) as {public_id: string; secure_url: string}
+
+    // The canonical MP4 now lives in Cloudinary, so drop the Lambda S3 copy.
+    // Best-effort: a failure here doesn't affect the rendered result.
+    try {
+      await deleteRender({
+        region: LAMBDA_REGION,
+        bucketName,
+        renderId,
+      })
+    } catch (cleanupError) {
+      console.warn('Failed to delete Lambda render from S3:', cleanupError)
+    }
 
     // Snapshot every variant URL for this composition onto the doc. cloudName
     // comes from the env only; it's required for the upload above, so it should
@@ -242,13 +249,6 @@ export async function POST(req: NextRequest) {
       cloudinaryPublicId: uploadResult.public_id,
     })
 
-    // Clean up temp file
-    try {
-      fs.unlinkSync(outputPath)
-    } catch {
-      /* ignore */
-    }
-
     return NextResponse.json(
       {
         success: true,
@@ -273,15 +273,6 @@ export async function POST(req: NextRequest) {
           .commit()
       } catch {
         // Ignore patch errors during error handling
-      }
-    }
-
-    // Clean up temp file if it exists
-    if (outputPath) {
-      try {
-        fs.unlinkSync(outputPath)
-      } catch {
-        // Ignore cleanup errors
       }
     }
 

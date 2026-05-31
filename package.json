@@ -10,10 +10,11 @@
     "build": "pnpm --filter @template/web build",
     "build:web": "pnpm --filter @template/web build",
     "build:studio": "pnpm --filter @template/studio build",
-    "build:remotion": "pnpm --filter @template/web build:remotion",
     "start": "pnpm --filter @template/web start",
     "lint": "pnpm --filter @template/web lint",
     "deploy:studio": "pnpm --filter @template/studio deploy",
+    "deploy:lambda:fn": "pnpm --filter @template/web deploy:lambda:fn",
+    "deploy:lambda:site": "pnpm --filter @template/web deploy:lambda:site",
     "dev:video": "pnpm --filter @template/video dev",
     "build:video": "pnpm --filter @template/video build",
     "deploy:video": "pnpm --filter @template/video deploy"
