@@ -70,10 +70,12 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
 2. In the Vercel dashboard, **Storage → Create → Blob**, name it (e.g.
    `remotion-renders`), and **attach it to the project**. Vercel auto-injects
    `BLOB_READ_WRITE_TOKEN` at runtime; redeploy once for it to take effect.
-3. For local dev, pull the same token onto your machine:
+3. For local dev, install the Vercel CLI and pull the env (one command writes
+   both `BLOB_READ_WRITE_TOKEN` and the OIDC token the Sandbox SDK uses):
    ```bash
+   npm i -g vercel
    vercel login
-   vercel link
+   vercel link                            # run from apps/web/
    vercel env pull apps/web/.env.local
    ```
 
