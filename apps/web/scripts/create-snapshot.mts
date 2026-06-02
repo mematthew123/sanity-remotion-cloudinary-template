@@ -9,7 +9,7 @@
 import {put} from '@vercel/blob'
 import {addBundleToSandbox, createSandbox} from '@remotion/vercel'
 
-import {bundleRemotionProject} from '../app/api/video/render/helpers'
+import {bundleRemotionProject} from '../app/api/video/render/helpers.js'
 
 const BLOB_KEY = `snapshot-cache/${process.env.VERCEL_DEPLOYMENT_ID ?? 'local'}.json`
 const BUNDLE_DIR = '.remotion-bundle'

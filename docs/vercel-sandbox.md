@@ -35,13 +35,18 @@ That's it for production — `BLOB_READ_WRITE_TOKEN` is auto-injected on Vercel;
 
 `vercel env pull` does two things at once: it gives the Sandbox SDK an OIDC token to authenticate with (per the [Vercel Sandbox quickstart](https://vercel.com/docs/sandbox/quickstart)), and it pulls `BLOB_READ_WRITE_TOKEN` from the connected Blob store.
 
+> ⚠️ Run `vercel link` from **`apps/web/`**, not the repo root. The Vercel project root is `apps/web`, and the Next.js dev server only reads `apps/web/.env.local` — linking from the repo root drops the env file in the wrong place.
+
 ```bash
-vercel login                                # one-time
-vercel link                                 # run from apps/web/; pick the deployed project
-vercel env pull apps/web/.env.local         # writes BLOB_READ_WRITE_TOKEN + the Sandbox OIDC vars
+vercel login                  # one-time
+cd apps/web
+vercel link                   # pick the deployed project
+vercel env pull               # writes apps/web/.env.local
 ```
 
-After that, `pnpm dev:web` can spawn sandboxes and stage renders in Blob.
+After that, `pnpm dev:web` (from the repo root) can spawn sandboxes and stage renders in Blob.
+
+> ⚠️ If `vercel env pull` only shows `VERCEL_OIDC_TOKEN` and nothing else, the Blob store from step 2 isn't connected yet. Vercel only injects `BLOB_READ_WRITE_TOKEN` once a Blob store is attached to the project — go back to **Storage → Create → Blob** and attach it, then re-run `vercel env pull`.
 
 > First local render is slow (~30–90 s): the sandbox boots cold and the Remotion bundle is uploaded into it per request. Production renders skip this via the build-time snapshot below.
 

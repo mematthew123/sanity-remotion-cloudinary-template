@@ -71,13 +71,18 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
    `remotion-renders`), and **attach it to the project**. Vercel auto-injects
    `BLOB_READ_WRITE_TOKEN` at runtime; redeploy once for it to take effect.
 3. For local dev, install the Vercel CLI and pull the env (one command writes
-   both `BLOB_READ_WRITE_TOKEN` and the OIDC token the Sandbox SDK uses):
+   both `BLOB_READ_WRITE_TOKEN` and the OIDC token the Sandbox SDK uses).
+   ⚠️ Run `vercel link` from `apps/web/`, **not** the repo root — that's where
+   the Next.js dev server reads `.env.local` from:
    ```bash
    npm i -g vercel
    vercel login
-   vercel link                            # run from apps/web/
-   vercel env pull apps/web/.env.local
+   cd apps/web
+   vercel link            # pick the deployed project
+   vercel env pull        # → apps/web/.env.local
    ```
+   If the pull only writes `VERCEL_OIDC_TOKEN` and not `BLOB_READ_WRITE_TOKEN`,
+   the Blob store isn't connected to the project yet — go back to step 2.
 
 > The build-time snapshot (boots a sandbox + uploads the Remotion bundle, caches
 > the resulting snapshot id in Blob) runs automatically on every Vercel deploy
