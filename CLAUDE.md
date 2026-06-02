@@ -19,30 +19,29 @@ pnpm lint             # ESLint on apps/web
 pnpm deploy:studio
 pnpm deploy:video         # first run is INTERACTIVE — needs a TTY for the title prompt; appId then pinned in sanity.cli.ts
 
-pnpm deploy:lambda:fn     # deploy/update the Remotion Lambda render function (per region + Remotion version)
-pnpm deploy:lambda:site   # bundle apps/web/remotion/index.ts and upload it to S3 (the "serve URL")
+pnpm bundle:remotion      # local: rebuild apps/web/.remotion-bundle/ via remotion bundle CLI
 ```
 
 Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video`, `video-core`). No test suite is wired up.
 
-Rendering runs on **AWS Lambda**, not in the Next.js function — see `docs/lambda.md` for first-time AWS/IAM setup and capturing the function name + serve URL into env.
+Rendering runs in a **Vercel Sandbox** — see `docs/vercel-sandbox.md` for connecting a Vercel Blob store (auto-injects `BLOB_READ_WRITE_TOKEN`) and how the build-time snapshot is created.
 
 ## Architecture
 
-Three apps + one shared package, all driven by a single render pipeline (rendering offloaded to AWS Lambda).
+Three apps + one shared package, all driven by a single render pipeline (rendering happens inside an ephemeral Vercel Sandbox).
 
 ```
 Sanity Studio "Render" action  ─┐
 Sanity App SDK video editor    ─┴──► POST /api/video/render (apps/web)
                                        1. validate inputProps with composition's Zod schema
                                        2. create `video` doc       (status: rendering)
-                                       3. renderMediaOnLambda → poll getRenderProgress → MP4 on S3
-                                       4. Cloudinary upload (from S3 URL) + eager variants  (status: uploading)
+                                       3. createSandbox / restoreSnapshot → renderMediaOnVercel inside it
+                                       4. uploadToVercelBlob → Cloudinary upload + eager variants → delete Blob copy  (status: uploading)
                                        5. patch doc cloudinaryUrl + variants[] (status: ready)
                                      ──► Next.js site reads ready video docs and plays them
 ```
 
-The route stays **synchronous** — it polls the Lambda render to completion inside the request (bounded by `maxDuration = 300`) — so the Studio action and video editor app keep reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes.
+The route stays **synchronous** — the sandbox render completes inside the request (bounded by `maxDuration = 300`) — so the Studio action and video editor app keep reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes.
 
 The render route (`apps/web/app/api/video/render/route.ts`) is **the only server-side mutator** of Sanity content. Everything else (Studio, video editor app, site) triggers it or reads what it produced. That keeps `SANITY_API_WRITE_TOKEN` out of every client bundle.
 
@@ -75,7 +74,7 @@ GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-ref
 1. Create `packages/video-core/src/compositions/Foo.tsx`.
 2. Register metadata in `registry.ts` (`COMPOSITIONS`) and the component in `registry-components.ts` (`COMPOSITION_COMPONENTS`); export from `index.ts`.
 3. Add a render action (or extend existing) in `apps/studio/src/actions/renderVideo.tsx`.
-4. `pnpm build:remotion` to rebuild the bundle.
+4. `pnpm bundle:remotion` to rebuild the local bundle, or redeploy to refresh the build-time snapshot on Vercel.
 
 ### Source content shape
 
@@ -111,10 +110,10 @@ Each `post` has an optional `voice` reference under the **Settings** group. The 
 
 ## Deploy specifics
 
-- `apps/web` deploys to Vercel with project root set to `apps/web`. Set `/api/video/render` max duration to **300s** (the route polls the Lambda render to completion within the request).
-- **Rendering is on AWS Lambda** — see `docs/lambda.md` for the one-time setup (IAM user, `npx remotion lambda policies user|role|validate`, `REMOTION_AWS_*` creds). Deploy/update the renderer with `pnpm deploy:lambda:fn` (one function per region + Remotion version) and upload the site bundle with `pnpm deploy:lambda:site`; set `REMOTION_LAMBDA_FUNCTION_NAME` + `REMOTION_LAMBDA_SERVE_URL` (+ optional `REMOTION_LAMBDA_REGION`) on the web app from their output. Bump Remotion → redeploy both.
-- Because rendering is off-box, the Vercel function carries no Chromium or compositor binary, so there's no 250 MB packaging concern and no `outputFileTracingIncludes` for the render route. The render route only imports `@remotion/lambda/client` (marked `serverExternalPackages` in `apps/web/next.config.ts`).
-- The Lambda render output is written to S3 with `privacy: 'public'` so Cloudinary can fetch it by URL; the route deletes that S3 object (`deleteRender`) right after the Cloudinary upload, so the canonical copy lives only in Cloudinary.
+- `apps/web` deploys to Vercel with project root set to `apps/web`. Set `/api/video/render` max duration to **300s**. The `buildCommand` in `apps/web/vercel.json` runs `next build && tsx scripts/create-snapshot.ts`, which bundles Remotion, boots a sandbox, snapshots it, and stores the snapshot id in Vercel Blob keyed by `VERCEL_DEPLOYMENT_ID`.
+- **Rendering is in a Vercel Sandbox** — see `docs/vercel-sandbox.md`. One-time setup: deploy the project, then **Storage → Create → Blob** in the Vercel dashboard and attach the store. `BLOB_READ_WRITE_TOKEN` is auto-injected. Locally, `vercel link && vercel env pull apps/web/.env.local`.
+- The Vercel function carries no Chromium or compositor binary — `@vercel/sandbox` and `@remotion/vercel` are marked `serverExternalPackages` in `apps/web/next.config.ts`. `outputFileTracingIncludes` ships the local bundle output (`apps/web/.remotion-bundle/`) with the function for the dev-fallback path.
+- The sandbox writes its output to a path inside the VM; `uploadToVercelBlob({access: 'public'})` stages it on Vercel Blob just long enough for Cloudinary to fetch it by URL; the route then `del()`s the Blob staging copy, so the canonical copy lives only in Cloudinary.
 - App SDK first deploy is interactive (free-text title prompt; `-y` won't answer it). After the first run, pin `deployment.appId` in the app's `sanity.cli.ts` — subsequent deploys are non-interactive.
 
 ## React version pinning
@@ -123,4 +122,4 @@ Each `post` has an optional `voice` reference under the **Settings** group. The 
 
 ## Further reading
 
-`docs/` has deeper guides: `architecture.md`, `configuration.md`, `apps.md`, `assist.md`, `lambda.md`, `troubleshooting.md`. Troubleshooting covers the common failure modes verbatim (token errors, "Remotion requires React.createContext", Lambda not configured / version mismatch, hosted-app-calling-localhost).
+`docs/` has deeper guides: `architecture.md`, `configuration.md`, `apps.md`, `assist.md`, `vercel-sandbox.md`, `troubleshooting.md`. Troubleshooting covers the common failure modes verbatim (token errors, "Remotion requires React.createContext", Vercel Sandbox not configured / missing snapshot, hosted-app-calling-localhost).

@@ -1,7 +1,8 @@
 # Setup — next steps
 
 A checklist for taking this template from a fresh clone to a working render →
-publish loop. Rendering runs on **AWS Lambda** (see [`docs/lambda.md`](./docs/lambda.md)).
+publish loop. Rendering runs on **Vercel Sandbox** (see
+[`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md)).
 
 Work top to bottom — each section depends on the ones above it.
 
@@ -10,7 +11,7 @@ Work top to bottom — each section depends on the ones above it.
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token
 - A **Cloudinary** account (cloud name + API key + secret)
-- An **AWS** account (for Remotion Lambda)
+- A **Vercel** account (free tier works) — used for hosting and for the sandbox renderer
 - A Sanity **organization id** — only if you'll run/deploy the App SDK video app
 
 ## 1. Install & scaffold env files
@@ -59,30 +60,27 @@ Invent one random string and mirror the **same** value into three places:
 Add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` to
 `apps/web/.env.local`.
 
-## 5. Remotion Lambda (the rendering backend)
+## 5. Vercel Sandbox (the rendering backend)
 
-Full walkthrough: [`docs/lambda.md`](./docs/lambda.md). Short version:
+Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short version:
 
-1. Add AWS creds to `apps/web/.env.local`:
-   ```
-   REMOTION_AWS_ACCESS_KEY_ID=...
-   REMOTION_AWS_SECRET_ACCESS_KEY=...
-   REMOTION_LAMBDA_REGION=us-east-1     # optional; default us-east-1
-   ```
-2. Attach IAM policies and validate (run from `apps/web`):
+1. Deploy `apps/web` to Vercel (project root `apps/web`). The first deploy will
+   work without the Blob store but the render route will return a configuration
+   error — that's expected.
+2. In the Vercel dashboard, **Storage → Create → Blob**, name it (e.g.
+   `remotion-renders`), and **attach it to the project**. Vercel auto-injects
+   `BLOB_READ_WRITE_TOKEN` at runtime; redeploy once for it to take effect.
+3. For local dev, pull the same token onto your machine:
    ```bash
-   npx remotion lambda policies user      # paste as inline user policy
-   npx remotion lambda policies role      # create role `remotion-lambda-role`
-   npx remotion lambda policies validate  # must pass
-   ```
-3. Deploy the function and the site bundle, then capture their output into env:
-   ```bash
-   pnpm deploy:lambda:fn     # → REMOTION_LAMBDA_FUNCTION_NAME
-   pnpm deploy:lambda:site   # → REMOTION_LAMBDA_SERVE_URL
+   vercel login
+   vercel link
+   vercel env pull apps/web/.env.local
    ```
 
-> Re-run `deploy:lambda:site` after changing compositions, and **both** commands
-> after bumping Remotion (a function is bound to one Remotion version).
+> The build-time snapshot (boots a sandbox + uploads the Remotion bundle, caches
+> the resulting snapshot id in Blob) runs automatically on every Vercel deploy
+> via `apps/web/vercel.json`'s `buildCommand`. Bumping Remotion or changing
+> compositions is just a redeploy.
 
 ## 6. (Optional) Brand voice for Sanity Assist
 
@@ -108,14 +106,14 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
 
 ## 8. Deploy
 
-1. **Lambda** — already done in step 5 (redeploy on composition/Remotion changes).
-2. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
-   to **300s** and add every `apps/web` env var (Sanity, Cloudinary, secret, and the
-   `REMOTION_AWS_*` / `REMOTION_LAMBDA_*` values).
-3. Point `SANITY_STUDIO_RENDER_API_URL` and `SANITY_APP_RENDER_API_URL` at the
+1. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
+   to **300s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The
+   Blob store you connected in step 5 auto-injects `BLOB_READ_WRITE_TOKEN`; no
+   AWS keys needed.
+2. Point `SANITY_STUDIO_RENDER_API_URL` and `SANITY_APP_RENDER_API_URL` at the
    deployed web URL (App SDK vars are baked in at **build time** — rebuild/redeploy
    after changing them).
-4. **Studio** → `pnpm deploy:studio`. **App SDK app** → `pnpm deploy:video` (first
+3. **Studio** → `pnpm deploy:studio`. **App SDK app** → `pnpm deploy:video` (first
    run is interactive; pin `deployment.appId` in `sanity.cli.ts` afterward).
 
 See [`docs/troubleshooting.md`](./docs/troubleshooting.md) for the failure modes

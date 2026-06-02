@@ -31,9 +31,9 @@ The web client reads published content with **no token**, which requires a **pub
 
 Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-on; without it the derived URL 400s (image crops are fine). The template's social variants use **`g_center`** instead, which is universally supported. If you add a video-crop variant in `video-core/src/registry.ts`, prefer `g_center` (or another fixed gravity) over `g_auto` unless your account has the add-on. Note: the `eager` upload array must use `raw_transformation` (not `transformation`) for raw transformation strings, or Cloudinary 400s with "Unknown transformation".
 
-## Render returns `Remotion Lambda not configured`
+## Render returns `Vercel Sandbox not configured`
 
-The route renders on AWS Lambda and needs `REMOTION_LAMBDA_FUNCTION_NAME` and `REMOTION_LAMBDA_SERVE_URL` (plus `REMOTION_AWS_*` creds) in `apps/web/.env.local`. Deploy them with `pnpm deploy:lambda:fn` and `pnpm deploy:lambda:site` and copy the printed values into env. Full walkthrough in [lambda.md](./lambda.md).
+The route renders inside a Vercel Sandbox and stages the output in Vercel Blob, so it needs `BLOB_READ_WRITE_TOKEN` in `apps/web/.env.local` (or in the Vercel runtime). On Vercel: connect a Blob store to the project (**Storage → Create → Blob**) — the var is auto-injected. Locally: `vercel link && vercel env pull apps/web/.env.local`. Full walkthrough in [vercel-sandbox.md](./vercel-sandbox.md).
 
 ## First `sanity deploy` of an app hangs or errors
 
@@ -57,18 +57,18 @@ Something imported the `@template/video-core` **barrel** into a server route or 
 
 Pinned to a single version via `pnpm.overrides` in the root `package.json`. If warnings reappear after a dependency bump, align `react` and `react-dom` to the same exact version there.
 
-## Lambda render fails with `The function … does not exist` / version mismatch
+## Render fails with `No sandbox snapshot found`
 
-A Lambda function is bound to **one AWS region and one Remotion version**. After upgrading Remotion (or switching region), redeploy: `pnpm deploy:lambda:fn`, then update `REMOTION_LAMBDA_FUNCTION_NAME` / `REMOTION_LAMBDA_REGION`. The function name encodes the version (e.g. `remotion-render-4-0-321-…`), so a stale env value points at a function that no longer exists.
+The render route resumes a sandbox from a snapshot id stored in Vercel Blob during the build. If it's missing, the build step didn't run — confirm `apps/web/vercel.json`'s `buildCommand` is `pnpm --filter @template/web vercel-build`, and that the Vercel build log shows a line like `[snapshot] saved: <id>`. If that line is missing, the snapshot script errored — scroll up in the build log for the cause (most often a missing `BLOB_READ_WRITE_TOKEN` at build time, meaning the Blob store isn't connected yet).
 
-## Lambda render can't open the site / blank or 403 on the serve URL
+## First render after a deploy is slow
 
-The serve URL must be a **deployed site bundle on S3**, regenerated whenever compositions change: `pnpm deploy:lambda:site`, then set `REMOTION_LAMBDA_SERVE_URL` to its output. Confirm the function's region matches the site's region.
+Each new deployment gets a new `VERCEL_DEPLOYMENT_ID`, so each gets its own snapshot. The first render after a deploy resumes that fresh snapshot (~seconds), but the very first request can still take ~10–15 s while Vercel warms the sandbox. Subsequent renders within the same deploy reuse the same warm snapshot.
 
-## Cloudinary upload fails to fetch the Lambda output
+## Cloudinary upload fails to fetch the Vercel Blob output
 
-The route renders with `privacy: 'public'` so Cloudinary can fetch the S3 URL directly. If your S3 bucket policy blocks public objects, either allow them or change the route to download the output to a buffer and upload that instead. The route deletes the S3 object after upload, so the public exposure is brief.
+The route stages with `access: 'public'` so Cloudinary can fetch the Blob URL directly, then deletes the staging blob right after. If you see a Cloudinary fetch error before the delete step, double-check that the Blob store is the same one tied to `BLOB_READ_WRITE_TOKEN` and that the URL it returned is reachable from the public internet. The route deletes the Blob object after upload, so the public exposure is brief.
 
-## AWS permission errors during deploy or render
+## Sandbox creation times out / hits concurrency limit
 
-Run `npx remotion lambda policies validate` to check the IAM user/role. If it fails, re-apply the policies printed by `npx remotion lambda policies user` and `npx remotion lambda policies role`. Confirm `REMOTION_AWS_ACCESS_KEY_ID` / `REMOTION_AWS_SECRET_ACCESS_KEY` are set for both the CLI (deploy) and the web app (render). See [lambda.md](./lambda.md).
+Vercel Sandbox concurrency is 10 on Hobby and 2000 on Pro/Enterprise. If renders block for a long time before starting, you're likely hitting the concurrency cap (each render holds a slot until `sandbox.stop()` runs in the `finally`). Set up [Vercel Spend Management](https://vercel.com/docs/accounts/spend-management) and either rate-limit the trigger or upgrade the plan.

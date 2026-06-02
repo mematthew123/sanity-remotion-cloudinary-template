@@ -9,14 +9,14 @@
     "deploy": "sanity deploy"
   },
   "dependencies": {
-    "@remotion/player": "4.0.321",
+    "@remotion/player": "4.0.426",
     "@sanity/sdk": "^2",
     "@sanity/sdk-react": "^2",
     "@sanity/ui": "^3",
     "@template/video-core": "workspace:*",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "remotion": "4.0.321",
+    "remotion": "4.0.426",
     "styled-components": "^6",
     "zod": "^3.24"
   },

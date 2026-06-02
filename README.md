@@ -2,7 +2,7 @@
 
 Render videos from your **Sanity** content with **Remotion**, then publish them to a **Next.js** site through **Cloudinary** — triggered with one click from the CMS.
 
-Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is rendered on **AWS Lambda**, uploaded to Cloudinary, and playing on your site.
+Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is rendered in a **Vercel Sandbox**, uploaded to Cloudinary, and playing on your site.
 
 On top of that core loop the template ships the full showcase: a **Sanity App SDK** dashboard app (a video editor with a live Remotion preview), **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site + social derivatives) generated at render time. The Cloudinary integration is also surfaced inside the Studio as a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
@@ -14,21 +14,22 @@ Sanity Studio (post)
    ▼
 POST /api/video/render  (Next.js route, bearer-authed)
    │  1. create a `video` doc  → status: rendering
-   │  2. render the Remotion composition on AWS Lambda
-   │       (renderMediaOnLambda → poll getRenderProgress → MP4 on S3)
-   │  3. upload the MP4 to Cloudinary (from the S3 URL)  → status: uploading
+   │  2. spawn a Vercel Sandbox (restored from a build-time snapshot in prod)
+   │     and renderMediaOnVercel inside it
+   │  3. uploadToVercelBlob → public URL → upload to Cloudinary → delete Blob copy
+   │       → status: uploading
    │  4. patch the doc with cloudinaryUrl  → status: ready
    ▼
 Next.js site
    reads `video` docs where status == "ready" and plays them from the Cloudinary URL
 ```
 
-The route polls the Lambda render to completion within the request, so it returns the finished `cloudinaryUrl` synchronously — the Studio action and video editor app are unchanged.
+The render runs inside the sandbox synchronously, so the route returns the finished `cloudinaryUrl` in its response — the Studio action and video editor app are unchanged.
 
 ## Monorepo layout
 
 ```
-apps/web/            @template/web        — Next.js 16 site + /api/video/render (invokes Remotion Lambda) + Remotion site entry
+apps/web/            @template/web        — Next.js 16 site + /api/video/render (spawns a Vercel Sandbox) + Remotion site entry
 apps/studio/         @template/studio     — Sanity Studio v5: schemas, "Render" actions, Assist + brand voice
 apps/video/          @template/video      — Sanity App SDK app: the video editor (live preview + render trigger)
 packages/video-core/ @template/video-core — Remotion compositions, registry, Cloudinary variant catalog
@@ -42,7 +43,7 @@ Deeper guides live in [`docs/`](./docs/):
 
 - [Architecture](./docs/architecture.md) — pipeline, registry boundary, variant system
 - [Configuration](./docs/configuration.md) — env prefixes, full env reference, the Sanity token
-- [Remotion Lambda](./docs/lambda.md) — AWS setup, deploying the function + site, env
+- [Vercel Sandbox](./docs/vercel-sandbox.md) — connecting a Blob store, the build-time snapshot, local dev
 - [App SDK app](./docs/apps.md) — the video editor app, and deploying it
 - [Assist + brand voice](./docs/assist.md) — AI field actions and the brand-voice doc
 - [Troubleshooting](./docs/troubleshooting.md) — the common gotchas, with fixes
@@ -54,7 +55,7 @@ Deeper guides live in [`docs/`](./docs/):
 - A [Sanity](https://www.sanity.io/) project + dataset, and an **Editor** API token (write access)
 - A Sanity **organization id** — required to run/deploy the App SDK app (`apps/video`). Find it in [sanity.io/manage](https://www.sanity.io/manage); skip if you only use the Studio + site.
 - A [Cloudinary](https://cloudinary.com/) account (cloud name + API key/secret)
-- An **AWS** account for Remotion Lambda rendering — see [docs/lambda.md](./docs/lambda.md)
+- A [Vercel](https://vercel.com/) account — deploy `apps/web` and connect a [Blob store](https://vercel.com/docs/storage/vercel-blob) for the sandbox renderer. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)
 
 ## Setup
 
@@ -78,8 +79,7 @@ Fill in the env files:
 | `SANITY_API_WRITE_TOKEN` | Editor+ token — the render route creates/updates `video` docs |
 | `VIDEO_RENDER_SECRET` | any random string; the Studio must send this as a bearer token |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
-| `REMOTION_AWS_ACCESS_KEY_ID` / `REMOTION_AWS_SECRET_ACCESS_KEY` | AWS creds for the Remotion IAM user ([docs/lambda.md](./docs/lambda.md)) |
-| `REMOTION_LAMBDA_FUNCTION_NAME` / `REMOTION_LAMBDA_SERVE_URL` | from `pnpm deploy:lambda:fn` / `pnpm deploy:lambda:site` (`REMOTION_LAMBDA_REGION` optional, defaults `us-east-1`) |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel; for local dev, `vercel link && vercel env pull apps/web/.env.local`. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
 
 **`apps/studio/.env`**
 
@@ -108,11 +108,11 @@ pnpm dev:studio     # http://localhost:3333
 pnpm dev:video      # the video editor app (App SDK)      — needs SANITY_APP_ORGANIZATION_ID
 ```
 
-Rendering runs on AWS Lambda, so before the first render deploy the function and site (one-time per region + Remotion version) and set the resulting env vars — full walkthrough in [docs/lambda.md](./docs/lambda.md):
+Rendering runs in a Vercel Sandbox. The one-time setup is just *connect a Vercel Blob store to the deployed project*; the build-time snapshot is created automatically by `vercel-build`. Full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). For local dev, pull the same `BLOB_READ_WRITE_TOKEN`:
 
 ```bash
-pnpm deploy:lambda:fn     # → REMOTION_LAMBDA_FUNCTION_NAME
-pnpm deploy:lambda:site   # → REMOTION_LAMBDA_SERVE_URL
+vercel link
+vercel env pull apps/web/.env.local
 ```
 
 Then:
@@ -122,7 +122,7 @@ Then:
 3. Watch the **Videos** list: the new doc moves `rendering → uploading → ready`.
 4. Visit `http://localhost:3000/posts/<slug>` — the video plays from Cloudinary. `/videos` lists every rendered video.
 
-> Re-run `pnpm deploy:lambda:site` whenever you change compositions, and both deploy commands after bumping Remotion (a function is bound to one Remotion version).
+> Changing compositions or bumping Remotion just means redeploying — the build refreshes the snapshot every time.
 
 ## The dashboard app, Assist & Cloudinary variants
 
@@ -142,7 +142,7 @@ Then tune the voice by editing the **Brand Voice** doc in the Studio — that's 
 
 ## Deploy
 
-Deploy the Remotion Lambda function + site first (`pnpm deploy:lambda:fn` / `pnpm deploy:lambda:site`; see [docs/lambda.md](./docs/lambda.md)). Then deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root). Set the Function max duration to **300s** for `/api/video/render`, and add all `apps/web` env vars (including the `REMOTION_AWS_*` and `REMOTION_LAMBDA_*` values). Point `SANITY_STUDIO_RENDER_API_URL` (and `SANITY_APP_RENDER_API_URL`) at the deployed URL. Deploy the Studio with `pnpm deploy:studio`, and the App SDK app with `pnpm deploy:video` (needs `SANITY_APP_ORGANIZATION_ID` and a `sanity login`) — it then appears in your Sanity dashboard.
+Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **300s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary, render secret). Point `SANITY_STUDIO_RENDER_API_URL` (and `SANITY_APP_RENDER_API_URL`) at the deployed URL. Deploy the Studio with `pnpm deploy:studio`, and the App SDK app with `pnpm deploy:video` (needs `SANITY_APP_ORGANIZATION_ID` and a `sanity login`) — it then appears in your Sanity dashboard.
 
 ## ⚠️ Security note
 
@@ -150,6 +150,6 @@ The render secret (`SANITY_STUDIO_RENDER_SECRET` in the Studio, `SANITY_APP_REND
 
 ## Customizing
 
-- **Add a composition:** create `packages/video-core/src/compositions/Foo.tsx`, register it in `COMPOSITIONS` (`registry.ts`) and `COMPOSITION_COMPONENTS` (`registry-components.ts`), export it from `index.ts`, then add a render action (or extend the existing ones) in `apps/studio/src/actions/renderVideo.tsx`. Redeploy the Lambda site with `pnpm deploy:lambda:site` so the new composition is in the rendered bundle.
+- **Add a composition:** create `packages/video-core/src/compositions/Foo.tsx`, register it in `COMPOSITIONS` (`registry.ts`) and `COMPOSITION_COMPONENTS` (`registry-components.ts`), export it from `index.ts`, then add a render action (or extend the existing ones) in `apps/studio/src/actions/renderVideo.tsx`. Locally, restart `pnpm dev:web` so the next render rebundles. On Vercel, redeploy — the build-time snapshot refreshes automatically.
 - **Change the look:** edit the palette in `packages/video-core/src/types.ts` (`COLORS`) and the style helpers in `styles.ts`.
 - **Change the source content:** the compositions render from `ArticleVideoProps` (`types.ts`). Adjust that schema, the `post` schema, and the field mapping in the Studio render action together.

@@ -6,7 +6,7 @@
 - A **Sanity** project + dataset, and an **Editor** API token (see [Sanity token](#sanity-token) — this is the #1 setup pitfall)
 - A Sanity **organization id** — only if you run/deploy the App SDK app (`apps/video`)
 - A **Cloudinary** account (cloud name + API key + API secret)
-- An **AWS** account for Remotion Lambda rendering — see [lambda.md](./lambda.md) for the one-time setup
+- A **Vercel** account with a [Blob store](https://vercel.com/docs/storage/vercel-blob) connected to the deployed project — that's the entire setup; see [vercel-sandbox.md](./vercel-sandbox.md)
 
 ## Three env prefixes (don't mix them)
 
@@ -30,10 +30,7 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_API_WRITE_TOKEN` | **Editor** token — the render route creates `video` docs. Server-only. |
 | `VIDEO_RENDER_SECRET` | bearer the render trigger must send |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | server-only |
-| `REMOTION_AWS_ACCESS_KEY_ID` / `REMOTION_AWS_SECRET_ACCESS_KEY` | AWS creds for the Remotion IAM user; server-only. See [lambda.md](./lambda.md). |
-| `REMOTION_LAMBDA_FUNCTION_NAME` | deployed function name — output of `pnpm deploy:lambda:fn` |
-| `REMOTION_LAMBDA_SERVE_URL` | site bundle serve URL — output of `pnpm deploy:lambda:site` |
-| `REMOTION_LAMBDA_REGION` | optional — AWS region (defaults to `us-east-1`); must match where the function + site are deployed |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel when a Blob store is connected; for local dev, `vercel link` + `vercel env pull apps/web/.env.local`. See [vercel-sandbox.md](./vercel-sandbox.md). |
 
 ### `apps/studio/.env`
 | Var | Notes |

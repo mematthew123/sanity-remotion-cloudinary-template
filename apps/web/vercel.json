@@ -1,6 +1,6 @@
 {
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm build:web",
+  "buildCommand": "cd ../.. && pnpm --filter @template/web vercel-build",
   "outputDirectory": ".next",
   "framework": "nextjs"
 }

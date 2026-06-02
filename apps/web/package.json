@@ -6,29 +6,33 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "next build && tsx scripts/create-snapshot.ts",
     "start": "next start",
     "lint": "eslint",
-    "deploy:lambda:fn": "remotion lambda functions deploy",
-    "deploy:lambda:site": "remotion lambda sites create remotion/index.ts --site-name=template-video"
+    "bundle:remotion": "remotion bundle remotion/index.ts --out-dir .remotion-bundle",
+    "create-snapshot": "tsx scripts/create-snapshot.ts"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.2",
-    "@remotion/google-fonts": "4.0.321",
-    "@remotion/lambda": "4.0.321",
+    "@remotion/google-fonts": "4.0.426",
+    "@remotion/vercel": "4.0.426",
     "@sanity/client": "^7.13.2",
     "@sanity/image-url": "^2.0.2",
     "@template/video-core": "workspace:*",
+    "@vercel/blob": "^2.3.0",
+    "@vercel/sandbox": "^1.6.0",
     "cloudinary": "^2.9.0",
     "next": "16.1.1",
     "next-sanity": "^12.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "remotion": "4.0.321",
+    "remotion": "4.0.426",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@remotion/cli": "4.0.321",
-    "@remotion/tailwind-v4": "4.0.321",
+    "@remotion/cli": "4.0.426",
+    "@remotion/renderer": "4.0.426",
+    "@remotion/tailwind-v4": "4.0.426",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -36,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.19.0",
     "typescript": "^5"
   }
 }

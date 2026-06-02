@@ -13,8 +13,7 @@
     "start": "pnpm --filter @template/web start",
     "lint": "pnpm --filter @template/web lint",
     "deploy:studio": "pnpm --filter @template/studio deploy",
-    "deploy:lambda:fn": "pnpm --filter @template/web deploy:lambda:fn",
-    "deploy:lambda:site": "pnpm --filter @template/web deploy:lambda:site",
+    "bundle:remotion": "pnpm --filter @template/web bundle:remotion",
     "dev:video": "pnpm --filter @template/video dev",
     "build:video": "pnpm --filter @template/video build",
     "deploy:video": "pnpm --filter @template/video deploy"

@@ -1,14 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    // Rendering runs on AWS Lambda; the render route only invokes it through
-    // @remotion/lambda/client. Mark it external so its AWS SDK deps aren't
-    // bundled by Turbopack/webpack. No Chromium or compositor binary ships with
-    // the function anymore, so outputFileTracing* is no longer needed.
-    serverExternalPackages: ['@remotion/lambda'],
+    // The render route spawns a Vercel Sandbox via @remotion/vercel. Mark the
+    // sandbox + vercel-remotion libs external so their native bits aren't
+    // Turbopack-bundled into the function. Rendering happens inside the
+    // sandbox, so no Chromium / compositor binaries ship with the function.
+    serverExternalPackages: ['@vercel/sandbox', '@remotion/vercel'],
     // Workspace package ships raw TS via its `exports` field; Turbopack/Next
     // won't transpile node_modules unless this is set.
     transpilePackages: ['@template/video-core'],
+    // In local dev (no VERCEL env var) the render route falls back to bundling
+    // Remotion and uploading it to the sandbox at request time. Include the
+    // bundle output in the function's traced files so the fallback works if it
+    // ever runs on a serverful Node deploy (production uses the build-time
+    // snapshot and skips this path).
+    outputFileTracingIncludes: {
+        '/api/video/render': ['./.remotion-bundle/**/*'],
+    },
     images: {
         remotePatterns: [
             {

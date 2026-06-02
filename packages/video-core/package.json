@@ -12,9 +12,9 @@
     "zod": "^3.24.0"
   },
   "peerDependencies": {
-    "@remotion/google-fonts": "4.0.321",
+    "@remotion/google-fonts": "4.0.426",
     "react": "^19",
-    "remotion": "4.0.321"
+    "remotion": "4.0.426"
   },
   "devDependencies": {
     "@types/react": "^19"

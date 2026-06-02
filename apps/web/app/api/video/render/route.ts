@@ -1,10 +1,11 @@
 import {NextRequest, NextResponse} from 'next/server'
 import {
-  renderMediaOnLambda,
-  getRenderProgress,
-  deleteRender,
-  type AwsRegion,
-} from '@remotion/lambda/client'
+  addBundleToSandbox,
+  createSandbox,
+  renderMediaOnVercel,
+  uploadToVercelBlob,
+} from '@remotion/vercel'
+import {del as deleteBlob} from '@vercel/blob'
 import {createClient} from '@sanity/client'
 import {v2 as cloudinary} from 'cloudinary'
 // Import from /registry, not the package barrel: the barrel re-exports Remotion
@@ -14,18 +15,18 @@ import {v2 as cloudinary} from 'cloudinary'
 // flakiness on Vercel. /registry is pure, React-free metadata.
 import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
 
+import {bundleRemotionProject} from './helpers'
+import {restoreSnapshot} from './restore-snapshot'
+
 export const maxDuration = 300 // Vercel Pro: up to 300s
 
 // Secrets come from the environment only — no hardcoded fallbacks.
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
 
-// Remotion Lambda config. The function name + serve URL are produced by the
-// deploy commands (`pnpm deploy:lambda:fn` / `deploy:lambda:site`); see
-// docs/lambda.md. Rendering runs on AWS, so the Vercel function carries no
-// Chromium or compositor binary.
-const LAMBDA_REGION = (process.env.REMOTION_LAMBDA_REGION || 'us-east-1') as AwsRegion
-const LAMBDA_FUNCTION_NAME = process.env.REMOTION_LAMBDA_FUNCTION_NAME
-const LAMBDA_SERVE_URL = process.env.REMOTION_LAMBDA_SERVE_URL
+// Vercel Blob staging token. On Vercel deployments this is auto-injected when a
+// Blob store is connected to the project. Locally, run `vercel link` + `vercel
+// env pull apps/web/.env.local` to fetch it. See docs/vercel-sandbox.md.
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -47,11 +48,11 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (!LAMBDA_FUNCTION_NAME || !LAMBDA_SERVE_URL) {
+  if (!BLOB_TOKEN) {
     return NextResponse.json(
       {
         error:
-          'Remotion Lambda not configured (set REMOTION_LAMBDA_FUNCTION_NAME and REMOTION_LAMBDA_SERVE_URL — see docs/lambda.md)',
+          'Vercel Sandbox not configured (set BLOB_READ_WRITE_TOKEN — connect a Vercel Blob store, see docs/vercel-sandbox.md)',
       },
       {status: 500, headers: corsHeaders},
     )
@@ -87,6 +88,9 @@ export async function POST(req: NextRequest) {
   })
 
   let sanityDocId: string | null = null
+  // Vercel Sandbox / Blob handles for cleanup on success and error paths.
+  let sandbox: Awaited<ReturnType<typeof createSandbox>> | null = null
+  let blobUrl: string | null = null
 
   try {
     const body = await req.json()
@@ -154,51 +158,44 @@ export async function POST(req: NextRequest) {
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
 
-    // Kick off the render on AWS Lambda. The serve URL is a Remotion site
-    // bundle uploaded to S3 (`pnpm deploy:lambda:site`); the function is a
-    // pre-deployed renderer (`pnpm deploy:lambda:fn`). `privacy: 'public'` makes
-    // the output a public S3 URL so Cloudinary can fetch it directly below.
-    const {renderId, bucketName} = await renderMediaOnLambda({
-      region: LAMBDA_REGION,
-      functionName: LAMBDA_FUNCTION_NAME,
-      serveUrl: LAMBDA_SERVE_URL,
-      composition: compositionId,
+    // Spin up a Vercel Sandbox. On Vercel we resume from a snapshot baked at
+    // build time (scripts/create-snapshot.ts) — fast and includes the Remotion
+    // bundle. Locally we create a fresh sandbox and add the bundle per
+    // request (slower; matches the reference template's dev fallback).
+    sandbox = process.env.VERCEL ? await restoreSnapshot() : await createSandbox()
+
+    if (!process.env.VERCEL) {
+      bundleRemotionProject('.remotion-bundle')
+      await addBundleToSandbox({sandbox, bundleDir: '.remotion-bundle'})
+    }
+
+    // Render inside the sandbox. Output is written to a path inside the VM.
+    const {sandboxFilePath, contentType} = await renderMediaOnVercel({
+      sandbox,
+      compositionId,
       inputProps: validatedProps,
       codec: 'h264',
-      privacy: 'public',
-      ...(width ? {forceWidth: width} : {}),
-      ...(height ? {forceHeight: height} : {}),
     })
 
-    // Poll until the Lambda render finishes. Bounded by maxDuration (300s).
-    let outputUrl: string | undefined
-    while (!outputUrl) {
-      const progress = await getRenderProgress({
-        renderId,
-        bucketName,
-        functionName: LAMBDA_FUNCTION_NAME,
-        region: LAMBDA_REGION,
-      })
-      if (progress.fatalErrorEncountered) {
-        throw new Error(progress.errors[0]?.message ?? 'Lambda render failed')
-      }
-      if (progress.done) {
-        outputUrl = progress.outputFile ?? undefined
-        break
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-    }
-    if (!outputUrl) {
-      throw new Error('Lambda render finished without an output file')
-    }
+    // Stage the rendered MP4 in Vercel Blob with a public URL so Cloudinary can
+    // fetch it directly — same shape as the old Lambda→S3 handoff, just with
+    // Blob in place of S3.
+    const {url: stagedBlobUrl} = await uploadToVercelBlob({
+      sandbox,
+      sandboxFilePath,
+      contentType,
+      blobToken: BLOB_TOKEN,
+      access: 'public',
+    })
+    blobUrl = stagedBlobUrl
 
     const durationSeconds =
       (durationInFrames ?? meta.defaultDurationFrames) / (fps ?? meta.fps)
 
-    // Upload to Cloudinary directly from the Lambda output URL — no buffering.
+    // Upload to Cloudinary directly from the Blob URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
-    const uploadResult = (await cloudinary.uploader.upload(outputUrl, {
+    const uploadResult = (await cloudinary.uploader.upload(stagedBlobUrl, {
       resource_type: 'video',
       folder: 'template/videos',
       public_id: filename,
@@ -211,16 +208,13 @@ export async function POST(req: NextRequest) {
       eager_async: false,
     })) as {public_id: string; secure_url: string}
 
-    // The canonical MP4 now lives in Cloudinary, so drop the Lambda S3 copy.
-    // Best-effort: a failure here doesn't affect the rendered result.
+    // The canonical MP4 now lives in Cloudinary, so drop the Blob staging
+    // copy. Best-effort: a failure here doesn't affect the rendered result.
     try {
-      await deleteRender({
-        region: LAMBDA_REGION,
-        bucketName,
-        renderId,
-      })
+      await deleteBlob(stagedBlobUrl, {token: BLOB_TOKEN})
+      blobUrl = null
     } catch (cleanupError) {
-      console.warn('Failed to delete Lambda render from S3:', cleanupError)
+      console.warn('Failed to delete Vercel Blob staging file:', cleanupError)
     }
 
     // Snapshot every variant URL for this composition onto the doc. cloudName
@@ -276,10 +270,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Best-effort cleanup of an orphaned Blob staging file when the render
+    // succeeded but a later step (Cloudinary, Sanity patch) threw.
+    if (blobUrl) {
+      try {
+        await deleteBlob(blobUrl, {token: BLOB_TOKEN})
+      } catch {
+        // ignore
+      }
+    }
+
     return NextResponse.json(
       {error: error instanceof Error ? error.message : 'Render failed'},
       {status: 500, headers: corsHeaders},
     )
+  } finally {
+    // The sandbox is ephemeral but stopping it explicitly releases the slot
+    // immediately rather than waiting for the 5-minute idle timeout.
+    if (sandbox) {
+      await sandbox.stop().catch(() => undefined)
+    }
   }
 }
 
