@@ -4,9 +4,14 @@ import {execSync} from 'node:child_process'
 // build time for the snapshot and as the local-dev fallback inside the render
 // route (when VERCEL=undefined). In production, the bundle ships inside the
 // snapshot — this function isn't called on the hot path.
+//
+// Uses `pnpm exec` rather than the per-package `node_modules/.bin/remotion`
+// shim because this repo's `.npmrc` sets `node-linker=hoisted` — the binary
+// only exists at the workspace-root `node_modules/.bin/`, not inside
+// `apps/web/`. `pnpm exec` walks up to find it.
 export function bundleRemotionProject(bundleDir: string): void {
   try {
-    execSync(`node_modules/.bin/remotion bundle remotion/index.ts --out-dir ./${bundleDir}`, {
+    execSync(`pnpm exec remotion bundle remotion/index.ts --out-dir ./${bundleDir}`, {
       cwd: process.cwd(),
       stdio: 'inherit',
     })
