@@ -8,6 +8,14 @@ You do this once per Vercel project, then never touch it again — bumps to comp
 
 The deps are already in `apps/web/package.json`: `@remotion/vercel`, `@vercel/sandbox`, `@vercel/blob`, and the Remotion CLI/renderer. `pnpm install` from the repo root is enough.
 
+You also need the **Vercel CLI** installed on your machine — that's what generates the [OIDC token](https://vercel.com/docs/sandbox/concepts/authentication) the Sandbox SDK uses to authenticate from your laptop:
+
+```bash
+npm i -g vercel
+```
+
+On a Vercel deployment, OIDC auth is handled automatically — the CLI is only needed for local dev.
+
 ## 2. Connect a Vercel Blob store
 
 The Blob store does two jobs:
@@ -25,16 +33,15 @@ That's it for production — `BLOB_READ_WRITE_TOKEN` is auto-injected on Vercel;
 
 ## 3. Local development
 
-To run renders locally you need the same token on your machine:
+`vercel env pull` does two things at once: it gives the Sandbox SDK an OIDC token to authenticate with (per the [Vercel Sandbox quickstart](https://vercel.com/docs/sandbox/quickstart)), and it pulls `BLOB_READ_WRITE_TOKEN` from the connected Blob store.
 
 ```bash
-# In apps/web/ (or repo root)
-vercel login
-vercel link              # link the local dir to your Vercel project
-vercel env pull .env.local
+vercel login                                # one-time
+vercel link                                 # run from apps/web/; pick the deployed project
+vercel env pull apps/web/.env.local         # writes BLOB_READ_WRITE_TOKEN + the Sandbox OIDC vars
 ```
 
-`vercel env pull` writes `BLOB_READ_WRITE_TOKEN` and any other project envs into the file. The render route reads it via `process.env.BLOB_READ_WRITE_TOKEN`.
+After that, `pnpm dev:web` can spawn sandboxes and stage renders in Blob.
 
 > First local render is slow (~30–90 s): the sandbox boots cold and the Remotion bundle is uploaded into it per request. Production renders skip this via the build-time snapshot below.
 
