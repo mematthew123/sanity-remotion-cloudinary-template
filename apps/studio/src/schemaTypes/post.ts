@@ -76,7 +76,13 @@ export const postType = defineType({
       to: [{type: 'sanity.agentContext'}],
       icon: SparklesIcon,
       description:
-        'Which brand voice the AI field actions use on this post. Leave empty to use the default "brand-voice".',
+        'Which brand voice the AI field actions use on this post. Manage voices under "Brand Voices" in the sidebar. Leave empty to fall back to the default "brand-voice".',
+      options: {
+        // Don't let editors create blank agent-context docs from the post picker —
+        // voices are authored via Studio's "Brand Voices" list (or seeded from
+        // apps/studio/voices/*.md by scripts/seed-agent-context.ts).
+        disableNew: true,
+      },
     }),
     defineField({
       name: 'videoCopy',
