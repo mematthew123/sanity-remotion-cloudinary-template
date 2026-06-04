@@ -8,7 +8,7 @@ import {
 // `useToast` lives in @sanity/ui (it is NOT re-exported from the `sanity`
 // barrel in v5), so import it from there directly.
 import {useToast} from '@sanity/ui'
-import {PlayIcon} from '@sanity/icons'
+import {PlayIcon, SparklesIcon} from '@sanity/icons'
 import type {CompositionId} from '@template/video-core/registry'
 import type {ArticleVideoProps} from '@template/video-core/types'
 
@@ -302,3 +302,147 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
 RenderArticleNarratedAction.displayName = 'Render_article_narrated'
 
 export const RenderArticleNarrated: DocumentActionComponent = RenderArticleNarratedAction
+
+// =============================================================================
+// Generate voiceover — Studio-side trigger for the same TTS pipeline the CLI
+// runs. Editor-friendly path so non-developers can refresh narration after
+// editing the post body. Cheap re-runs hit the Cloudinary cache; only changed
+// paragraphs re-bill ElevenLabs.
+// =============================================================================
+
+function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDescription {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [dryRunInfo, setDryRunInfo] = useState<{
+    chunks: number
+    chars: number
+    estCostUsd: number
+  } | null>(null)
+
+  const baseId = (props.id || '').replace(/^drafts\./, '')
+  const apiUrl =
+    import.meta.env.SANITY_STUDIO_RENDER_API_URL?.replace(/\/api\/video\/render$/, '') ||
+    'http://localhost:3000'
+  const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
+
+  const fetchPreview = async (): Promise<void> => {
+    if (!secret) {
+      toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
+      props.onComplete()
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch(`${apiUrl}/api/voiceover/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({postId: baseId, dryRun: true}),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        chunkCount?: number
+        totalChars?: number
+        estimatedFreshCostUsd?: number
+      }
+      if (!res.ok) {
+        toast.push({status: 'error', title: 'Dry-run failed', description: data.error ?? res.statusText})
+        props.onComplete()
+        return
+      }
+      setDryRunInfo({
+        chunks: data.chunkCount ?? 0,
+        chars: data.totalChars ?? 0,
+        estCostUsd: data.estimatedFreshCostUsd ?? 0,
+      })
+      setConfirmOpen(true)
+    } catch (err) {
+      toast.push({
+        status: 'error',
+        title: 'Could not preview',
+        description: err instanceof Error ? err.message : 'Network error',
+      })
+      props.onComplete()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onConfirm = async () => {
+    setConfirmOpen(false)
+    setBusy(true)
+    toast.push({
+      status: 'info',
+      title: 'Generating voiceover…',
+      description: 'New chunks call ElevenLabs; unchanged chunks are free (Cloudinary cache).',
+    })
+    try {
+      const res = await fetch(`${apiUrl}/api/voiceover/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({postId: baseId}),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        chunkCount?: number
+        cacheHits?: number
+        generated?: number
+        totalSeconds?: number
+      }
+      if (res.ok) {
+        const secs = data.totalSeconds ?? 0
+        const mins = secs > 0 ? `${Math.round(secs / 60)}m` : '?'
+        toast.push({
+          status: 'success',
+          title: `Voiceover ready (${mins} narration)`,
+          description: `${data.generated ?? 0} generated · ${data.cacheHits ?? 0} cached`,
+        })
+      } else {
+        toast.push({
+          status: 'error',
+          title: 'Generation failed',
+          description: data.error ?? res.statusText,
+        })
+      }
+    } catch (err) {
+      toast.push({
+        status: 'error',
+        title: 'Generation request failed',
+        description: err instanceof Error ? err.message : 'Network error',
+      })
+    } finally {
+      setBusy(false)
+      props.onComplete()
+    }
+  }
+
+  return {
+    label: 'Generate voiceover',
+    icon: SparklesIcon,
+    disabled: busy,
+    onHandle: fetchPreview,
+    dialog:
+      confirmOpen && dryRunInfo
+        ? {
+            type: 'confirm',
+            tone: dryRunInfo.estCostUsd > 5 ? 'caution' : 'default',
+            message: `${dryRunInfo.chunks} chunks · ${dryRunInfo.chars} chars · est. cost up to $${dryRunInfo.estCostUsd.toFixed(2)} (cached chunks are free). Continue?`,
+            onConfirm,
+            onCancel: () => {
+              setConfirmOpen(false)
+              props.onComplete()
+            },
+          }
+        : false,
+  }
+}
+
+GenerateVoiceoverAction.displayName = 'Generate_voiceover'
+
+export const GenerateVoiceover: DocumentActionComponent = GenerateVoiceoverAction

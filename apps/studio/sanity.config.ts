@@ -7,6 +7,7 @@ import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {schemaTypes} from './src/schemaTypes'
 import {getDefaultDocumentNode, structure} from './src/structure'
 import {
+  GenerateVoiceover,
   RenderArticleNarrated,
   RenderArticlePromo,
   RenderArticleTeaser,
@@ -208,7 +209,13 @@ export default defineConfig({
     // Surface the one-click "Render" actions on `post` documents only.
     actions: (prev, ctx) =>
       ctx.schemaType === 'post'
-        ? [...prev, RenderArticlePromo, RenderArticleTeaser, RenderArticleNarrated]
+        ? [
+            ...prev,
+            GenerateVoiceover,
+            RenderArticlePromo,
+            RenderArticleTeaser,
+            RenderArticleNarrated,
+          ]
         : prev,
   },
 })
