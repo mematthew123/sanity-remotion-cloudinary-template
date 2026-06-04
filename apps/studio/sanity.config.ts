@@ -6,7 +6,11 @@ import {agentContextPlugin} from '@sanity/agent-context/studio'
 import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {schemaTypes} from './src/schemaTypes'
 import {getDefaultDocumentNode, structure} from './src/structure'
-import {RenderArticlePromo, RenderArticleTeaser} from './src/actions/renderVideo'
+import {
+  RenderArticleNarrated,
+  RenderArticlePromo,
+  RenderArticleTeaser,
+} from './src/actions/renderVideo'
 import {newsletterPlugin} from './src/plugins/newsletter'
 
 // Default brand-voice Agent Context document id. The AI Assist menu exposes
@@ -203,6 +207,8 @@ export default defineConfig({
   document: {
     // Surface the one-click "Render" actions on `post` documents only.
     actions: (prev, ctx) =>
-      ctx.schemaType === 'post' ? [...prev, RenderArticlePromo, RenderArticleTeaser] : prev,
+      ctx.schemaType === 'post'
+        ? [...prev, RenderArticlePromo, RenderArticleTeaser, RenderArticleNarrated]
+        : prev,
   },
 })

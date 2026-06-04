@@ -148,3 +148,157 @@ function makeRenderAction(
 
 export const RenderArticlePromo = makeRenderAction('article-promo', 'Promo (1:1)')
 export const RenderArticleTeaser = makeRenderAction('article-teaser', 'Teaser (9:16)')
+
+// =============================================================================
+// Narrated reading — a separate render action because the props shape diverges
+// from ArticleVideoProps. It reads `post.voiceoverChunks` (populated by the
+// generate-voiceover CLI) instead of `post.videoCopy`, and passes the chunks
+// straight through to the composition.
+// =============================================================================
+
+const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
+  title,
+  publishedAt,
+  "authorName": author->name,
+  "mainImageUrl": mainImage.asset->url,
+  voiceoverChunks
+}`
+
+type NarratedFields = {
+  title?: string
+  publishedAt?: string
+  authorName?: string
+  mainImageUrl?: string
+  voiceoverChunks?: Array<{id: string; text: string; audioUrl: string; durationSeconds: number}>
+}
+
+function RenderArticleNarratedAction(props: DocumentActionProps): DocumentActionDescription {
+  const [isRendering, setIsRendering] = useState(false)
+  const client = useClient({apiVersion: '2024-12-27'})
+  const toast = useToast()
+
+  const onHandle = async () => {
+    const publishedId = (props.id || '').replace(/^drafts\./, '')
+    const snapshot = props.draft ?? props.published
+    if (!snapshot) {
+      toast.push({status: 'warning', title: 'Save the post first'})
+      props.onComplete()
+      return
+    }
+
+    try {
+      let resolved = await client.fetch<NarratedFields | null>(NARRATED_FIELDS_QUERY, {
+        id: publishedId,
+      })
+      if (!resolved) {
+        resolved = await client.fetch<NarratedFields | null>(NARRATED_FIELDS_QUERY, {
+          id: `drafts.${publishedId}`,
+        })
+      }
+
+      const chunks = resolved?.voiceoverChunks ?? []
+      if (chunks.length === 0) {
+        toast.push({
+          status: 'warning',
+          title: 'No voiceover yet',
+          description:
+            'Run: pnpm --filter @template/web generate-voiceover -- --post-id=' + publishedId,
+        })
+        props.onComplete()
+        return
+      }
+
+      // Defensive: every chunk must have a non-zero duration so calculateMetadata
+      // sums to a useful total. Bail loud rather than render an empty video.
+      const totalSeconds = chunks.reduce((sum, c) => sum + (c.durationSeconds ?? 0), 0)
+      if (totalSeconds <= 0) {
+        toast.push({
+          status: 'error',
+          title: 'Voiceover chunks have no duration',
+          description: 'Re-run generate-voiceover — Cloudinary may not have reported durations.',
+        })
+        props.onComplete()
+        return
+      }
+
+      const inputProps = {
+        title: resolved?.title ?? 'Untitled',
+        authorName: resolved?.authorName ?? 'Unknown',
+        publishedAt: resolved?.publishedAt ?? new Date().toISOString(),
+        mainImageUrl: resolved?.mainImageUrl || undefined,
+        chunks,
+      }
+
+      const url =
+        import.meta.env.SANITY_STUDIO_RENDER_API_URL || 'http://localhost:3000/api/video/render'
+      const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
+
+      if (!secret) {
+        toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
+        props.onComplete()
+        return
+      }
+
+      setIsRendering(true)
+      const minutes = Math.round(totalSeconds / 60)
+      toast.push({
+        status: 'info',
+        title: `Rendering ${minutes}-min narrated reading… this may take several minutes.`,
+      })
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({
+          compositionId: 'article-narrated',
+          inputProps,
+          postId: publishedId,
+        }),
+      })
+
+      const data: Record<string, unknown> = await res
+        .json()
+        .catch(() => ({}) as Record<string, unknown>)
+
+      if (res.ok) {
+        toast.push({
+          status: 'success',
+          title: data.idempotent
+            ? 'Narrated reading already rendered'
+            : 'Narrated reading ready — see the Videos list',
+        })
+      } else {
+        const errorDescription =
+          typeof data.error === 'string' ? data.error : res.statusText
+        toast.push({
+          status: 'error',
+          title: 'Render failed',
+          description: errorDescription,
+        })
+      }
+    } catch (err) {
+      toast.push({
+        status: 'error',
+        title: 'Render request failed',
+        description: err instanceof Error ? err.message : 'Network error',
+      })
+    } finally {
+      setIsRendering(false)
+      props.onComplete()
+    }
+  }
+
+  return {
+    label: 'Render narrated reading',
+    icon: PlayIcon,
+    disabled: isRendering,
+    onHandle,
+  }
+}
+
+RenderArticleNarratedAction.displayName = 'Render_article_narrated'
+
+export const RenderArticleNarrated: DocumentActionComponent = RenderArticleNarratedAction

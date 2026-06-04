@@ -18,7 +18,7 @@ import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/v
 import {bundleRemotionProject} from './helpers'
 import {restoreSnapshot} from './restore-snapshot'
 
-export const maxDuration = 300 // Vercel Pro: up to 300s
+export const maxDuration = 800 // Vercel Pro's function-execution ceiling. Article-narrated renders an 8-min reading in ~5-7 min; promo/teaser still finish well under 60s.
 
 // Secrets come from the environment only — no hardcoded fallbacks.
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
@@ -163,6 +163,15 @@ export async function POST(req: NextRequest) {
     // bundle. Locally we create a fresh sandbox and add the bundle per
     // request (slower; matches the reference template's dev fallback).
     sandbox = process.env.VERCEL ? await restoreSnapshot() : await createSandbox()
+
+    // The sandbox is created with a 5-minute timeout by default
+    // (@remotion/vercel's createSandbox + our restore-snapshot.ts constant).
+    // Long-form narrated renders take 5–7 minutes of actual render work, so
+    // extend the budget for the article-narrated composition. The render
+    // route's outer maxDuration (800s on Pro) is the upper bound.
+    if (compositionId === 'article-narrated') {
+      await sandbox.extendTimeout(25 * 60 * 1000)
+    }
 
     if (!process.env.VERCEL) {
       bundleRemotionProject('.remotion-bundle')
