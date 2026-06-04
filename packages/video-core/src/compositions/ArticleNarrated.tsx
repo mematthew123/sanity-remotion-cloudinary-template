@@ -9,8 +9,6 @@ import '../fonts'
 // set via `calculateMetadata` (see registry.ts) from the sum of chunk
 // durations, so the composition body is purely presentational.
 
-const BG_TINT = '#0c0c0c'
-
 /**
  * Bucket caption font size by character length so long paragraphs don't
  * overflow the lower-third box. Pairs with the `lineClamp`/maxHeight safety
@@ -47,88 +45,45 @@ function ChunkScene({chunk, mainImageUrl}: {chunk: ArticleNarratedChunk; mainIma
   const cap = captionStyle(chunk.text.length)
 
   return (
-    <AbsoluteFill style={{backgroundColor: BG_TINT, opacity}}>
+    <AbsoluteFill className="bg-[#0c0c0c]" style={{opacity}}>
       {/* Blurred wash — fills the frame with the image's colors so there are
           no hard black bars, especially when the image is portrait-cropped
           inside a 16:9 frame. Cheap on the GPU; just CSS filter. */}
       {mainImageUrl ? (
         <Img
           src={mainImageUrl}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: 'scale(1.2)',
-            filter: 'blur(48px) saturate(1.1)',
-            opacity: 0.6,
-          }}
+          className="h-full w-full scale-[1.2] object-cover opacity-60 blur-[48px] saturate-[1.1]"
         />
       ) : null}
 
       {/* Foreground image with Ken Burns — left-aligned and constrained to the
           upper two-thirds so it doesn't fight with the caption. */}
       {mainImageUrl ? (
-        <AbsoluteFill
-          style={{
-            // Anchor to the top so the bottom third stays available for text.
-            alignItems: 'flex-start',
-            justifyContent: 'flex-start',
-            padding: 0,
-          }}
-        >
+        <AbsoluteFill className="items-start justify-start p-0">
           <Img
             src={mainImageUrl}
-            style={{
-              width: '100%',
-              height: '68%',
-              objectFit: 'cover',
-              transform: `scale(${zoom})`,
-              transformOrigin: 'center 35%',
-            }}
+            className="h-[68%] w-full origin-[center_35%] object-cover"
+            style={{transform: `scale(${zoom})`}}
           />
         </AbsoluteFill>
       ) : null}
 
       {/* Soft scrim behind the text — only the lower third, not full-frame.
           Keeps the image lively while making the caption legible. */}
-      <AbsoluteFill
-        style={{
-          background:
-            'linear-gradient(to bottom, transparent 0%, transparent 55%, rgba(12,12,12,0.78) 75%, rgba(12,12,12,0.92) 100%)',
-        }}
-      />
+      <AbsoluteFill className="bg-[linear-gradient(to_bottom,transparent_0%,transparent_55%,rgba(12,12,12,0.78)_75%,rgba(12,12,12,0.92)_100%)]" />
 
       {/* Caption — fixed lower-third box, font size bucketed by text length,
           line-clamp safety net so the rare too-long paragraph degrades to a
           tasteful ellipsis instead of overflowing into the image. */}
-      <AbsoluteFill
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-          padding: '0 120px 80px 120px',
-        }}
-      >
+      <AbsoluteFill className="flex items-end justify-center px-[120px] pb-20 pt-0">
         <p
+          className="m-0 max-w-[1440px] overflow-hidden text-center font-medium tracking-[-0.005em] text-white [-webkit-box-orient:vertical] [display:-webkit-box] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
           style={{
-            // Bucketed size keeps long paragraphs from overflowing without
-            // resorting to a runtime measurement pass.
+            // Bucketed size + line clamp are dynamic per chunk length, so they
+            // stay inline. Everything else above is static Tailwind.
             fontSize: cap.fontSize,
             lineHeight: cap.lineHeight,
-            fontWeight: 500,
-            color: '#ffffff',
-            textAlign: 'center',
-            maxWidth: 1440,
-            margin: 0,
-            letterSpacing: '-0.005em',
-            // -webkit-line-clamp + display:-webkit-box truncates anything that
-            // would still exceed the box — never overflow into the image
-            // section above.
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
             WebkitLineClamp: cap.maxLines,
-            overflow: 'hidden',
-            textShadow: '0 2px 24px rgba(0,0,0,0.9)',
           }}
         >
           {chunk.text}
@@ -148,7 +103,7 @@ export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({mainImageUrl, c
   // as the absolute start frame of the child).
   let frameOffset = 0
   return (
-    <AbsoluteFill style={{backgroundColor: BG_TINT}}>
+    <AbsoluteFill className="bg-[#0c0c0c]">
       {chunks.map((chunk) => {
         const durationInFrames = Math.max(1, Math.ceil(chunk.durationSeconds * fps))
         const sequence = (
