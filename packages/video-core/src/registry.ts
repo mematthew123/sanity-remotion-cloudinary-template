@@ -323,3 +323,15 @@ export function snapshotVariants(
     }
   })
 }
+
+// =============================================================================
+// Narration / voiceover (Phase 1 of PLAN-narrated-videos.md)
+// =============================================================================
+//
+// Re-exported here so the generate-voiceover CLI and the future render route
+// can pull these from `@template/video-core/registry` without dragging React
+// into their bundles. The chunker is pure; the hashing/upload logic lives in
+// the CLI itself (in apps/web) to keep video-core free of Node-only deps.
+
+export {chunkPortableTextForNarration} from './voiceover/chunk'
+export type {Chunk, ResolvedChunk} from './voiceover/types'

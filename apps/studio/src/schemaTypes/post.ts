@@ -1,4 +1,4 @@
-import {defineField, defineType} from 'sanity'
+import {defineArrayMember, defineField, defineType} from 'sanity'
 import {DocumentTextIcon, SparklesIcon} from '@sanity/icons'
 
 export const postType = defineType({
@@ -83,6 +83,32 @@ export const postType = defineType({
         // apps/studio/voices/*.md by scripts/seed-agent-context.ts).
         disableNew: true,
       },
+    }),
+    defineField({
+      name: 'voiceoverChunks',
+      title: 'Voiceover chunks',
+      type: 'array',
+      group: 'video',
+      readOnly: true,
+      description:
+        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition (Phase 2). Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
+      of: [
+        defineArrayMember({
+          type: 'object',
+          fields: [
+            defineField({name: 'id', title: 'Chunk ID', type: 'string'}),
+            defineField({name: 'text', title: 'Text', type: 'text', rows: 3}),
+            defineField({name: 'audioUrl', title: 'Audio URL', type: 'url'}),
+          ],
+          preview: {
+            select: {title: 'text', subtitle: 'id'},
+            prepare: ({title, subtitle}) => ({
+              title: typeof title === 'string' ? title.slice(0, 80) : 'Chunk',
+              subtitle: typeof subtitle === 'string' ? subtitle.slice(0, 16) : undefined,
+            }),
+          },
+        }),
+      ],
     }),
     defineField({
       name: 'videoCopy',

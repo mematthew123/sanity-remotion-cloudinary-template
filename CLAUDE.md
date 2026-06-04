@@ -43,7 +43,12 @@ Sanity App SDK video editor    ─┴──► POST /api/video/render (apps/web)
 
 The route stays **synchronous** — the sandbox render completes inside the request (bounded by `maxDuration = 300`) — so the Studio action and video editor app keep reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes.
 
-The render route (`apps/web/app/api/video/render/route.ts`) is **the only server-side mutator** of Sanity content. Everything else (Studio, video editor app, site) triggers it or reads what it produced. That keeps `SANITY_API_WRITE_TOKEN` out of every client bundle.
+The render route (`apps/web/app/api/video/render/route.ts`) is the largest server-side mutator of Sanity content. Two narrower mutators landed alongside the fanout extensions:
+
+- `apps/web/app/api/newsletter/send/route.ts` writes only to the `newsletter` doc (`status`, `sentAt`, `recipientCount`, `resendBroadcastId`) — never touches video docs.
+- The BlueSky Blueprint (`apps/blueprints/functions/bluesky-post/`) writes only `video.socialPostedAt` as an idempotency marker — never touches newsletter docs.
+
+Each mutator owns a non-overlapping slice of the data model, so `SANITY_API_WRITE_TOKEN` still stays out of every client bundle. Studio, the video editor app, and the site only trigger these routes or read what they produced.
 
 ### The React-free registry boundary (the load-bearing invariant)
 
@@ -65,9 +70,19 @@ A variant is a Cloudinary *derivation* of the one canonical MP4. Defined in `pac
 - Each composition opts into a `variantIds[]` set. `eagerTransformsFor(ids)` → Cloudinary `eager` array (materialized at upload). `snapshotVariants(cloudName, publicId, ids)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
 - `variantUrl(cloudName, …)` takes the cloud name as a parameter so `video-core` never imports Cloudinary env. The render route passes `CLOUDINARY_CLOUD_NAME` in.
 
+The catalog is the fanout spine: the site reads `cloudinaryUrl`, the newsletter embeds `site-preview-gif` as the email hero (`<Img>` straight from Cloudinary — no re-host), and the BlueSky Blueprint pulls `social-1x1` for timeline-friendly square crops. Adding a surface usually means consuming a different variant id, not changing the render.
+
 ### Where rendered video surfaces
 
 GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-reference** subquery (`*[_type=="video" && post._ref==^._id && status=="ready" ...]`) — the render route never writes a `videos[]` array back onto the post. `components/VideoPlayer.tsx` plays `cloudinaryUrl` or a variant URL.
+
+### Adding a newsletter
+
+The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio surface for sending a Resend email built around one rendered video. Editors pick a `video` (filtered to ready + variants-defined) and optionally a `post` for the CTA link. The schema's `recipientSelection` switches between `test` (typed-in addresses, looped via `resend.emails.send`) and `audience` (one `resend.broadcasts.create` + `send` against `RESEND_AUDIENCE_ID`). The send route guards against double-sends with `ifRevisionID` on the `draft → sending` patch — concurrent clicks 409 instead of double-billing Resend.
+
+### Adding a Blueprint function
+
+`apps/blueprints/` is a separate pnpm workspace member that deploys Sanity Functions via `npx sanity@latest blueprints deploy`. The current function (`bluesky-post`) listens on `video` mutations matching `status == "ready" && defined(variants) && !defined(socialPostedAt)`, posts the `social-1x1` variant to BlueSky, and patches `socialPostedAt` to exclude the doc from future runs. **Before the first deploy on an existing dataset, run a backfill that patches `socialPostedAt: "backfill"` onto every already-ready video** — otherwise the function fires once for every historical video.
 
 ### Adding a composition
 
@@ -92,13 +107,21 @@ Each surface reads env differently — vars without the right prefix don't reach
 
 `VIDEO_RENDER_SECRET` is a value you invent and **mirror identically** into three places: `VIDEO_RENDER_SECRET` (web), `SANITY_STUDIO_RENDER_SECRET` (studio), `SANITY_APP_RENDER_SECRET` (video app). It is bundled into the Studio/video-app client JS — fine for local/demo, but for public production you must move the trigger behind a session-authenticated proxy instead.
 
+`NEWSLETTER_SEND_SECRET` follows the same mirror pattern (web + `SANITY_STUDIO_NEWSLETTER_SECRET` in the studio). The blast radius is bigger than render — anyone with the bundled secret can send to your Resend audience — so the send route also enforces a server-side guard (`status === 'draft'` precondition + `ifRevisionID` on the `sending` patch) and a 5000-recipient hard cap unless the request includes `confirmLargeSend: true`.
+
+Resend env (web only): `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`. The audience id must already exist in Resend before any audience send. Sender domain must be verified or test sends land in spam.
+
+Blueprint env (`apps/blueprints/.env`, **not** a Studio/web prefix — read at deploy time and forwarded into the function runtime): `BLUESKY_USERNAME`, `BLUESKY_PASSWORD` (app password, not account), `BLUESKY_HOST` (default `bsky.social`), `SANITY_PROJECT_ID`, `SANITY_DATASET`, `SANITY_WRITE_TOKEN` (Editor scope — required because the function patches `video.socialPostedAt` after posting).
+
+ElevenLabs env (web only, optional): `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Used by the `generate-voiceover` script (`pnpm --filter @template/web generate-voiceover -- --post-id=<id>`) to produce per-paragraph narration MP3s hosted on Cloudinary, stored on `post.voiceoverChunks`. Phase 1 of `PLAN-narrated-videos.md`; the render route doesn't read these yet — they're consumed by the (unbuilt) `article-narrated` composition.
+
 `SANITY_APP_*` vars are baked into the App SDK bundle **at build time**. A deployed app with `SANITY_APP_RENDER_API_URL=http://localhost:3000` will call the user's local machine — rebuild and redeploy after pointing it at the deployed web URL.
 
 The site reads published content with **no token** (`useCdn: true`, `perspective: 'published'`) — requires a **public** dataset. If kept private, add a read token in `apps/web/lib/sanity.client.ts`. Writes always use the write token regardless.
 
 ## Sanity Assist + brand voice
 
-Studio adds two AI field actions ("Rewrite in brand voice", "Generate video copy in brand voice") backed by `sanity.agentContext` docs. Multiple voices are supported: each markdown file in `apps/studio/voices/` seeds one voice doc whose id is the filename stem (e.g. `brand-voice.md` → id `brand-voice`, `dead-head.md` → id `dead-head`). Bootstrap with:
+Studio's "Brand AI" field menu exposes **one action per voice doc** in the dataset — `Rewrite as <voice>` on any text-like field, and `Generate video copy as <voice>` on `post.videoCopy`. Voices are `sanity.agentContext` docs. Each markdown file in `apps/studio/voices/` seeds one voice doc whose id is the filename stem (e.g. `brand-voice.md` → id `brand-voice`, `dead-head.md` → id `dead-head`). Bootstrap with:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
@@ -106,7 +129,7 @@ cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-to
 
 The seed uses `createIfNotExists`, so once a voice doc exists, Studio is the source of truth — edit voices in Studio under **Brand Voices**, not in the markdown. To re-bootstrap a voice from its markdown, delete the doc in Studio first and reseed.
 
-Each `post` has an optional `voice` reference under the **Settings** group. The Assist actions read it via `resolveVoiceDocId()` in `apps/studio/sanity.config.ts` and fall back to the default `brand-voice` doc when unset (and for non-post document types).
+Each `post` has an optional `voice` reference under the **Settings** group. It's the post's *preferred* voice — `preferredVoiceId()` in `apps/studio/sanity.config.ts` reads it to bubble that voice to the top of the Assist menu (fallback: `brand-voice`). All voices remain selectable per action; the field is a sort hint, not a gate.
 
 ## Deploy specifics
 
@@ -115,6 +138,7 @@ Each `post` has an optional `voice` reference under the **Settings** group. The 
 - The Vercel function carries no Chromium or compositor binary — `@vercel/sandbox` and `@remotion/vercel` are marked `serverExternalPackages` in `apps/web/next.config.ts`. `outputFileTracingIncludes` ships the local bundle output (`apps/web/.remotion-bundle/`) with the function for the dev-fallback path.
 - The sandbox writes its output to a path inside the VM; `uploadToVercelBlob({access: 'public'})` stages it on Vercel Blob just long enough for Cloudinary to fetch it by URL; the route then `del()`s the Blob staging copy, so the canonical copy lives only in Cloudinary.
 - App SDK first deploy is interactive (free-text title prompt; `-y` won't answer it). After the first run, pin `deployment.appId` in the app's `sanity.cli.ts` — subsequent deploys are non-interactive.
+- Blueprints deploy with `pnpm --filter @template/blueprints deploy` (wraps `npx sanity@latest blueprints deploy`). The deploy reads `apps/blueprints/.env` at definition time and bakes the values into the function's runtime env block. Rotate `SANITY_WRITE_TOKEN` by redeploying — the function does not pick up new env without one.
 
 ## React version pinning
 

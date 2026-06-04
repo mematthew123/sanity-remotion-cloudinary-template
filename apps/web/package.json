@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "bundle:remotion": "remotion bundle remotion/index.ts --out-dir .remotion-bundle",
-    "create-snapshot": "tsx scripts/create-snapshot.mts"
+    "create-snapshot": "tsx scripts/create-snapshot.mts",
+    "generate-voiceover": "tsx scripts/generate-voiceover.ts"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.2",
