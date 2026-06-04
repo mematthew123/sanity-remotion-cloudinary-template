@@ -127,8 +127,13 @@ async function main() {
 
     const cached = await existingVoiceoverUrl(publicId)
     if (cached) {
-      console.log(`  [${i + 1}/${chunks.length}] cache hit  ${id}`)
-      resolved.push({id, text: chunk.text, audioUrl: cached})
+      console.log(`  [${i + 1}/${chunks.length}] cache hit  ${id} · ${cached.durationSeconds.toFixed(2)}s`)
+      resolved.push({
+        id,
+        text: chunk.text,
+        audioUrl: cached.url,
+        durationSeconds: cached.durationSeconds,
+      })
       cacheHits += 1
       continue
     }
@@ -139,10 +144,18 @@ async function main() {
       voiceId: args.voiceId,
       modelId: args.modelId,
     })
-    const url = await uploadVoiceoverMp3(publicId, mp3)
-    resolved.push({id, text: chunk.text, audioUrl: url})
+    const uploaded = await uploadVoiceoverMp3(publicId, mp3)
+    resolved.push({
+      id,
+      text: chunk.text,
+      audioUrl: uploaded.url,
+      durationSeconds: uploaded.durationSeconds,
+    })
     generated += 1
   }
+
+  const totalSeconds = resolved.reduce((sum, c) => sum + c.durationSeconds, 0)
+  console.log(`\nTotal narration: ${totalSeconds.toFixed(1)}s (${Math.round(totalSeconds / 60)}m)`)
 
   // Patch the actual storage id (drafts.X or X) — whichever the fetch returned.
   await sanity.patch(post._id).set({voiceoverChunks: resolved}).commit()

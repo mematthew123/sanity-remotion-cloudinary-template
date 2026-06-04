@@ -99,12 +99,22 @@ export const postType = defineType({
             defineField({name: 'id', title: 'Chunk ID', type: 'string'}),
             defineField({name: 'text', title: 'Text', type: 'text', rows: 3}),
             defineField({name: 'audioUrl', title: 'Audio URL', type: 'url'}),
+            defineField({
+              name: 'durationSeconds',
+              title: 'Duration (seconds)',
+              type: 'number',
+              description:
+                'Captured from Cloudinary at upload. Drives the ArticleNarrated composition\'s calculateMetadata so total length is known synchronously.',
+            }),
           ],
           preview: {
-            select: {title: 'text', subtitle: 'id'},
-            prepare: ({title, subtitle}) => ({
+            select: {title: 'text', subtitle: 'id', duration: 'durationSeconds'},
+            prepare: ({title, subtitle, duration}) => ({
               title: typeof title === 'string' ? title.slice(0, 80) : 'Chunk',
-              subtitle: typeof subtitle === 'string' ? subtitle.slice(0, 16) : undefined,
+              subtitle:
+                typeof subtitle === 'string'
+                  ? `${subtitle.slice(0, 16)}${typeof duration === 'number' ? ` · ${duration.toFixed(1)}s` : ''}`
+                  : undefined,
             }),
           },
         }),

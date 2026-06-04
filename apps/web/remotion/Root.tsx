@@ -18,6 +18,9 @@ export const Root: React.FC = () => (
         height={c.height}
         schema={c.schema}
         defaultProps={c.defaultProps}
+        // ArticleNarrated has dynamic duration; others omit this and rely on
+        // durationInFrames above. Passing undefined is a no-op for Remotion.
+        calculateMetadata={c.calculateMetadata}
       />
     ))}
   </>

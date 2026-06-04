@@ -10,8 +10,9 @@ export type Chunk = {
 
 /**
  * A chunk after the generate-voiceover step has resolved it: deterministic
- * cache id + Cloudinary-hosted MP3 URL. The render route reads this shape off
- * the post (`post.voiceoverChunks`) and passes it into the composition.
+ * cache id, Cloudinary-hosted MP3 URL, and the duration in seconds captured
+ * from Cloudinary's video metadata. The duration lets the composition's
+ * `calculateMetadata` sum scene lengths synchronously without a remote probe.
  *
  * The `id` is computed externally (in apps/web/scripts/generate-voiceover.ts)
  * as `sha256(JSON.stringify({text, voiceId, modelId}))` — putting the hashing
@@ -21,4 +22,5 @@ export type Chunk = {
 export type ResolvedChunk = Chunk & {
   id: string
   audioUrl: string
+  durationSeconds: number
 }

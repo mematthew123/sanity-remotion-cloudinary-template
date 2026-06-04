@@ -1,6 +1,7 @@
 import type React from 'react'
 import {ArticlePromo} from './compositions/ArticlePromo'
 import {ArticleTeaser} from './compositions/ArticleTeaser'
+import {ArticleNarrated} from './compositions/ArticleNarrated'
 import type {CompositionId} from './registry'
 
 // Kept separate from `registry.ts` so consumers that only need metadata (the
@@ -11,6 +12,7 @@ import type {CompositionId} from './registry'
 export const COMPOSITION_COMPONENTS: Record<CompositionId, React.FC<any>> = {
   'article-promo': ArticlePromo,
   'article-teaser': ArticleTeaser,
+  'article-narrated': ArticleNarrated,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

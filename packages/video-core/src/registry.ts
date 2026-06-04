@@ -1,5 +1,11 @@
 import {z} from 'zod'
-import {ArticleVideoPropsSchema, type ArticleVideoProps} from './types'
+import type {CalculateMetadataFunction} from 'remotion'
+import {
+  ArticleNarratedPropsSchema,
+  ArticleVideoPropsSchema,
+  type ArticleNarratedProps,
+  type ArticleVideoProps,
+} from './types'
 
 // =============================================================================
 // Variant catalog
@@ -164,7 +170,7 @@ const VERTICAL_SOCIAL: readonly VariantId[] = [
 // Composition catalog
 // =============================================================================
 
-export type CompositionId = 'article-promo' | 'article-teaser'
+export type CompositionId = 'article-promo' | 'article-teaser' | 'article-narrated'
 
 export type SourceType = 'post'
 
@@ -177,12 +183,21 @@ export type CompositionMeta = {
   width: number
   height: number
   isVertical: boolean
+  /** Seed duration. `calculateMetadata` overrides at render time when defined. */
   defaultDurationFrames: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: z.ZodObject<any, any, any>
-  defaultProps: ArticleVideoProps
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultProps: any
   /** Cloudinary variants this composition opts into (crops that look right). */
   variantIds: readonly VariantId[]
+  /**
+   * Optional dynamic-duration callback. The ArticleNarrated composition uses
+   * this to sum chunk durations into the total frame count — the duration is
+   * data-driven (longer post = longer video), not a fixed seed.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  calculateMetadata?: CalculateMetadataFunction<any>
 }
 
 const articleDefaultProps: ArticleVideoProps = {
@@ -221,6 +236,42 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
     variantIds: [...SITE_BASE, ...VERTICAL_SOCIAL],
+  },
+  {
+    id: 'article-narrated',
+    label: 'Article Narrated',
+    description: '1080p long-form reading of the post body, with TTS narration',
+    sourceType: 'post',
+    fps: 30,
+    width: 1920,
+    height: 1080,
+    isVertical: false,
+    // Studio preview seed only — real duration comes from calculateMetadata.
+    defaultDurationFrames: 300,
+    schema: ArticleNarratedPropsSchema,
+    defaultProps: {
+      title: articleDefaultProps.title,
+      authorName: articleDefaultProps.authorName,
+      publishedAt: articleDefaultProps.publishedAt,
+      chunks: [
+        {
+          id: 'demo-1',
+          text: 'A narrated reading of the article would play here.',
+          audioUrl: '',
+          durationSeconds: 5,
+        },
+      ],
+    } satisfies ArticleNarratedProps,
+    variantIds: [...SITE_BASE],
+    calculateMetadata: (async ({props}) => {
+      const total = (props.chunks ?? []).reduce(
+        (sum: number, c: {durationSeconds?: number}) => sum + (c.durationSeconds ?? 0),
+        0,
+      )
+      // Floor at 30 frames (1s @ 30fps) so empty-chunk renders don't divide-by-zero.
+      const durationInFrames = Math.max(30, Math.ceil(total * 30))
+      return {durationInFrames}
+    }) as CalculateMetadataFunction<ArticleNarratedProps>,
   },
 ]
 

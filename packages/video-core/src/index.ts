@@ -1,7 +1,11 @@
 export {
+  ArticleNarratedChunkSchema,
+  ArticleNarratedPropsSchema,
   ArticleVideoPropsSchema,
   VideoCopySchema,
   COLORS,
+  type ArticleNarratedChunk,
+  type ArticleNarratedProps,
   type ArticleVideoProps,
   type VideoCopy,
 } from './types'
@@ -12,6 +16,7 @@ export {loadedFonts} from './fonts'
 
 export {ArticlePromo} from './compositions/ArticlePromo'
 export {ArticleTeaser} from './compositions/ArticleTeaser'
+export {ArticleNarrated} from './compositions/ArticleNarrated'
 
 export {
   COMPOSITIONS,

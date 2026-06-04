@@ -31,13 +31,28 @@ export function voiceoverPublicId(postId: string, chunkId: string): string {
   return `voiceover/${postId}/${chunkId}`
 }
 
-/** Returns the secure URL if an MP3 already exists at this public_id, or
- *  `null` if not. Any other Cloudinary error bubbles up — the script should
+export type VoiceoverUpload = {
+  url: string
+  /** Audio duration in seconds, as reported by Cloudinary. Drives the
+   *  composition's calculateMetadata so total length is known sync. */
+  durationSeconds: number
+}
+
+/** Returns `{url, durationSeconds}` if an MP3 already exists at this public_id,
+ *  or `null` if not. Any other Cloudinary error bubbles up — the script should
  *  fail loud rather than silently re-bill ElevenLabs. */
-export async function existingVoiceoverUrl(publicId: string): Promise<string | null> {
+export async function existingVoiceoverUrl(publicId: string): Promise<VoiceoverUpload | null> {
   try {
-    const res = await cloudinary.api.resource(publicId, {resource_type: 'video'})
-    return res.secure_url as string
+    // `media_metadata: true` is required to get `duration` in the response —
+    // without it Cloudinary omits the field even for video-type audio assets.
+    const res = await cloudinary.api.resource(publicId, {
+      resource_type: 'video',
+      media_metadata: true,
+    })
+    return {
+      url: res.secure_url as string,
+      durationSeconds: typeof res.duration === 'number' ? res.duration : 0,
+    }
   } catch (err) {
     // SDK shape: `{error: {http_code: 404, message}}` for "not found".
     // Some older versions put `http_code` at the top level — check both.
@@ -49,8 +64,9 @@ export async function existingVoiceoverUrl(publicId: string): Promise<string | n
 }
 
 /** Upload an MP3 buffer to a deterministic Cloudinary public_id. Resolves to
- *  the canonical secure URL. */
-export function uploadVoiceoverMp3(publicId: string, mp3: Buffer): Promise<string> {
+ *  `{url, durationSeconds}` — Cloudinary returns the audio duration in the
+ *  upload response for `resource_type: 'video'` audio assets. */
+export function uploadVoiceoverMp3(publicId: string, mp3: Buffer): Promise<VoiceoverUpload> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -64,7 +80,13 @@ export function uploadVoiceoverMp3(publicId: string, mp3: Buffer): Promise<strin
       (err, result: UploadApiResponse | undefined) => {
         if (err) return reject(err)
         if (!result?.secure_url) return reject(new Error('Cloudinary returned no URL'))
-        resolve(result.secure_url)
+        // `duration` isn't on UploadApiResponse's TS type, but Cloudinary
+        // populates it for video-type uploads at runtime. Read defensively.
+        const duration = (result as unknown as {duration?: unknown}).duration
+        resolve({
+          url: result.secure_url,
+          durationSeconds: typeof duration === 'number' ? duration : 0,
+        })
       },
     )
     stream.end(mp3)
