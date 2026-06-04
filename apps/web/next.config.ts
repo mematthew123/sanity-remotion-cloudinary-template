@@ -12,10 +12,14 @@ const nextConfig: NextConfig = {
         // them, Next.js bundles them against its compiled `react`, then the
         // hooks read the dispatcher from a different React instance (null) and
         // crash with "Cannot read properties of null (reading 'useMemo')".
-        // Same reason for @portabletext/react (PortableText uses useMemo too).
         '@react-email/components',
         '@react-email/render',
-        '@portabletext/react',
+        // NOTE: @portabletext/react is deliberately NOT externalized. It's used
+        // by the post page (server component) where the bundled React instance
+        // matters — externalizing it caused the same null-dispatcher crash in
+        // reverse. The newsletter template now uses a custom Portable Text
+        // walker (apps/web/components/emails/NewsletterTemplate.tsx) instead of
+        // @portabletext/react, so the newsletter side is unaffected.
     ],
     // Workspace package ships raw TS via its `exports` field; Turbopack/Next
     // won't transpile node_modules unless this is set.

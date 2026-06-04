@@ -20,8 +20,8 @@ import {
 // React-free: this whole module is metadata only, so the Sanity schema and the
 // server render route can import it without pulling Remotion into their bundle.
 
-export type VariantSurface = 'site' | 'social'
-export type VariantFormat = 'mp4' | 'gif' | 'jpg' | 'webm'
+export type VariantSurface = 'site' | 'social' | 'youtube' | 'podcast'
+export type VariantFormat = 'mp4' | 'gif' | 'jpg' | 'webm' | 'mp3'
 
 export type VariantId =
   | 'site-mp4'
@@ -34,6 +34,11 @@ export type VariantId =
   | 'tiktok-mp4'
   | 'youtube-short-mp4'
   | 'youtube-thumbnail-jpg'
+  // ----- Long-form (article-narrated and any future long-form composition) -
+  | 'youtube-1080p-mp4'
+  | 'podcast-mp3'
+  | 'longform-tiktok-30s-mp4'
+  | 'longform-shorts-60s-mp4'
 
 export type VariantDef = {
   id: VariantId
@@ -152,9 +157,72 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     height: 720,
     eager: true,
   },
+
+  // ----- Long-form: full YouTube upload (the canonical render at 1080p) ---
+  'youtube-1080p-mp4': {
+    id: 'youtube-1080p-mp4',
+    label: 'YouTube 1080p',
+    surface: 'youtube',
+    format: 'mp4',
+    // Pad rather than crop — the source is already 1920x1080. `f_auto,q_auto`
+    // lets Cloudinary swap to AV1/HEVC where the client supports it.
+    transformation: 'w_1920,h_1080,c_pad,b_black,f_auto,q_auto',
+    width: 1920,
+    height: 1080,
+    eager: true,
+  },
+
+  // ----- Long-form: podcast (audio-only extraction) -----------------------
+  'podcast-mp3': {
+    id: 'podcast-mp3',
+    label: 'Podcast MP3',
+    surface: 'podcast',
+    format: 'mp3',
+    // `f_mp3` on a video resource asks Cloudinary to serve the audio track
+    // only — no re-encode of the video needed; Cloudinary slices the audio
+    // from the canonical MP4 on the fly.
+    transformation: 'f_mp3',
+    eager: true,
+  },
+
+  // ----- Long-form: short-form snippets (first N seconds, vertical) -------
+  // `du_<seconds>` trims the duration starting from the beginning of the
+  // video; `c_fill,g_center` crops 16:9 → 9:16. The two variants differ only
+  // in clip length so platforms with different limits each get a usable cut
+  // without re-rendering.
+  'longform-tiktok-30s-mp4': {
+    id: 'longform-tiktok-30s-mp4',
+    label: 'TikTok 30s Clip',
+    surface: 'social',
+    format: 'mp4',
+    transformation: 'du_30,c_fill,g_center,w_1080,h_1920,f_mp4,q_auto',
+    width: 1080,
+    height: 1920,
+    eager: true,
+  },
+  'longform-shorts-60s-mp4': {
+    id: 'longform-shorts-60s-mp4',
+    label: 'YouTube Shorts 60s Clip',
+    surface: 'social',
+    format: 'mp4',
+    transformation: 'du_60,c_fill,g_center,w_1080,h_1920,f_mp4,q_auto',
+    width: 1080,
+    height: 1920,
+    eager: true,
+  },
 }
 
 const SITE_BASE: readonly VariantId[] = ['site-mp4', 'site-poster-jpg', 'site-preview-gif']
+
+// Long-form variants for the narrated composition. Render once → fan out to
+// YouTube full-length, audio-only podcast feed, and short-form social clips
+// auto-cut from the head of the video.
+const LONG_FORM_BASE: readonly VariantId[] = [
+  'youtube-1080p-mp4',
+  'podcast-mp3',
+  'longform-tiktok-30s-mp4',
+  'longform-shorts-60s-mp4',
+]
 const SQUARE_SOCIAL: readonly VariantId[] = [
   'instagram-square-mp4',
   'twitter-square-mp4',
@@ -262,7 +330,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
         },
       ],
     } satisfies ArticleNarratedProps,
-    variantIds: [...SITE_BASE],
+    variantIds: [...SITE_BASE, ...LONG_FORM_BASE],
     calculateMetadata: (async ({props}) => {
       const total = (props.chunks ?? []).reduce(
         (sum: number, c: {durationSeconds?: number}) => sum + (c.durationSeconds ?? 0),

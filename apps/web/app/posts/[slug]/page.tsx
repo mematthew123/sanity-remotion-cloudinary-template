@@ -12,6 +12,7 @@ import {
   singlePostQuery,
   type Video,
 } from '@/lib/sanity.queries';
+import NarratedReadingHero from '@/components/NarratedReadingHero';
 import VideoPlayer from '@/components/VideoPlayer';
 
 export const revalidate = 60;
@@ -125,6 +126,13 @@ export default async function PostPage({
     ? urlFor(post.mainImage).width(1200).height(675).fit('crop').url()
     : null;
 
+  // Split videos: the narrated reading gets its own hero treatment (it's
+  // long-form with audio, deserves prominence). Short-form promo/teaser stay
+  // in the existing grid below the body.
+  const allVideos = post.videos ?? [];
+  const narratedReading = allVideos.find((v) => v.template === 'article-narrated') ?? null;
+  const shortFormVideos = allVideos.filter((v) => v.template !== 'article-narrated');
+
   return (
     <article className='mx-auto max-w-3xl px-6 py-12'>
       <header className='mb-8'>
@@ -154,17 +162,24 @@ export default async function PostPage({
         )}
       </header>
 
-      {mainImageUrl && (
-        <div className='relative mb-10 aspect-video w-full overflow-hidden border border-foreground bg-muted/10'>
-          <Image
-            src={mainImageUrl}
-            alt={post.title ?? ''}
-            fill
-            sizes='(max-width: 768px) 100vw, 768px'
-            className='object-cover'
-            priority
-          />
-        </div>
+      {/* When a narrated reading exists, surface it instead of (and where) the
+          static main image would go. The mainImage doubles as the video's
+          poster frame inside the hero. */}
+      {narratedReading ? (
+        <NarratedReadingHero video={narratedReading} posterUrl={mainImageUrl} />
+      ) : (
+        mainImageUrl && (
+          <div className='relative mb-10 aspect-video w-full overflow-hidden border border-foreground bg-muted/10'>
+            <Image
+              src={mainImageUrl}
+              alt={post.title ?? ''}
+              fill
+              sizes='(max-width: 768px) 100vw, 768px'
+              className='object-cover'
+              priority
+            />
+          </div>
+        )
       )}
 
       {post.body && post.body.length > 0 && (
@@ -173,7 +188,7 @@ export default async function PostPage({
         </div>
       )}
 
-      <VideoPlayer videos={post.videos ?? []} />
+      <VideoPlayer videos={shortFormVideos} />
     </article>
   );
 }
