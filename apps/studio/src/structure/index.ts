@@ -1,5 +1,12 @@
 import type {DefaultDocumentNodeResolver, StructureBuilder} from 'sanity/structure'
-import {DocumentTextIcon, ImagesIcon, PlayIcon, SparklesIcon, UserIcon} from '@sanity/icons'
+import {
+  DocumentTextIcon,
+  EnvelopeIcon,
+  ImagesIcon,
+  PlayIcon,
+  SparklesIcon,
+  UserIcon,
+} from '@sanity/icons'
 import {VariantViewer} from '../components/VariantViewer'
 
 export const structure = (S: StructureBuilder) =>
@@ -10,6 +17,7 @@ export const structure = (S: StructureBuilder) =>
       S.documentTypeListItem('author').title('Authors').icon(UserIcon),
       S.divider(),
       S.documentTypeListItem('video').title('Videos').icon(PlayIcon),
+      S.documentTypeListItem('newsletter').title('Newsletters').icon(EnvelopeIcon),
       S.divider(),
       // Brand-voice Agent Context docs (@sanity/agent-context). Surfaced so
       // editors can read/tune the voices that AI Assist actions follow. Each

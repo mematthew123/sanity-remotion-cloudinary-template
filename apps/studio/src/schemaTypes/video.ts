@@ -150,6 +150,15 @@ export const videoType = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'socialPostedAt',
+      title: 'Social Posted At',
+      type: 'datetime',
+      group: 'technical',
+      readOnly: true,
+      description:
+        'Set by the BlueSky Blueprint after a successful post. Its presence excludes the doc from the Blueprint filter, preventing double-posts on re-renders.',
+    }),
+    defineField({
       name: 'inputProps',
       title: 'Input Props',
       type: 'text',

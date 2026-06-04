@@ -7,6 +7,7 @@ import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {schemaTypes} from './src/schemaTypes'
 import {getDefaultDocumentNode, structure} from './src/structure'
 import {RenderArticlePromo, RenderArticleTeaser} from './src/actions/renderVideo'
+import {newsletterPlugin} from './src/plugins/newsletter'
 
 // Default brand-voice Agent Context document id. The AI Assist menu exposes
 // one action per voice doc found in the dataset; this id is the fallback
@@ -69,6 +70,7 @@ export default defineConfig({
     structureTool({structure, defaultDocumentNode: getDefaultDocumentNode}),
     visionTool(),
     agentContextPlugin(),
+    newsletterPlugin(),
     assist({
       fieldActions: {
         title: 'Brand AI',

@@ -80,3 +80,84 @@ export type Video = {
     slug: { current: string } | null;
   } | null;
 };
+
+// Loads a newsletter doc with its hero video (variant URLs flattened to the top
+// of the video projection) plus the optional linked post used for the CTA.
+// Used by /api/newsletter/{preview,send}. The send route reads `_rev` for the
+// optimistic-concurrency guard on the draft→sending transition.
+// Shared projection for both query variants below — keeps the shape identical.
+const NEWSLETTER_PROJECTION = /* groq */ `{
+  _id,
+  _rev,
+  title,
+  subject,
+  previewText,
+  intro,
+  recipientSelection,
+  status,
+  sentAt,
+  recipientCount,
+  resendBroadcastId,
+  video->{
+    _id,
+    title,
+    cloudinaryPublicId,
+    status,
+    "gifUrl": variants[variantId == "site-preview-gif"][0].url,
+    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
+    "squareUrl": variants[variantId == "social-1x1"][0].url
+  },
+  post->{
+    title,
+    excerpt,
+    "slug": slug.current,
+    publishedAt,
+    "authorName": author->name
+  }
+}`;
+
+// Used by /api/newsletter/preview — relies on `perspective: 'drafts'` to find
+// the in-progress doc. _id may be rewritten to the base form by the perspective.
+export const newsletterByIdQuery = defineQuery(/* groq */ `
+  *[_type == "newsletter" && _id == $id][0]${NEWSLETTER_PROJECTION}
+`);
+
+// Used by /api/newsletter/send under `perspective: 'raw'`. Returns the actual
+// storage _id (drafts.X or X) so the ifRevisionID patch targets the right doc.
+// Order by _updatedAt so the draft (newer) wins when both exist.
+export const newsletterByEitherIdQuery = defineQuery(/* groq */ `
+  *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]${NEWSLETTER_PROJECTION}
+`);
+
+export type NewsletterForSend = {
+  _id: string;
+  _rev: string;
+  title: string | null;
+  subject: string | null;
+  previewText: string | null;
+  intro: unknown[] | null;
+  recipientSelection: {
+    selectionType: 'test' | 'audience' | null;
+    testEmails: string[] | null;
+  } | null;
+  status: 'draft' | 'sending' | 'sent' | 'failed' | null;
+  sentAt: string | null;
+  recipientCount: number | null;
+  resendBroadcastId: string | null;
+  video: {
+    _id: string;
+    title: string | null;
+    cloudinaryPublicId: string | null;
+    status: string | null;
+    gifUrl: string | null;
+    posterUrl: string | null;
+    squareUrl: string | null;
+  } | null;
+  post: {
+    title: string | null;
+    excerpt: string | null;
+    slug: string | null;
+    publishedAt: string | null;
+    authorName: string | null;
+  } | null;
+};

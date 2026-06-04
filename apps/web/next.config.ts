@@ -5,7 +5,18 @@ const nextConfig: NextConfig = {
     // sandbox + vercel-remotion libs external so their native bits aren't
     // Turbopack-bundled into the function. Rendering happens inside the
     // sandbox, so no Chromium / compositor binaries ship with the function.
-    serverExternalPackages: ['@vercel/sandbox', '@remotion/vercel'],
+    serverExternalPackages: [
+        '@vercel/sandbox',
+        '@remotion/vercel',
+        // React-Email components call hooks at render time. Without externalizing
+        // them, Next.js bundles them against its compiled `react`, then the
+        // hooks read the dispatcher from a different React instance (null) and
+        // crash with "Cannot read properties of null (reading 'useMemo')".
+        // Same reason for @portabletext/react (PortableText uses useMemo too).
+        '@react-email/components',
+        '@react-email/render',
+        '@portabletext/react',
+    ],
     // Workspace package ships raw TS via its `exports` field; Turbopack/Next
     // won't transpile node_modules unless this is set.
     transpilePackages: ['@template/video-core'],
