@@ -30,7 +30,7 @@ export default async function HomePage() {
         </p>
         <Link
           href='/videos'
-          className='mt-6 inline-block border border-foreground px-5 py-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-white'
+          className='mt-6 inline-block border border-foreground px-5 py-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background'
         >
           Browse all videos
         </Link>

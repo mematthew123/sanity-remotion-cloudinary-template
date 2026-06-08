@@ -12,7 +12,7 @@ import {
   Section,
   Text,
 } from '@react-email/components';
-import {PortableText, type PortableTextReactComponents} from '@portabletext/react';
+import type {ReactNode} from 'react';
 import type {NewsletterForSend} from '@/lib/sanity.queries';
 
 export interface NewsletterTemplateProps {
@@ -80,20 +80,63 @@ const styles = {
   footer: {color: '#999999', fontSize: '12px', lineHeight: '18px', textAlign: 'center' as const, margin: 0},
 };
 
-const introComponents: Partial<PortableTextReactComponents> = {
-  block: {
-    normal: ({children}) => <Text style={styles.intro}>{children}</Text>,
-  },
-  marks: {
-    link: ({children, value}) => (
-      <Link href={value?.href ?? '#'} style={{color: '#111111', textDecoration: 'underline'}}>
-        {children}
-      </Link>
-    ),
-    em: ({children}) => <em>{children}</em>,
-    strong: ({children}) => <strong>{children}</strong>,
-  },
+// Inline Portable Text walker. We don't import @portabletext/react here because
+// the post page depends on it not being externalized, while @react-email/* must
+// be externalized — mixing the two in this file crashes the email render with a
+// null-dispatcher (two React instances). See next.config.ts.
+type PtSpan = {_type: 'span'; _key?: string; text: string; marks?: string[]};
+type PtMarkDef = {_key: string; _type: string; href?: string};
+type PtBlock = {
+  _type: 'block';
+  _key?: string;
+  style?: string;
+  children?: PtSpan[];
+  markDefs?: PtMarkDef[];
 };
+
+function renderSpan(span: PtSpan, markDefs: PtMarkDef[], key: string): ReactNode {
+  let node: ReactNode = span.text;
+  for (const mark of span.marks ?? []) {
+    if (mark === 'em') {
+      node = <em key={`em-${key}`}>{node}</em>;
+      continue;
+    }
+    if (mark === 'strong') {
+      node = <strong key={`strong-${key}`}>{node}</strong>;
+      continue;
+    }
+    const def = markDefs.find((d) => d._key === mark);
+    if (def?._type === 'link') {
+      node = (
+        <Link
+          key={`link-${key}`}
+          href={def.href ?? '#'}
+          style={{color: '#111111', textDecoration: 'underline'}}
+        >
+          {node}
+        </Link>
+      );
+    }
+  }
+  return <span key={key}>{node}</span>;
+}
+
+function renderIntro(blocks: unknown[]): ReactNode {
+  return blocks.map((raw, blockIdx) => {
+    const block = raw as PtBlock;
+    if (block?._type !== 'block') return null;
+    if ((block.style ?? 'normal') !== 'normal') return null;
+    const key = block._key ?? `b-${blockIdx}`;
+    const markDefs = block.markDefs ?? [];
+    return (
+      <Text key={key} style={styles.intro}>
+        {(block.children ?? []).map((span, spanIdx) =>
+          renderSpan(span, markDefs, span._key ?? `${key}-${spanIdx}`),
+        )}
+      </Text>
+    );
+  });
+}
 
 // Hero block factored out so the wrapper differs by whether we have a click
 // target: a real <a> when ctaHref exists (whole hero clicks to the post), a
@@ -147,9 +190,7 @@ export function NewsletterTemplate({newsletter, siteUrl, unsubscribeUrl}: Newsle
           {previewText ? <Text style={styles.preheader}>{previewText}</Text> : null}
 
           {intro && Array.isArray(intro) && intro.length > 0 ? (
-            <Section>
-              <PortableText value={intro as never} components={introComponents} />
-            </Section>
+            <Section>{renderIntro(intro)}</Section>
           ) : null}
 
           {heroUrl ? <Hero heroUrl={heroUrl} heroAlt={heroAlt} ctaHref={ctaHref} /> : null}
