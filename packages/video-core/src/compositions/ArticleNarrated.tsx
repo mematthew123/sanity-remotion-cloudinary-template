@@ -4,10 +4,11 @@ import type {ArticleNarratedChunk, ArticleNarratedProps} from '../types'
 import '../fonts'
 
 // Long-form narrated reading. Each chunk is one paragraph: its MP3 plays in a
-// dedicated <Sequence>, with a Ken-Burns pan on the post's main image behind a
-// lower-third caption of the spoken text. The composition's total duration is
-// set via `calculateMetadata` (see registry.ts) from the sum of chunk
-// durations, so the composition body is purely presentational.
+// dedicated <Sequence> for exact audio timing. The background image, blurred
+// wash, Ken-Burns pan, and bottom scrim are rendered ONCE at the root so they
+// stay continuous across the entire video — only the caption text crossfades
+// at paragraph boundaries. The composition's total duration is set via
+// `calculateMetadata` (see registry.ts) from the sum of chunk durations.
 
 /**
  * Bucket caption font size by character length so long paragraphs don't
@@ -22,75 +23,85 @@ function captionStyle(textLength: number): {fontSize: number; lineHeight: number
   return {fontSize: 30, lineHeight: 1.4, maxLines: 7}
 }
 
-function ChunkScene({chunk, mainImageUrl}: {chunk: ArticleNarratedChunk; mainImageUrl?: string}) {
+type TimedChunk = ArticleNarratedChunk & {startFrame: number; endFrame: number}
+
+function ContinuousBackground({mainImageUrl}: {mainImageUrl?: string}) {
   const frame = useCurrentFrame()
   const {durationInFrames} = useVideoConfig()
 
-  // Slow zoom Ken Burns: 1.0 → 1.06 across the scene. Subtle so the eye
-  // isn't pulled away from the caption.
-  const zoom = interpolate(frame, [0, durationInFrames], [1, 1.06], {
+  // One slow zoom across the entire video — no per-scene resets.
+  const zoom = interpolate(frame, [0, durationInFrames], [1, 1.08], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   })
-
-  // Crossfade in/out: 18 frames (0.6s @ 30fps). Slightly longer than the
-  // previous 15 frames so scene transitions feel more cinematic.
-  const fadeIn = interpolate(frame, [0, 18], [0, 1], {extrapolateRight: 'clamp'})
-  const fadeOut = interpolate(frame, [durationInFrames - 18, durationInFrames], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  const opacity = Math.min(fadeIn, fadeOut)
-
-  const cap = captionStyle(chunk.text.length)
 
   return (
-    <AbsoluteFill className="bg-[#0c0c0c]" style={{opacity}}>
-      {/* Blurred wash — fills the frame with the image's colors so there are
-          no hard black bars, especially when the image is portrait-cropped
-          inside a 16:9 frame. Cheap on the GPU; just CSS filter. */}
+    <AbsoluteFill className="bg-[#0c0c0c]">
       {mainImageUrl ? (
-        <Img
-          src={mainImageUrl}
-          className="h-full w-full scale-[1.2] object-cover opacity-60 blur-[48px] saturate-[1.1]"
-        />
-      ) : null}
-
-      {/* Foreground image with Ken Burns — left-aligned and constrained to the
-          upper two-thirds so it doesn't fight with the caption. */}
-      {mainImageUrl ? (
-        <AbsoluteFill className="items-start justify-start p-0">
+        <>
           <Img
             src={mainImageUrl}
-            className="h-[68%] w-full origin-[center_35%] object-cover"
-            style={{transform: `scale(${zoom})`}}
+            className="h-full w-full scale-[1.2] object-cover opacity-60 blur-[48px] saturate-[1.1]"
           />
-        </AbsoluteFill>
+          <AbsoluteFill className="items-start justify-start p-0">
+            <Img
+              src={mainImageUrl}
+              className="h-[68%] w-full origin-[center_35%] object-cover"
+              style={{transform: `scale(${zoom})`}}
+            />
+          </AbsoluteFill>
+        </>
       ) : null}
-
-      {/* Soft scrim behind the text — only the lower third, not full-frame.
-          Keeps the image lively while making the caption legible. */}
       <AbsoluteFill className="bg-[linear-gradient(to_bottom,transparent_0%,transparent_55%,rgba(12,12,12,0.78)_75%,rgba(12,12,12,0.92)_100%)]" />
+    </AbsoluteFill>
+  )
+}
 
-      {/* Caption — fixed lower-third box, font size bucketed by text length,
-          line-clamp safety net so the rare too-long paragraph degrades to a
-          tasteful ellipsis instead of overflowing into the image. */}
-      <AbsoluteFill className="flex items-end justify-center px-[120px] pb-20 pt-0">
-        <p
-          className="m-0 max-w-[1440px] overflow-hidden text-center font-medium tracking-[-0.005em] text-white [-webkit-box-orient:vertical] [display:-webkit-box] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
-          style={{
-            // Bucketed size + line clamp are dynamic per chunk length, so they
-            // stay inline. Everything else above is static Tailwind.
-            fontSize: cap.fontSize,
-            lineHeight: cap.lineHeight,
-            WebkitLineClamp: cap.maxLines,
-          }}
-        >
-          {chunk.text}
-        </p>
-      </AbsoluteFill>
+// Caption crossfade duration — short enough that the swap feels snappy, long
+// enough that the eye registers the transition rather than a jump cut.
+const CAPTION_FADE_FRAMES = 10
 
-      <Audio src={chunk.audioUrl} />
+function CaptionTrack({chunks}: {chunks: TimedChunk[]}) {
+  const frame = useCurrentFrame()
+
+  return (
+    <AbsoluteFill className="flex items-end justify-center px-[120px] pb-20 pt-0">
+      {chunks.map((chunk) => {
+        // Overlapping ramps: a caption begins fading IN before the previous
+        // one finishes fading OUT, producing a true crossfade with no blank
+        // gap. The fade is anchored to scene boundaries so audio timing
+        // (hard cuts in the Sequence layer above) stays exact.
+        const opacity = interpolate(
+          frame,
+          [
+            chunk.startFrame - CAPTION_FADE_FRAMES,
+            chunk.startFrame + CAPTION_FADE_FRAMES,
+            chunk.endFrame - CAPTION_FADE_FRAMES,
+            chunk.endFrame + CAPTION_FADE_FRAMES,
+          ],
+          [0, 1, 1, 0],
+          {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+        )
+
+        if (opacity <= 0) return null
+
+        const cap = captionStyle(chunk.text.length)
+
+        return (
+          <p
+            key={chunk.id}
+            className="absolute bottom-20 left-1/2 m-0 w-[calc(100%-240px)] max-w-[1440px] -translate-x-1/2 overflow-hidden text-center font-medium tracking-[-0.005em] text-white [-webkit-box-orient:vertical] [display:-webkit-box] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
+            style={{
+              fontSize: cap.fontSize,
+              lineHeight: cap.lineHeight,
+              WebkitLineClamp: cap.maxLines,
+              opacity,
+            }}
+          >
+            {chunk.text}
+          </p>
+        )
+      })}
     </AbsoluteFill>
   )
 }
@@ -98,22 +109,32 @@ function ChunkScene({chunk, mainImageUrl}: {chunk: ArticleNarratedChunk; mainIma
 export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({mainImageUrl, chunks}) => {
   const {fps} = useVideoConfig()
 
-  // Walk the chunks once, computing the running frame offset. Each chunk lives
-  // in its own Sequence so timing is exact (Remotion treats Sequence's `from`
-  // as the absolute start frame of the child).
+  // Walk the chunks once, computing each chunk's absolute start/end frame so
+  // the caption track and the audio sequences can share the same timeline.
   let frameOffset = 0
+  const timedChunks: TimedChunk[] = chunks.map((chunk) => {
+    const durationInFrames = Math.max(1, Math.ceil(chunk.durationSeconds * fps))
+    const startFrame = frameOffset
+    const endFrame = frameOffset + durationInFrames
+    frameOffset = endFrame
+    return {...chunk, startFrame, endFrame}
+  })
+
   return (
     <AbsoluteFill className="bg-[#0c0c0c]">
-      {chunks.map((chunk) => {
-        const durationInFrames = Math.max(1, Math.ceil(chunk.durationSeconds * fps))
-        const sequence = (
-          <Sequence key={chunk.id} from={frameOffset} durationInFrames={durationInFrames}>
-            <ChunkScene chunk={chunk} mainImageUrl={mainImageUrl} />
-          </Sequence>
-        )
-        frameOffset += durationInFrames
-        return sequence
-      })}
+      <ContinuousBackground mainImageUrl={mainImageUrl} />
+
+      <CaptionTrack chunks={timedChunks} />
+
+      {timedChunks.map((chunk) => (
+        <Sequence
+          key={chunk.id}
+          from={chunk.startFrame}
+          durationInFrames={chunk.endFrame - chunk.startFrame}
+        >
+          <Audio src={chunk.audioUrl} />
+        </Sequence>
+      ))}
     </AbsoluteFill>
   )
 }
