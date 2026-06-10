@@ -10,7 +10,13 @@ const snapshotBlobKey = () =>
 // scripts/create-snapshot.ts. The snapshot already contains the Remotion bundle
 // uploaded via addBundleToSandbox, so the render route skips the bundle step in
 // production and just renders inside the resumed sandbox.
-export async function restoreSnapshot() {
+//
+// `vcpus` overrides the default vCPU allocation (each vCPU also gets 2048 MB
+// of memory). Long-form narrated renders need more CPU than the default to
+// finish inside `maxDuration` — observed default sandbox does ~0.7 frames/sec
+// on a 1920x1080 narrated composition, which can't finish a multi-minute
+// reading in 13 minutes.
+export async function restoreSnapshot({vcpus}: {vcpus?: number} = {}) {
   const blob = await head(snapshotBlobKey(), {
     token: process.env.BLOB_READ_WRITE_TOKEN,
   })
@@ -29,5 +35,6 @@ export async function restoreSnapshot() {
   return Sandbox.create({
     source: {type: 'snapshot', snapshotId},
     timeout: SANDBOX_TIMEOUT_MS,
+    ...(vcpus ? {resources: {vcpus}} : {}),
   })
 }
