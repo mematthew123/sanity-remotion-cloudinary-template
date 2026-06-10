@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
       _type: 'video',
       title: `${validatedProps.title} — ${meta.label}`,
       status: 'rendering',
+      renderStartedAt: new Date().toISOString(),
       ...(postId ? {post: {_type: 'reference', _ref: postId, _weak: true}} : {}),
       format: 'mp4',
       template: compositionId,
@@ -204,17 +205,23 @@ export async function POST(req: NextRequest) {
     // Upload to Cloudinary directly from the Blob URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
+    // Long-form renders ask Cloudinary to transcode the full video (e.g.
+    // youtube-1080p-mp4) and extract the full podcast-mp3. With sync eagers
+    // that blocks the render function for multiple minutes on top of the
+    // already-long render — enough to blow past `maxDuration` and leave the
+    // doc stuck in `rendering` because the platform hard-kills the process
+    // before the catch block can mark it `failed`. Async eagers let
+    // Cloudinary queue the derivations and return immediately; the variant
+    // URLs are deterministic and resolve lazily on first request.
+    const isLongForm = compositionId === 'article-narrated'
+
     const uploadResult = (await cloudinary.uploader.upload(stagedBlobUrl, {
       resource_type: 'video',
       folder: 'template/videos',
       public_id: filename,
       overwrite: true,
-      // Materialize the composition's eager variants synchronously at upload
-      // time so their URLs are valid the moment we patch the doc. The canonical
-      // render stays a single MP4; variants are Cloudinary derivations of it
-      // (no extra renders).
       eager: eagerTransformsFor(meta.variantIds),
-      eager_async: false,
+      eager_async: isLongForm,
     })) as {public_id: string; secure_url: string}
 
     // The canonical MP4 now lives in Cloudinary, so drop the Blob staging

@@ -143,6 +143,15 @@ export const videoType = defineType({
       ],
     }),
     defineField({
+      name: 'renderStartedAt',
+      title: 'Render Started At',
+      type: 'datetime',
+      group: 'technical',
+      readOnly: true,
+      description:
+        'Set when the doc enters status "rendering". Lets a sweeper detect docs whose function was killed by the platform mid-render and never reached "failed".',
+    }),
+    defineField({
       name: 'renderedAt',
       title: 'Rendered At',
       type: 'datetime',
@@ -164,7 +173,6 @@ export const videoType = defineType({
       type: 'text',
       group: 'technical',
       description: 'JSON snapshot of the props used to render this video',
-      readOnly: true,
     }),
   ],
   orderings: [
