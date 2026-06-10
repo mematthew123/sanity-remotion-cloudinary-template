@@ -163,14 +163,24 @@ export async function POST(req: NextRequest) {
     // build time (scripts/create-snapshot.ts) — fast and includes the Remotion
     // bundle. Locally we create a fresh sandbox and add the bundle per
     // request (slower; matches the reference template's dev fallback).
-    sandbox = process.env.VERCEL ? await restoreSnapshot() : await createSandbox()
+    //
+    // Narrated renders are CPU-bound (default sandbox observed at ~0.7
+    // frames/sec on a 1920x1080 composition — a 3-min video then needs >2
+    // hours to finish, well past `maxDuration`). Allocate 8 vCPU so multiple
+    // frames render in parallel; promo/teaser stay on the default.
+    const isLongForm = compositionId === 'article-narrated'
+    const sandboxVcpus = isLongForm ? 8 : undefined
+
+    sandbox = process.env.VERCEL
+      ? await restoreSnapshot({vcpus: sandboxVcpus})
+      : await createSandbox()
 
     // The sandbox is created with a 5-minute timeout by default
     // (@remotion/vercel's createSandbox + our restore-snapshot.ts constant).
     // Long-form narrated renders take 5–7 minutes of actual render work, so
     // extend the budget for the article-narrated composition. The render
     // route's outer maxDuration (800s on Pro) is the upper bound.
-    if (compositionId === 'article-narrated') {
+    if (isLongForm) {
       await sandbox.extendTimeout(25 * 60 * 1000)
     }
 
@@ -194,6 +204,10 @@ export async function POST(req: NextRequest) {
       compositionId,
       inputProps: validatedProps,
       codec: 'h264',
+      // Match concurrency to the sandbox vCPU count so each core is busy.
+      // Default (auto-detect) often resolves to 1 inside the sandbox, which
+      // serializes frame rendering and starves the larger box.
+      ...(sandboxVcpus ? {concurrency: sandboxVcpus} : {}),
       onProgress: (progress) => {
         lastStage = progress.stage
         if (progress.stage === 'render-progress') {
@@ -243,8 +257,6 @@ export async function POST(req: NextRequest) {
     // before the catch block can mark it `failed`. Async eagers let
     // Cloudinary queue the derivations and return immediately; the variant
     // URLs are deterministic and resolve lazily on first request.
-    const isLongForm = compositionId === 'article-narrated'
-
     const uploadResult = (await cloudinary.uploader.upload(stagedBlobUrl, {
       resource_type: 'video',
       folder: 'template/videos',
