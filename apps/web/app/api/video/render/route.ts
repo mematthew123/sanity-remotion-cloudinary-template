@@ -180,12 +180,42 @@ export async function POST(req: NextRequest) {
     }
 
     // Render inside the sandbox. Output is written to a path inside the VM.
-    const {sandboxFilePath, contentType} = await renderMediaOnVercel({
+    // The render is wrapped in a soft timeout that fires ~80s before the outer
+    // `maxDuration` so the catch block has room to mark the doc `failed` and
+    // clean up Blob staging. Without this the platform hard-kills the function
+    // mid-render and the doc stays stuck in `rendering` forever.
+    const RENDER_SOFT_TIMEOUT_MS = (maxDuration - 80) * 1000
+    let lastStage = 'starting'
+    let lastRenderedFrames = 0
+    let lastEncodedFrames = 0
+
+    const renderPromise = renderMediaOnVercel({
       sandbox,
       compositionId,
       inputProps: validatedProps,
       codec: 'h264',
+      onProgress: (progress) => {
+        lastStage = progress.stage
+        if (progress.stage === 'render-progress') {
+          lastRenderedFrames = progress.progress.renderedFrames
+          lastEncodedFrames = progress.progress.encodedFrames
+        }
+      },
     })
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            `Render exceeded soft timeout of ${RENDER_SOFT_TIMEOUT_MS / 1000}s ` +
+              `(lastStage=${lastStage}, renderedFrames=${lastRenderedFrames}, ` +
+              `encodedFrames=${lastEncodedFrames})`,
+          ),
+        )
+      }, RENDER_SOFT_TIMEOUT_MS)
+    })
+
+    const {sandboxFilePath, contentType} = await Promise.race([renderPromise, timeoutPromise])
 
     // Stage the rendered MP4 in Vercel Blob with a public URL so Cloudinary can
     // fetch it directly — same shape as the old Lambda→S3 handoff, just with
