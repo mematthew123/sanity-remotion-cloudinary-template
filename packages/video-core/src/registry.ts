@@ -164,9 +164,11 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'YouTube 1080p',
     surface: 'youtube',
     format: 'mp4',
-    // Pad rather than crop — the source is already 1920x1080. `f_auto,q_auto`
+    // `c_scale` upscales 720p sources to 1080p (article-narrated renders at
+    // 720p to fit inside Vercel's `maxDuration`; Cloudinary handles the scale
+    // back up cheaply) and is a no-op for 1080p-native sources. `f_auto,q_auto`
     // lets Cloudinary swap to AV1/HEVC where the client supports it.
-    transformation: 'w_1920,h_1080,c_pad,b_black,f_auto,q_auto',
+    transformation: 'w_1920,h_1080,c_scale,f_auto,q_auto',
     width: 1920,
     height: 1080,
     eager: true,
@@ -308,11 +310,16 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
   {
     id: 'article-narrated',
     label: 'Article Narrated',
-    description: '1080p long-form reading of the post body, with TTS narration',
+    description: '720p long-form reading of the post body, with TTS narration (Cloudinary upscales to 1080p for YouTube)',
     sourceType: 'post',
     fps: 30,
-    width: 1920,
-    height: 1080,
+    // Rendered at 720p (not 1080p) because each frame on the Vercel Sandbox
+    // is CPU-bound — 720p frames are ~2.25× cheaper than 1080p, which is the
+    // difference between finishing inside `maxDuration` and stalling. The
+    // `youtube-1080p-mp4` Cloudinary variant upscales the canonical render
+    // back to 1080p for full-resolution delivery.
+    width: 1280,
+    height: 720,
     isVertical: false,
     // Studio preview seed only — real duration comes from calculateMetadata.
     defaultDurationFrames: 300,
