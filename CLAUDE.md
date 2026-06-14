@@ -105,7 +105,7 @@ The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio s
 
 ### Source content shape
 
-Compositions render from `ArticleVideoProps` (in `packages/video-core/src/types.ts`). To change the source content type you must change that Zod schema, the `post` schema (`apps/studio/src/schemaTypes/post.ts`), and the field mapping in the trigger (Studio action / video editor app) **together** — the render route itself is content-agnostic.
+Compositions render from `ArticleVideoProps` (in `packages/video-core/src/types.ts`). To change the source content type you must change that Zod schema, the `post` schema (`apps/studio/src/schemaTypes/post.ts`), and the field mapping in the Studio render action **together** — the render route itself is content-agnostic.
 
 ## Env: three prefixes, one shared secret
 
