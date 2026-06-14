@@ -28,13 +28,9 @@ export type VariantId =
   | 'site-poster-jpg'
   | 'site-preview-gif'
   | 'social-1x1'
-  | 'social-square-mp4'
-  | 'social-vertical-mp4'
   // ----- Long-form (article-narrated and any future long-form composition) -
   | 'youtube-1080p-mp4'
   | 'podcast-mp3'
-  | 'longform-tiktok-30s-mp4'
-  | 'longform-shorts-60s-mp4'
 
 export type VariantDef = {
   id: VariantId
@@ -94,35 +90,6 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     eager: false,
   },
 
-  // ----- Social: square (1:1) ---------------------------------------------
-  // One representative square crop. Instagram/Twitter/Facebook all want the
-  // same 1080×1080 center-crop, so a single derivation covers every square
-  // platform — no per-network duplicates to materialize.
-  'social-square-mp4': {
-    id: 'social-square-mp4',
-    label: 'Social Square',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1080,
-    eager: true,
-  },
-
-  // ----- Social: vertical (9:16) ------------------------------------------
-  // One representative vertical crop for Reels / TikTok / Shorts — all share
-  // the same 1080×1920 center-crop.
-  'social-vertical-mp4': {
-    id: 'social-vertical-mp4',
-    label: 'Social Vertical',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1920,
-    eager: true,
-  },
-
   // ----- Long-form: full YouTube upload (the canonical render at 1080p) ---
   'youtube-1080p-mp4': {
     id: 'youtube-1080p-mp4',
@@ -152,37 +119,12 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     eager: true,
   },
 
-  // ----- Long-form: short-form snippets (first N seconds, vertical) -------
-  // `du_<seconds>` trims the duration starting from the beginning of the
-  // video; `c_fill,g_center` crops 16:9 → 9:16. The two variants differ only
-  // in clip length so platforms with different limits each get a usable cut
-  // without re-rendering.
-  'longform-tiktok-30s-mp4': {
-    id: 'longform-tiktok-30s-mp4',
-    label: 'TikTok 30s Clip',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'du_30,c_fill,g_center,w_1080,h_1920,f_mp4,q_auto',
-    width: 1080,
-    height: 1920,
-    eager: true,
-  },
-  'longform-shorts-60s-mp4': {
-    id: 'longform-shorts-60s-mp4',
-    label: 'YouTube Shorts 60s Clip',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'du_60,c_fill,g_center,w_1080,h_1920,f_mp4,q_auto',
-    width: 1080,
-    height: 1920,
-    eager: true,
-  },
 }
 
 // Variant groups, by the release-series installment that ships them:
-// SITE_BASE + the platform crops belong to the core template; BLUEPRINT_SOCIAL
-// arrives with the BlueSky Blueprint installment; LONG_FORM_BASE with the
-// narrated installment. Each group is a clean append for its installment.
+// SITE_BASE belongs to the core template; BLUEPRINT_SOCIAL arrives with the
+// BlueSky Blueprint installment; LONG_FORM_BASE with the narrated installment.
+// Each group is a clean append for its installment.
 
 const SITE_BASE: readonly VariantId[] = ['site-mp4', 'site-poster-jpg', 'site-preview-gif']
 
@@ -190,20 +132,10 @@ const SITE_BASE: readonly VariantId[] = ['site-mp4', 'site-poster-jpg', 'site-pr
 // ready video can be auto-posted.
 const BLUEPRINT_SOCIAL: readonly VariantId[] = ['social-1x1']
 
-// Long-form variants for the narrated composition. Render once → fan out to
-// YouTube full-length, audio-only podcast feed, and short-form social clips
-// auto-cut from the head of the video.
-const LONG_FORM_BASE: readonly VariantId[] = [
-  'youtube-1080p-mp4',
-  'podcast-mp3',
-  'longform-tiktok-30s-mp4',
-  'longform-shorts-60s-mp4',
-]
-// One representative crop per aspect ratio — the per-platform transforms were
-// byte-identical, so a single square / single vertical derivation covers them
-// all without re-materializing the same crop under different names.
-const SQUARE_SOCIAL: readonly VariantId[] = ['social-square-mp4']
-const VERTICAL_SOCIAL: readonly VariantId[] = ['social-vertical-mp4']
+// Long-form variants for the narrated composition. Render once → fan out to a
+// full-length YouTube upload (720p source upscaled by Cloudinary) and an
+// audio-only podcast feed.
+const LONG_FORM_BASE: readonly VariantId[] = ['youtube-1080p-mp4', 'podcast-mp3']
 
 // =============================================================================
 // Composition catalog
@@ -260,7 +192,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     defaultDurationFrames: 210, // 7s @ 30fps
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
-    variantIds: [...SITE_BASE, ...SQUARE_SOCIAL, ...BLUEPRINT_SOCIAL],
+    variantIds: [...SITE_BASE, ...BLUEPRINT_SOCIAL],
   },
   {
     id: 'article-teaser',
@@ -274,7 +206,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     defaultDurationFrames: 180, // 6s @ 30fps
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
-    variantIds: [...SITE_BASE, ...VERTICAL_SOCIAL, ...BLUEPRINT_SOCIAL],
+    variantIds: [...SITE_BASE, ...BLUEPRINT_SOCIAL],
   },
   {
     id: 'article-narrated',
