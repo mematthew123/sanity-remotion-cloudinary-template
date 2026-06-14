@@ -28,13 +28,8 @@ export type VariantId =
   | 'site-poster-jpg'
   | 'site-preview-gif'
   | 'social-1x1'
-  | 'instagram-square-mp4'
-  | 'twitter-square-mp4'
-  | 'facebook-square-mp4'
-  | 'instagram-reel-mp4'
-  | 'tiktok-mp4'
-  | 'youtube-short-mp4'
-  | 'youtube-thumbnail-jpg'
+  | 'social-square-mp4'
+  | 'social-vertical-mp4'
   // ----- Long-form (article-narrated and any future long-form composition) -
   | 'youtube-1080p-mp4'
   | 'podcast-mp3'
@@ -100,29 +95,12 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
   },
 
   // ----- Social: square (1:1) ---------------------------------------------
-  'instagram-square-mp4': {
-    id: 'instagram-square-mp4',
-    label: 'Instagram Square',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1080,
-    eager: true,
-  },
-  'twitter-square-mp4': {
-    id: 'twitter-square-mp4',
-    label: 'Twitter/X Square',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1080,
-    eager: true,
-  },
-  'facebook-square-mp4': {
-    id: 'facebook-square-mp4',
-    label: 'Facebook Square',
+  // One representative square crop. Instagram/Twitter/Facebook all want the
+  // same 1080×1080 center-crop, so a single derivation covers every square
+  // platform — no per-network duplicates to materialize.
+  'social-square-mp4': {
+    id: 'social-square-mp4',
+    label: 'Social Square',
     surface: 'social',
     format: 'mp4',
     transformation: 'w_1080,h_1080,c_fill,g_center,f_mp4,q_auto',
@@ -132,46 +110,16 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
   },
 
   // ----- Social: vertical (9:16) ------------------------------------------
-  'instagram-reel-mp4': {
-    id: 'instagram-reel-mp4',
-    label: 'Instagram Reel',
+  // One representative vertical crop for Reels / TikTok / Shorts — all share
+  // the same 1080×1920 center-crop.
+  'social-vertical-mp4': {
+    id: 'social-vertical-mp4',
+    label: 'Social Vertical',
     surface: 'social',
     format: 'mp4',
     transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
     width: 1080,
     height: 1920,
-    eager: true,
-  },
-  'tiktok-mp4': {
-    id: 'tiktok-mp4',
-    label: 'TikTok',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1920,
-    eager: true,
-  },
-  'youtube-short-mp4': {
-    id: 'youtube-short-mp4',
-    label: 'YouTube Short',
-    surface: 'social',
-    format: 'mp4',
-    transformation: 'w_1080,h_1920,c_fill,g_center,f_mp4,q_auto',
-    width: 1080,
-    height: 1920,
-    eager: true,
-  },
-
-  // ----- Social: thumbnail ------------------------------------------------
-  'youtube-thumbnail-jpg': {
-    id: 'youtube-thumbnail-jpg',
-    label: 'YouTube Thumbnail',
-    surface: 'social',
-    format: 'jpg',
-    transformation: 'w_1280,h_720,c_fill,g_center,so_10p,f_jpg,q_auto',
-    width: 1280,
-    height: 720,
     eager: true,
   },
 
@@ -251,16 +199,11 @@ const LONG_FORM_BASE: readonly VariantId[] = [
   'longform-tiktok-30s-mp4',
   'longform-shorts-60s-mp4',
 ]
-const SQUARE_SOCIAL: readonly VariantId[] = [
-  'instagram-square-mp4',
-  'twitter-square-mp4',
-  'facebook-square-mp4',
-]
-const VERTICAL_SOCIAL: readonly VariantId[] = [
-  'instagram-reel-mp4',
-  'tiktok-mp4',
-  'youtube-short-mp4',
-]
+// One representative crop per aspect ratio — the per-platform transforms were
+// byte-identical, so a single square / single vertical derivation covers them
+// all without re-materializing the same crop under different names.
+const SQUARE_SOCIAL: readonly VariantId[] = ['social-square-mp4']
+const VERTICAL_SOCIAL: readonly VariantId[] = ['social-vertical-mp4']
 
 // =============================================================================
 // Composition catalog

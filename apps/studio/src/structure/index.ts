@@ -8,6 +8,7 @@ import {
   UserIcon,
 } from '@sanity/icons'
 import {VariantViewer} from '../components/VariantViewer'
+import {VideoPreview} from '../components/VideoPreview'
 
 export const structure = (S: StructureBuilder) =>
   S.list()
@@ -25,13 +26,15 @@ export const structure = (S: StructureBuilder) =>
       S.documentTypeListItem('sanity.agentContext').title('Brand Voices').icon(SparklesIcon),
     ])
 
-// Add a "Variants" view to the `video` document type: a Cloudinary variant
+// Add custom views to the `video` document type: a "Preview" player for the
+// canonical render (see ../components/VideoPreview) and a "Variants" Cloudinary
 // gallery + live transform preview (see ../components/VariantViewer). Every
 // other type keeps just the default form view.
 export const getDefaultDocumentNode: DefaultDocumentNodeResolver = (S, {schemaType}) =>
   schemaType === 'video'
     ? S.document().views([
         S.view.form(),
+        S.view.component(VideoPreview).id('preview').title('Preview').icon(PlayIcon),
         S.view.component(VariantViewer).id('variants').title('Variants').icon(ImagesIcon),
       ])
     : S.document().views([S.view.form()])

@@ -104,8 +104,7 @@ const NEWSLETTER_PROJECTION = /* groq */ `{
     cloudinaryPublicId,
     status,
     "gifUrl": variants[variantId == "site-preview-gif"][0].url,
-    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
-    "squareUrl": variants[variantId == "social-1x1"][0].url
+    "posterUrl": variants[variantId == "site-poster-jpg"][0].url
   },
   post->{
     title,
@@ -151,7 +150,6 @@ export type NewsletterForSend = {
     status: string | null;
     gifUrl: string | null;
     posterUrl: string | null;
-    squareUrl: string | null;
   } | null;
   post: {
     title: string | null;
