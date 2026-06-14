@@ -92,9 +92,9 @@ Inside Studio, the `video` document has two custom view tabs (registered in `app
 
 The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio surface for sending a Resend email built around one rendered video. Editors pick a `video` (filtered to ready + variants-defined) and optionally a `post` for the CTA link. The schema's `recipientSelection` switches between `test` (typed-in addresses, looped via `resend.emails.send`) and `audience` (one `resend.broadcasts.create` + `send` against `RESEND_AUDIENCE_ID`). The send route guards against double-sends with `ifRevisionID` on the `draft → sending` patch — concurrent clicks 409 instead of double-billing Resend. Studio's send/preview document actions live in `apps/studio/src/plugins/newsletter/`; preview embeds `GET /api/newsletter/preview` (the rendered `@react-email` template) in an iframe.
 
-### Adding a Blueprint function
+### Auto-generate promo on publish
 
-`apps/blueprints/` is a separate pnpm workspace member that deploys Sanity Functions via `npx sanity@latest blueprints deploy`. The current function (`bluesky-post`) listens on `video` mutations matching `status == "ready" && defined(variants) && !defined(socialPostedAt)`, posts the `social-1x1` variant to BlueSky, and patches `socialPostedAt` to exclude the doc from future runs. **Before the first deploy on an existing dataset, run a backfill that patches `socialPostedAt: "backfill"` onto every already-ready video** — otherwise the function fires once for every historical video.
+`post` has a boolean `autoGenerateVideoOnPublish` (in the **Video** field group, default off). The Studio wraps the built-in Publish action — `withAutoPromoOnPublish` in `apps/studio/src/actions/autoPromoOnPublish.tsx`, registered in `apps/studio/sanity.config.ts`'s `document.actions`. When a post with the toggle ON is published, it fires a background `article-promo` render via `POST /api/video/render`. It's **idempotent** (the route short-circuits an existing ready/in-flight video for that post+template) and **non-blocking** — a render failure shows a warning toast and never blocks or undoes the publish. Manual renders are still triggered by the **Render** document actions in `apps/studio/src/actions/renderVideo.tsx`.
 
 ### Adding a composition
 
