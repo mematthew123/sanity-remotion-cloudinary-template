@@ -12,7 +12,6 @@ Work top to bottom — each section depends on the ones above it.
 - A **Sanity** project + dataset, and an **Editor** API token
 - A **Cloudinary** account (cloud name + API key + secret)
 - A **Vercel** account (free tier works) — used for hosting and for the sandbox renderer
-- A Sanity **organization id** — only if you'll run/deploy the App SDK video app
 
 ## 1. Install & scaffold env files
 
@@ -21,7 +20,6 @@ pnpm install
 
 cp apps/web/.env.local.example apps/web/.env.local
 cp apps/studio/.env.example     apps/studio/.env
-cp apps/video/.env.example      apps/video/.env   # optional — App SDK app only
 ```
 
 ## 2. Sanity
@@ -33,7 +31,7 @@ cp apps/video/.env.example      apps/video/.env   # optional — App SDK app onl
    curl -s -H "Authorization: Bearer $TOKEN" \
      "https://<projectId>.api.sanity.io/v2024-01-01/data/query/<dataset>?query=count(*)"
    ```
-3. Fill the Sanity vars in all three env files (`*_PROJECT_ID`, `*_DATASET`,
+3. Fill the Sanity vars in both env files (`*_PROJECT_ID`, `*_DATASET`,
    and `SANITY_API_WRITE_TOKEN` in web).
 4. The site reads **published** content with no token, so make the dataset
    **public** (Manage → API → Datasets) — or add a read token in
@@ -44,16 +42,15 @@ the two common token errors.
 
 ## 3. The shared render secret
 
-Invent one random string and mirror the **same** value into three places:
+Invent one random string and mirror the **same** value into two places:
 
 | File | Var |
 | --- | --- |
 | `apps/web/.env.local` | `VIDEO_RENDER_SECRET` |
 | `apps/studio/.env` | `SANITY_STUDIO_RENDER_SECRET` |
-| `apps/video/.env` | `SANITY_APP_RENDER_SECRET` |
 
 > ⚠️ It's bundled into client JS — fine for local/demo, but proxy the render call
-> behind session auth for a public production Studio/app.
+> behind session auth for a public production Studio.
 
 ## 4. Cloudinary
 
@@ -104,7 +101,6 @@ a paid Growth-plan feature. See [`docs/assist.md`](./docs/assist.md).
 ```bash
 pnpm dev:web      # http://localhost:3000
 pnpm dev:studio   # http://localhost:3333
-pnpm dev:video    # the App SDK video editor — needs SANITY_APP_ORGANIZATION_ID
 ```
 
 Then in Studio: create an **Author** → a **Post** (publish it) → document action
@@ -117,11 +113,8 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
    to **300s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The
    Blob store you connected in step 5 auto-injects `BLOB_READ_WRITE_TOKEN`; no
    AWS keys needed.
-2. Point `SANITY_STUDIO_RENDER_API_URL` and `SANITY_APP_RENDER_API_URL` at the
-   deployed web URL (App SDK vars are baked in at **build time** — rebuild/redeploy
-   after changing them).
-3. **Studio** → `pnpm deploy:studio`. **App SDK app** → `pnpm deploy:video` (first
-   run is interactive; pin `deployment.appId` in `sanity.cli.ts` afterward).
+2. Point `SANITY_STUDIO_RENDER_API_URL` at the deployed web URL.
+3. **Studio** → `pnpm deploy:studio`.
 
 See [`docs/troubleshooting.md`](./docs/troubleshooting.md) for the failure modes
 you're most likely to hit.

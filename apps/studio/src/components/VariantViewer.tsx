@@ -213,7 +213,7 @@ export const VariantViewer: UserViewComponent = ({document}) => {
   }
 
   const site = variants.filter((v) => v.surface === 'site')
-  const social = variants.filter((v) => v.surface === 'social')
+  const other = variants.filter((v) => v.surface !== 'site')
 
   return (
     <Box padding={4}>
@@ -235,8 +235,8 @@ export const VariantViewer: UserViewComponent = ({document}) => {
         </Card>
 
         {site.length ? <VariantGroup title="Site delivery" variants={site} onCopy={copy} /> : null}
-        {social.length ? (
-          <VariantGroup title="Social formats" variants={social} onCopy={copy} />
+        {other.length ? (
+          <VariantGroup title="Long-form formats" variants={other} onCopy={copy} />
         ) : null}
 
         {doc.cloudinaryPublicId && cloudName ? (

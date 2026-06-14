@@ -85,6 +85,15 @@ export const postType = defineType({
       },
     }),
     defineField({
+      name: 'autoGenerateVideoOnPublish',
+      title: 'Auto-generate promo on publish',
+      type: 'boolean',
+      group: 'video',
+      initialValue: false,
+      description:
+        'When enabled, publishing this post automatically fires a promo (1:1) render in the background. Safe to re-publish — an existing video for this post short-circuits instead of re-rendering.',
+    }),
+    defineField({
       name: 'voiceoverChunks',
       title: 'Voiceover chunks',
       type: 'array',

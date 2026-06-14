@@ -4,7 +4,7 @@
 
 ```
 Sanity (post)
-   │  trigger: Studio "Render" action  OR  the video editor app
+   │  trigger: Studio "Render" document action
    ▼
 POST /api/video/render            (Next.js route, bearer-authed)
    │  1. validate inputProps (Zod) + idempotency check
@@ -15,21 +15,20 @@ POST /api/video/render            (Next.js route, bearer-authed)
    │     variants → delete Blob staging copy → sandbox.stop()    → status: uploading
    │  5. patch the doc: cloudinaryUrl + variants[]          → status: ready
    ▼
-Next.js site / apps
-   read `video` docs where status == "ready" and play from Cloudinary
+Next.js site
+   reads `video` docs where status == "ready" and plays from Cloudinary
 ```
 
-The route renders inside the sandbox synchronously (bounded by `maxDuration = 300`), so the Studio action and video editor app read `status: ready` + `cloudinaryUrl` straight from the response.
+The route renders inside the sandbox synchronously (bounded by `maxDuration = 300`), so the Studio action reads `status: ready` + `cloudinaryUrl` straight from the response; the finished render previews in a "Preview" view tab on the `video` document, with a "Variants" tab for the Cloudinary derivations.
 
-The **render route is the only server-side mutator.** Everything else (the Studio action, the video editor app, the site) either triggers it or reads what it produced. That keeps the Sanity write token on the server and out of any browser bundle.
+The **render route is the only server-side mutator.** Everything else (the Studio action, the site) either triggers it or reads what it produced. That keeps the Sanity write token on the server and out of any browser bundle.
 
 ## Packages
 
 | Path | Package | Role |
 | --- | --- | --- |
 | `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render` (spawns a Vercel Sandbox), the Remotion site entry (`remotion/`) bundled into the sandbox |
-| `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, "Render" document actions, Assist + brand voice |
-| `apps/video` | `@template/video` | Sanity App SDK app — the video editor (live preview + render trigger) |
+| `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, the "Render" document action, the Preview + Variants views, Assist + brand voice |
 | `packages/video-core` | `@template/video-core` | Remotion compositions, the registry, the Cloudinary variant catalog |
 
 ## The React-free registry boundary
@@ -42,7 +41,7 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 Rule of thumb:
 
 - The **render route** and the **Studio `video` schema** import only `@template/video-core/registry`. Pulling the barrel into a server route or the Studio bundle breaks page-data collection ("Remotion requires React.createContext").
-- Only **`apps/web/remotion/Root.tsx`** (which runs inside the Remotion bundle) and the **video editor App SDK app** import the barrel.
+- Only **`apps/web/remotion/Root.tsx`** (which runs inside the Remotion bundle) imports the barrel.
 
 The `./registry` subpath in `video-core/package.json` `exports` is what enforces this.
 
@@ -64,8 +63,8 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 
 A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a re-render. Defined in `video-core/src/registry.ts`:
 
-- `VARIANTS` — site (mp4 / poster jpg / preview gif) + social crops (square + vertical) + a YouTube thumbnail.
-- Each composition opts into a `variantIds[]` set that crops cleanly from its aspect ratio (`article-promo` → square socials; `article-teaser` → vertical socials).
+- `VARIANTS` — site (mp4 / poster jpg / preview gif) + a long-form family for narrated videos (`youtube-1080p-mp4` upscale, `podcast-mp3`).
+- Each composition opts into a `variantIds[]` set: `article-promo` and `article-teaser` get the site base; `article-narrated` adds the long-form family.
 - `eagerTransformsFor(ids)` → the `eager` array passed to the Cloudinary upload (materialized at upload).
 - `snapshotVariants(cloudName, publicId, ids)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
 - `variantUrl(cloudName, publicId, id)` takes the **cloud name as a parameter**, so `video-core` never needs Cloudinary env. The render route passes `CLOUDINARY_CLOUD_NAME` and stores full URLs on the doc — clients just read `video.variants[].url`.
@@ -78,4 +77,4 @@ A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a 
 
 ## Composition → render data flow
 
-The render route is **content-agnostic**: it validates `inputProps` against the chosen composition's Zod schema (`ArticleVideoProps`) and hands them to Remotion. To change the source content type you change the Zod schema, the `post` schema, and the field mapping in the trigger (Studio action / video editor) together — the route itself doesn't change.
+The render route is **content-agnostic**: it validates `inputProps` against the chosen composition's Zod schema (`ArticleVideoProps`) and hands them to Remotion. To change the source content type you change the Zod schema, the `post` schema, and the field mapping in the trigger (the Studio action) together — the route itself doesn't change.

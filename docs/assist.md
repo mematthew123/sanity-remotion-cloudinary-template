@@ -31,7 +31,7 @@ Edit the **Brand Voice** document directly in the Studio (surfaced in the struct
 
 ## `videoCopy` and the compositions
 
-`videoCopy` (defined in `video-core/src/types.ts` as `VideoCopySchema`, exposed on the `post` schema) holds optional caption slots: `kicker`, `headline`, `subhead`, `pullQuote`, `ctaPrimary`, `ctaSecondary`. The compositions consume them with fallbacks — e.g. `videoCopy?.headline ?? title`, `videoCopy?.pullQuote ?? excerpt` — so a post with no `videoCopy` still renders cleanly. "Generate video copy in brand voice" fills these; the video editor app lets you tweak them with a live preview.
+`videoCopy` (defined in `video-core/src/types.ts` as `VideoCopySchema`, exposed on the `post` schema) holds optional caption slots: `kicker`, `headline`, `subhead`, `pullQuote`, `ctaPrimary`, `ctaSecondary`. The compositions consume them with fallbacks — e.g. `videoCopy?.headline ?? title`, `videoCopy?.pullQuote ?? excerpt` — so a post with no `videoCopy` still renders cleanly. "Generate video copy in brand voice" fills these; you can also edit them directly on the `post` in the Studio.
 
 ## Requirements
 

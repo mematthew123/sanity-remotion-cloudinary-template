@@ -12,6 +12,7 @@ import {
   RenderArticlePromo,
   RenderArticleTeaser,
 } from './src/actions/renderVideo'
+import {withAutoPromoOnPublish} from './src/actions/autoPromoOnPublish'
 import {newsletterPlugin} from './src/plugins/newsletter'
 
 // Default brand-voice Agent Context document id. The AI Assist menu exposes
@@ -206,11 +207,15 @@ export default defineConfig({
   },
 
   document: {
-    // Surface the one-click "Render" actions on `post` documents only.
+    // On `post` docs: wrap the built-in Publish action so it can auto-fire a
+    // promo render (gated by the post's `autoGenerateVideoOnPublish` toggle),
+    // and surface the one-click "Render" actions.
     actions: (prev, ctx) =>
       ctx.schemaType === 'post'
         ? [
-            ...prev,
+            ...prev.map((action) =>
+              action.action === 'publish' ? withAutoPromoOnPublish(action) : action,
+            ),
             GenerateVoiceover,
             RenderArticlePromo,
             RenderArticleTeaser,

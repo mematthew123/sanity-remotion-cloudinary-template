@@ -11,44 +11,45 @@ pnpm install
 
 pnpm dev:web          # Next.js site               http://localhost:3000
 pnpm dev:studio       # Sanity Studio              http://localhost:3333
-pnpm dev:video        # Sanity App SDK app — video editor      (needs SANITY_APP_ORGANIZATION_ID)
 
 pnpm build            # = pnpm build:web → next build
 pnpm lint             # ESLint on apps/web
 
 pnpm deploy:studio
-pnpm deploy:video         # first run is INTERACTIVE — needs a TTY for the title prompt; appId then pinned in sanity.cli.ts
 
 pnpm bundle:remotion      # local: rebuild apps/web/.remotion-bundle/ via remotion bundle CLI
 ```
 
-Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video`, `video-core`). No test suite is wired up.
+Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video-core`). No test suite is wired up.
 
 Rendering runs in a **Vercel Sandbox** — see `docs/vercel-sandbox.md` for connecting a Vercel Blob store (auto-injects `BLOB_READ_WRITE_TOKEN`) and how the build-time snapshot is created.
 
 ## Architecture
 
-Three apps + one shared package, all driven by a single render pipeline (rendering happens inside an ephemeral Vercel Sandbox).
+Two apps + one shared package, all driven by a single render pipeline (rendering happens inside an ephemeral Vercel Sandbox).
 
 ```
-Sanity Studio "Render" action  ─┐
-Sanity App SDK video editor    ─┴──► POST /api/video/render (apps/web)
+Sanity Studio "Render" actions   ─┐
+auto-promo-on-publish (Studio)   ─┴──► POST /api/video/render (apps/web)
                                        1. validate inputProps with composition's Zod schema
-                                       2. create `video` doc       (status: rendering)
-                                       3. createSandbox / restoreSnapshot → renderMediaOnVercel inside it
-                                       4. uploadToVercelBlob → Cloudinary upload + eager variants → delete Blob copy  (status: uploading)
-                                       5. patch doc cloudinaryUrl + variants[] (status: ready)
+                                       2. idempotency: an existing ready/in-flight video for the same post+template short-circuits with that doc
+                                       3. create `video` doc       (status: rendering, renderStartedAt)
+                                       4. createSandbox / restoreSnapshot → renderMediaOnVercel inside it
+                                       5. uploadToVercelBlob → Cloudinary upload + eager variants → delete Blob copy  (status: uploading)
+                                       6. patch doc cloudinaryUrl + variants[] (status: ready)
                                      ──► Next.js site reads ready video docs and plays them
 ```
 
-The route stays **synchronous** — the sandbox render completes inside the request (bounded by `maxDuration = 300`) — so the Studio action and video editor app keep reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes.
+Renders are triggered two ways, both from Studio: the manual **Render** document actions (`apps/studio/src/actions/renderVideo.tsx`), and **auto-promo-on-publish** — publishing a post with `autoGenerateVideoOnPublish` ON fires a background `article-promo` render (see "Auto-generate promo on publish" below).
+
+The route stays **synchronous** — the sandbox render completes inside the request (bounded by `maxDuration = 800`) — so the Studio action keeps reading `status: ready` + `cloudinaryUrl` straight from the response, with no caller changes. A **soft timeout** fires ~80s before `maxDuration` so the catch block can mark the doc `failed` and clean up Blob staging before the platform hard-kills the function — without it, docs would stay stuck in `rendering` forever.
 
 The render route (`apps/web/app/api/video/render/route.ts`) is the largest server-side mutator of Sanity content. Two narrower mutators landed alongside the fanout extensions:
 
-- `apps/web/app/api/newsletter/send/route.ts` writes only to the `newsletter` doc (`status`, `sentAt`, `recipientCount`, `resendBroadcastId`) — never touches video docs.
-- The BlueSky Blueprint (`apps/blueprints/functions/bluesky-post/`) writes only `video.socialPostedAt` as an idempotency marker — never touches newsletter docs.
+- `apps/web/app/api/newsletter/send/route.ts` writes only to the `newsletter` doc (`status`, `sentAt`, `recipientCount`, `resendBroadcastId`) — never touches video docs. Its sibling `newsletter/preview/route.tsx` is read-only (GET, secret as query param so the Studio iframe can load it).
+- `apps/web/app/api/voiceover/generate/route.ts` writes only `post.voiceoverChunks` — the TTS pre-step for narrated renders (see below).
 
-Each mutator owns a non-overlapping slice of the data model, so `SANITY_API_WRITE_TOKEN` still stays out of every client bundle. Studio, the video editor app, and the site only trigger these routes or read what they produced.
+Each mutator owns a non-overlapping slice of the data model, so `SANITY_API_WRITE_TOKEN` still stays out of every client bundle. Studio and the site only trigger these routes or read what they produced.
 
 ### The React-free registry boundary (the load-bearing invariant)
 
@@ -60,25 +61,36 @@ Each mutator owns a non-overlapping slice of the data model, so `SANITY_API_WRIT
 Rules:
 
 - The render route and `apps/studio/src/schemaTypes/video.ts` must import only `@template/video-core/registry`. Pulling the barrel into a server route or Studio bundle breaks with "Remotion requires React.createContext" / Turbopack export errors.
-- Only `apps/web/remotion/Root.tsx` (which runs inside the Remotion bundle) and the App SDK video editor app may import the barrel.
+- Only `apps/web/remotion/Root.tsx` (which runs inside the Remotion bundle) may import the barrel.
 
 ### Cloudinary variants (no re-renders)
 
 A variant is a Cloudinary *derivation* of the one canonical MP4. Defined in `packages/video-core/src/registry.ts`:
 
-- `VARIANTS` — site (mp4/poster/gif) + social crops (1:1, 9:16) + a YouTube thumb.
+- `VARIANTS` — site delivery (`site-mp4`/`site-poster-jpg`/`site-preview-gif`) plus a long-form pair (`youtube-1080p-mp4` upscale + `podcast-mp3`) used by `article-narrated`. The catalog is trimmed to only variants with a real consumer; the `VariantSurface` union is `'site' | 'youtube' | 'podcast'`. (Unconsumed entries — the YouTube thumbnail, social-platform MP4 crops, the longform short-form clips, and the square `social-1x1` — were removed; the canonical `cloudinaryUrl` covers the site player.)
 - Each composition opts into a `variantIds[]` set. `eagerTransformsFor(ids)` → Cloudinary `eager` array (materialized at upload). `snapshotVariants(cloudName, publicId, ids)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
 - `variantUrl(cloudName, …)` takes the cloud name as a parameter so `video-core` never imports Cloudinary env. The render route passes `CLOUDINARY_CLOUD_NAME` in.
 
-The catalog is the fanout spine: the site reads `cloudinaryUrl`, the newsletter embeds `site-preview-gif` as the email hero (`<Img>` straight from Cloudinary — no re-host), and the BlueSky Blueprint pulls `social-1x1` for timeline-friendly square crops. Adding a surface usually means consuming a different variant id, not changing the render.
+The catalog is the fanout spine: the site player reads the canonical `cloudinaryUrl`, the newsletter embeds `site-preview-gif` as the email hero (`<Img>` straight from Cloudinary — no re-host; falls back to `site-poster-jpg`), and the narrated post page exposes an audio player + MP3 download fed by `podcast-mp3` while editors grab `youtube-1080p-mp4` from the Studio VariantViewer for full-res YouTube upload. Adding a surface usually means consuming a different variant id, not changing the render.
+
+### The narrated composition (long-form, TTS-driven)
+
+`article-narrated` reads the whole post body aloud (design history: `PLAN-narrated-videos.md`; Remotion guidance it leaned on: `.agents/skills/remotion-best-practices/`). It differs from promo/teaser in every dimension that matters:
+
+- **Voiceover is a precondition.** Per-paragraph ElevenLabs MP3s must exist on `post.voiceoverChunks` before rendering. Generate them via the Studio **Generate voiceover** action → `POST /api/voiceover/generate` (deliberately reuses `VIDEO_RENDER_SECRET`), or the CLI: `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. Both run the same shared logic in `apps/web/lib/voiceoverGenerate.ts`; MP3s are hosted on Cloudinary and cached per chunk.
+- **Duration is computed, not declared** — `calculateMetadata` in the registry sums chunk `durationSeconds`.
+- **It renders at 720p, not 1080p** — frames are CPU-bound in the sandbox and 720p is ~2.25× cheaper; the `youtube-1080p-mp4` Cloudinary variant upscales the canonical render for full-res delivery. Don't "fix" the resolution.
+- **The render route special-cases it**: 8 vCPUs on the sandbox (`restoreSnapshot({vcpus})`), `sandbox.extendTimeout(25 min)`, and the soft timeout described above. Renders take 5–7 min; promo/teaser stay on defaults and finish in <60s.
 
 ### Where rendered video surfaces
 
-GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-reference** subquery (`*[_type=="video" && post._ref==^._id && status=="ready" ...]`) — the render route never writes a `videos[]` array back onto the post. `components/VideoPlayer.tsx` plays `cloudinaryUrl` or a variant URL.
+GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-reference** subquery (`*[_type=="video" && post._ref==^._id && status=="ready" ...]`) — the render route never writes a `videos[]` array back onto the post. `components/VideoPlayer.tsx` plays `cloudinaryUrl` or a variant URL. The narrated post page additionally surfaces an audio player + MP3 download backed by the `podcast-mp3` variant.
+
+Inside Studio, the `video` document has two custom view tabs (registered in `apps/studio/src/structure/index.ts`): **Preview** (`components/VideoPreview.tsx` — a plain `<video>` of the canonical `cloudinaryUrl`, with status guards) and **Variants** (`components/VariantViewer.tsx` — the Cloudinary derivation gallery + live-transform playground). Both import only `@template/video-core/registry` for labels, never the Remotion barrel.
 
 ### Adding a newsletter
 
-The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio surface for sending a Resend email built around one rendered video. Editors pick a `video` (filtered to ready + variants-defined) and optionally a `post` for the CTA link. The schema's `recipientSelection` switches between `test` (typed-in addresses, looped via `resend.emails.send`) and `audience` (one `resend.broadcasts.create` + `send` against `RESEND_AUDIENCE_ID`). The send route guards against double-sends with `ifRevisionID` on the `draft → sending` patch — concurrent clicks 409 instead of double-billing Resend.
+The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio surface for sending a Resend email built around one rendered video. Editors pick a `video` (filtered to ready + variants-defined) and optionally a `post` for the CTA link. The schema's `recipientSelection` switches between `test` (typed-in addresses, looped via `resend.emails.send`) and `audience` (one `resend.broadcasts.create` + `send` against `RESEND_AUDIENCE_ID`). The send route guards against double-sends with `ifRevisionID` on the `draft → sending` patch — concurrent clicks 409 instead of double-billing Resend. Studio's send/preview document actions live in `apps/studio/src/plugins/newsletter/`; preview embeds `GET /api/newsletter/preview` (the rendered `@react-email` template) in an iframe.
 
 ### Adding a Blueprint function
 
@@ -107,13 +119,13 @@ Each surface reads env differently — vars without the right prefix don't reach
 
 `VIDEO_RENDER_SECRET` is a value you invent and **mirror identically** into three places: `VIDEO_RENDER_SECRET` (web), `SANITY_STUDIO_RENDER_SECRET` (studio), `SANITY_APP_RENDER_SECRET` (video app). It is bundled into the Studio/video-app client JS — fine for local/demo, but for public production you must move the trigger behind a session-authenticated proxy instead.
 
-`NEWSLETTER_SEND_SECRET` follows the same mirror pattern (web + `SANITY_STUDIO_NEWSLETTER_SECRET` in the studio). The blast radius is bigger than render — anyone with the bundled secret can send to your Resend audience — so the send route also enforces a server-side guard (`status === 'draft'` precondition + `ifRevisionID` on the `sending` patch) and a 5000-recipient hard cap unless the request includes `confirmLargeSend: true`.
+`NEWSLETTER_SEND_SECRET` follows the same mirror pattern (web + `SANITY_STUDIO_NEWSLETTER_SECRET` in the studio). The blast radius is bigger than render — anyone with the bundled secret can send to your Resend audience — so the send route also enforces a server-side guard (`status === 'draft'` precondition + `ifRevisionID` on the `sending` patch) and requires `confirmAudienceSend: true` on any audience-mode send (the Studio action sets it after a confirm dialog); test-mode sends to typed-in addresses don't need it. There is no recipient-count cap — Resend Broadcasts don't expose a count pre-send.
 
 Resend env (web only): `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`. The audience id must already exist in Resend before any audience send. Sender domain must be verified or test sends land in spam.
 
 Blueprint env (`apps/blueprints/.env`, **not** a Studio/web prefix — read at deploy time and forwarded into the function runtime): `BLUESKY_USERNAME`, `BLUESKY_PASSWORD` (app password, not account), `BLUESKY_HOST` (default `bsky.social`), `SANITY_PROJECT_ID`, `SANITY_DATASET`, `SANITY_WRITE_TOKEN` (Editor scope — required because the function patches `video.socialPostedAt` after posting).
 
-ElevenLabs env (web only, optional): `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Used by the `generate-voiceover` script (`pnpm --filter @template/web generate-voiceover -- --post-id=<id>`) to produce per-paragraph narration MP3s hosted on Cloudinary, stored on `post.voiceoverChunks`. Phase 1 of `PLAN-narrated-videos.md`; the render route doesn't read these yet — they're consumed by the (unbuilt) `article-narrated` composition.
+ElevenLabs env (web only): `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Required for the voiceover generation route/script that feeds the `article-narrated` composition (see "The narrated composition" above); the other compositions don't need them.
 
 `SANITY_APP_*` vars are baked into the App SDK bundle **at build time**. A deployed app with `SANITY_APP_RENDER_API_URL=http://localhost:3000` will call the user's local machine — rebuild and redeploy after pointing it at the deployed web URL.
 

@@ -20,14 +20,13 @@ import {
 // React-free: this whole module is metadata only, so the Sanity schema and the
 // server render route can import it without pulling Remotion into their bundle.
 
-export type VariantSurface = 'site' | 'social' | 'youtube' | 'podcast'
+export type VariantSurface = 'site' | 'youtube' | 'podcast'
 export type VariantFormat = 'mp4' | 'gif' | 'jpg' | 'webm' | 'mp3'
 
 export type VariantId =
   | 'site-mp4'
   | 'site-poster-jpg'
   | 'site-preview-gif'
-  | 'social-1x1'
   // ----- Long-form (article-narrated and any future long-form composition) -
   | 'youtube-1080p-mp4'
   | 'podcast-mp3'
@@ -74,22 +73,6 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     eager: false,
   },
 
-  // ----- Social: automation-friendly square image (BlueSky Blueprint) ------
-  // Consumed by the bluesky-post Blueprint function, which uploads the URL as
-  // an *image* embed (1 MB cap) — so this must stay an image format, not an
-  // MP4 crop. Square animated GIF: same lossy budget as `site-preview-gif`,
-  // center-cropped to 1:1 for timeline composition.
-  'social-1x1': {
-    id: 'social-1x1',
-    label: 'Social Square GIF',
-    surface: 'social',
-    format: 'gif',
-    transformation: 'w_540,h_540,c_fill,g_center,du_3,fps_15,fl_lossy,q_70,f_gif',
-    width: 540,
-    height: 540,
-    eager: false,
-  },
-
   // ----- Long-form: full YouTube upload (the canonical render at 1080p) ---
   'youtube-1080p-mp4': {
     id: 'youtube-1080p-mp4',
@@ -121,16 +104,10 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
 
 }
 
-// Variant groups, by the release-series installment that ships them:
-// SITE_BASE belongs to the core template; BLUEPRINT_SOCIAL arrives with the
-// BlueSky Blueprint installment; LONG_FORM_BASE with the narrated installment.
-// Each group is a clean append for its installment.
+// Variant groups: SITE_BASE belongs to every composition; LONG_FORM_BASE is
+// added by the narrated installment. Each group is a clean append.
 
 const SITE_BASE: readonly VariantId[] = ['site-mp4', 'site-poster-jpg', 'site-preview-gif']
-
-// Consumed by the bluesky-post Blueprint function. On every composition so any
-// ready video can be auto-posted.
-const BLUEPRINT_SOCIAL: readonly VariantId[] = ['social-1x1']
 
 // Long-form variants for the narrated composition. Render once → fan out to a
 // full-length YouTube upload (720p source upscaled by Cloudinary) and an
@@ -192,7 +169,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     defaultDurationFrames: 210, // 7s @ 30fps
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
-    variantIds: [...SITE_BASE, ...BLUEPRINT_SOCIAL],
+    variantIds: [...SITE_BASE],
   },
   {
     id: 'article-teaser',
@@ -206,7 +183,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     defaultDurationFrames: 180, // 6s @ 30fps
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
-    variantIds: [...SITE_BASE, ...BLUEPRINT_SOCIAL],
+    variantIds: [...SITE_BASE],
   },
   {
     id: 'article-narrated',
@@ -238,7 +215,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
         },
       ],
     } satisfies ArticleNarratedProps,
-    variantIds: [...SITE_BASE, ...LONG_FORM_BASE, ...BLUEPRINT_SOCIAL],
+    variantIds: [...SITE_BASE, ...LONG_FORM_BASE],
     calculateMetadata: (async ({props}) => {
       const total = (props.chunks ?? []).reduce(
         (sum: number, c: {durationSeconds?: number}) => sum + (c.durationSeconds ?? 0),

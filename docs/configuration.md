@@ -4,11 +4,10 @@
 
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token (see [Sanity token](#sanity-token) — this is the #1 setup pitfall)
-- A Sanity **organization id** — only if you run/deploy the App SDK app (`apps/video`)
 - A **Cloudinary** account (cloud name + API key + API secret)
 - A **Vercel** account with a [Blob store](https://vercel.com/docs/storage/vercel-blob) connected to the deployed project — that's the entire setup; see [vercel-sandbox.md](./vercel-sandbox.md)
 
-## Three env prefixes (don't mix them)
+## Two env prefixes (don't mix them)
 
 Each surface reads env differently:
 
@@ -16,9 +15,8 @@ Each surface reads env differently:
 | --- | --- | --- | --- |
 | Web (Next.js) | `apps/web/.env.local` | `NEXT_PUBLIC_*` (client) + plain (server) | `process.env.*` |
 | Studio (Vite) | `apps/studio/.env` | `SANITY_STUDIO_*` | `import.meta.env.*` (bundled to client) |
-| App SDK app | `apps/video/.env` | `SANITY_APP_*` | `process.env.*` (bundled to client) |
 
-Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't appear in the Studio; a `SANITY_APP_*` var won't appear in the web app.
+Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't appear in the Studio; a `SANITY_STUDIO_*` var won't appear in the web app.
 
 ## Env reference
 
@@ -39,20 +37,12 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_STUDIO_RENDER_API_URL` | full render URL, e.g. `http://localhost:3000/api/video/render` |
 | `SANITY_STUDIO_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
 
-### `apps/video/.env`
-| Var | Notes |
-| --- | --- |
-| `SANITY_APP_PROJECT_ID` / `SANITY_APP_DATASET` | same project/dataset |
-| `SANITY_APP_ORGANIZATION_ID` | your Sanity org id |
-| `SANITY_APP_RENDER_API_URL` | full render URL |
-| `SANITY_APP_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
-
 ## The shared render secret
 
 `VIDEO_RENDER_SECRET` is a value **you invent** (any long random string). Mirror the **same** value into:
-`apps/web` `VIDEO_RENDER_SECRET` · `apps/studio` `SANITY_STUDIO_RENDER_SECRET` · `apps/video` `SANITY_APP_RENDER_SECRET`.
+`apps/web` `VIDEO_RENDER_SECRET` · `apps/studio` `SANITY_STUDIO_RENDER_SECRET`.
 
-> ⚠️ It is bundled into the Studio and video-app client JS. Fine for local/demo or auth-gated use; for a public production Studio/app, proxy the render call through a route that authenticates the Sanity session instead. See [apps.md](./apps.md#security).
+> ⚠️ It is bundled into the Studio client JS. Fine for local/demo or auth-gated use; for a public production Studio, proxy the render call through a route that authenticates the Sanity session instead.
 
 ## Sanity token
 

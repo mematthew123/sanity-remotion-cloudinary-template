@@ -72,7 +72,7 @@ Each deploy gets a new `VERCEL_DEPLOYMENT_ID`, so each deploy gets its own snaps
 
 ## 5. Render
 
-With a Blob store connected and the project deployed, trigger a render from Studio (`Render Promo (1:1)` / `Render Teaser (9:16)` actions on a published `post`) or from the video editor app. The route:
+With a Blob store connected and the project deployed, trigger a render from Studio (`Render Promo (1:1)` / `Render Teaser (9:16)` actions on a published `post`). The route:
 
 1. `createSandbox()` (local) or `restoreSnapshot()` (Vercel) → returns a running sandbox.
 2. (local only) `bundleRemotionProject(...)` + `addBundleToSandbox(...)`.

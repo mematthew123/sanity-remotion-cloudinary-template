@@ -49,6 +49,29 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
           display: 'block',
         }}
       />
+      {/* Audio-only version: the same narration, served by Cloudinary as an
+          MP3 sliced from the canonical render (the `podcast-mp3` variant — no
+          re-render). For listening without watching, or taking it offline. */}
+      {video.podcastUrl && (
+        <div className='flex flex-wrap items-center justify-between gap-3 border-t-[3px] border-foreground bg-background px-4 py-3'>
+          <span className='font-mono text-xs font-extrabold uppercase tracking-[0.1em] text-foreground'>
+            🎧 Audio version
+          </span>
+          <audio
+            src={video.podcastUrl}
+            controls
+            preload='none'
+            className='h-9 min-w-0 flex-1 sm:max-w-md'
+          />
+          <a
+            href={video.podcastUrl}
+            download
+            className='font-mono text-xs font-bold uppercase tracking-wide text-foreground underline underline-offset-2 hover:text-muted'
+          >
+            ↓ MP3
+          </a>
+        </div>
+      )}
     </section>
   );
 }

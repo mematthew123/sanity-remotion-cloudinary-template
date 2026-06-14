@@ -37,7 +37,8 @@ export const singlePostQuery = defineQuery(/* groq */ `
       height,
       cloudinaryUrl,
       cloudinaryPublicId,
-      renderedAt
+      renderedAt,
+      "podcastUrl": variants[variantId == "podcast-mp3"][0].url
     }
   }
 `);
@@ -75,6 +76,9 @@ export type Video = {
   cloudinaryUrl: string | null;
   cloudinaryPublicId: string | null;
   renderedAt: string | null;
+  // Audio-only podcast derivation (podcast-mp3), projected for the narrated
+  // reading on the post page. Only the singlePostQuery projects it.
+  podcastUrl?: string | null;
   post?: {
     title: string | null;
     slug: { current: string } | null;

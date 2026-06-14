@@ -27,31 +27,17 @@ The token authenticates but its identity **isn't a member of this project** — 
 
 The web client reads published content with **no token**, which requires a **public** dataset. Either make the dataset public (Manage → API → Datasets) or add a read token to `apps/web/lib/sanity.client.ts`.
 
-## A social variant URL returns 400
+## A variant URL returns 400
 
-Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-on; without it the derived URL 400s (image crops are fine). The template's social variants use **`g_center`** instead, which is universally supported. If you add a video-crop variant in `video-core/src/registry.ts`, prefer `g_center` (or another fixed gravity) over `g_auto` unless your account has the add-on. Note: the `eager` upload array must use `raw_transformation` (not `transformation`) for raw transformation strings, or Cloudinary 400s with "Unknown transformation".
+Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-on; without it the derived URL 400s (image crops are fine). If you add a video-crop variant in `video-core/src/registry.ts`, prefer `g_center` (or another fixed gravity) over `g_auto` unless your account has the add-on. Note: the `eager` upload array must use `raw_transformation` (not `transformation`) for raw transformation strings, or Cloudinary 400s with "Unknown transformation".
 
 ## Render returns `Vercel Sandbox not configured`
 
 The route renders inside a Vercel Sandbox and stages the output in Vercel Blob, so it needs `BLOB_READ_WRITE_TOKEN` in `apps/web/.env.local` (or in the Vercel runtime). On Vercel: connect a Blob store to the project (**Storage → Create → Blob**) — the var is auto-injected. Locally: `vercel link && vercel env pull apps/web/.env.local`. Full walkthrough in [vercel-sandbox.md](./vercel-sandbox.md).
 
-## First `sanity deploy` of an app hangs or errors
-
-- `Error: Cannot run "input" prompt in a non-interactive environment` → the first deploy needs a **TTY** to ask for an application title. Run `npx sanity deploy` directly in the app dir, not through a wrapper that swallows the prompt; `-y` does **not** supply the title.
-- Spinner stuck at `No application ID configured; checking for existing applications…` → it's waiting at the (under-rendered) title prompt. Type a title and press Enter.
-- After the first deploy, pin `deployment: { appId: '…' }` in the app's `sanity.cli.ts` — subsequent deploys are non-interactive. See [apps.md](./apps.md#deploying).
-
-## A deployed app calls `http://localhost:3000`
-
-`SANITY_APP_*` vars are baked in at **build time**. Rebuild/redeploy the app with `SANITY_APP_RENDER_API_URL` set to your deployed web URL. See [apps.md](./apps.md#hosted-apps--the-localhost-url-caveat).
-
-## App SDK env vars not picked up
-
-App SDK apps read `process.env.SANITY_APP_*` (not `SANITY_STUDIO_*`). Put them in `apps/<app>/.env`; the Sanity CLI loads that file. Confirm with the "Including the following environment variables…" list printed during `sanity build`.
-
 ## `Remotion requires React.createContext` / Turbopack export errors
 
-Something imported the `@template/video-core` **barrel** into a server route or the Studio. Server route + Studio schema must import `@template/video-core/registry` (React-free). Only `apps/web/remotion/Root.tsx` and the React apps may import the barrel. See [architecture.md](./architecture.md#the-react-free-registry-boundary).
+Something imported the `@template/video-core` **barrel** into a server route or the Studio. Server route + Studio schema must import `@template/video-core/registry` (React-free). Only `apps/web/remotion/Root.tsx` may import the barrel. See [architecture.md](./architecture.md#the-react-free-registry-boundary).
 
 ## `react` / `react-dom` peer warnings on install
 
