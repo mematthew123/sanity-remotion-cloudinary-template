@@ -3,27 +3,26 @@ import {
   type DocumentActionComponent,
   type DocumentActionDescription,
   type DocumentActionProps,
-  type SanityClient,
 } from 'sanity'
 // `useToast` is exported from @sanity/ui, not the `sanity` barrel.
 import {useToast} from '@sanity/ui'
 import type {ArticleVideoProps} from '@template/video-core/types'
 
-// Author name + main-image URL live behind a reference/asset, so they aren't on
-// the plain document snapshot — re-fetch them via GROQ (same shape the manual
-// "Render Promo" action uses).
-type ResolvedPostFields = {
-  title?: string
-  excerpt?: string
-  publishedAt?: string
+// The plain document snapshot carries the editable fields directly; only the
+// author name and main-image URL live behind a reference/asset and need a deref.
+type DerivedFields = {
   authorName?: string
   mainImageUrl?: string
 }
 
-const POST_FIELDS_QUERY = `*[_id == $id][0]{
-  title,
-  excerpt,
-  publishedAt,
+type PostSnapshot = {
+  title?: string
+  excerpt?: string
+  publishedAt?: string
+  autoGenerateVideoOnPublish?: boolean
+}
+
+const DERIVED_QUERY = `*[_id == $id][0]{
   "authorName": author->name,
   "mainImageUrl": mainImage.asset->url
 }`
@@ -34,30 +33,13 @@ const POST_FIELDS_QUERY = `*[_id == $id][0]{
  * caller can surface a non-blocking toast — it must never undo the publish.
  */
 async function firePromoRender(
-  client: SanityClient,
   postId: string,
+  inputProps: ArticleVideoProps,
 ): Promise<{idempotent?: boolean}> {
   const url =
     import.meta.env.SANITY_STUDIO_RENDER_API_URL || 'http://localhost:3000/api/video/render'
   const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
   if (!secret) throw new Error('SANITY_STUDIO_RENDER_SECRET not set')
-
-  // Prefer the just-published id; fall back to the draft if the publish write
-  // hasn't propagated yet (the render route also tolerates either id).
-  let resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {id: postId})
-  if (!resolved) {
-    resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {
-      id: `drafts.${postId}`,
-    })
-  }
-
-  const inputProps: ArticleVideoProps = {
-    title: resolved?.title ?? 'Untitled',
-    authorName: resolved?.authorName ?? 'Unknown',
-    publishedAt: resolved?.publishedAt ?? new Date().toISOString(),
-    excerpt: resolved?.excerpt ?? '',
-    mainImageUrl: resolved?.mainImageUrl || undefined,
-  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -90,24 +72,45 @@ export function withAutoPromoOnPublish(
     return {
       ...original,
       onHandle: () => {
-        const snapshot = (props.draft ?? props.published) as
-          | {autoGenerateVideoOnPublish?: boolean}
-          | null
-        const autoGenerate = Boolean(snapshot?.autoGenerateVideoOnPublish)
+        const snapshot = (props.draft ?? props.published) as PostSnapshot | null
 
-        // Run the real publish first — never gate it on the render.
-        original.onHandle?.()
-
-        if (!autoGenerate) return
+        if (!snapshot?.autoGenerateVideoOnPublish) {
+          original.onHandle?.()
+          return
+        }
 
         const postId = (props.id || '').replace(/^drafts\./, '')
+
+        // Resolve the reference/asset-derived fields BEFORE publishing — once
+        // the publish lands, the draft is gone and the published doc may not be
+        // queryable yet (the race that previously left the video "Untitled").
+        // title/excerpt/publishedAt come straight off the snapshot, so they're
+        // never lost regardless of timing.
+        const derivedPromise: Promise<DerivedFields | null> = client
+          .fetch<DerivedFields | null>(DERIVED_QUERY, {id: `drafts.${postId}`})
+          .then((d) => d ?? client.fetch<DerivedFields | null>(DERIVED_QUERY, {id: postId}))
+          .catch(() => null)
+
+        // Publish immediately — never make the editor wait on the render path.
+        original.onHandle?.()
+
         toast.push({
           status: 'info',
           title: 'Published — generating promo video in the background…',
         })
+
         // Fire-and-forget: don't await, and swallow errors into a soft toast so
         // a render hiccup can't disrupt the publish it rode in on.
-        firePromoRender(client, postId)
+        derivedPromise
+          .then((derived) =>
+            firePromoRender(postId, {
+              title: snapshot.title ?? 'Untitled',
+              authorName: derived?.authorName ?? 'Unknown',
+              publishedAt: snapshot.publishedAt ?? new Date().toISOString(),
+              excerpt: snapshot.excerpt ?? '',
+              mainImageUrl: derived?.mainImageUrl || undefined,
+            }),
+          )
           .then((r) =>
             toast.push({
               status: 'success',
