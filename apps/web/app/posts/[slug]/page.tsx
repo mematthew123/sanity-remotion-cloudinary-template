@@ -127,11 +127,14 @@ export default async function PostPage({
     : null;
 
   // Split videos: the narrated reading gets its own hero treatment (it's
-  // long-form with audio, deserves prominence). Short-form promo/teaser stay
-  // in the existing grid below the body.
+  // long-form with audio, deserves prominence). Teaser videos stay in the grid
+  // below the body. Promo videos are intentionally not surfaced on the post page
+  // (they're for newsletter/social fanout, not on-page playback).
   const allVideos = post.videos ?? [];
   const narratedReading = allVideos.find((v) => v.template === 'article-narrated') ?? null;
-  const shortFormVideos = allVideos.filter((v) => v.template !== 'article-narrated');
+  const shortFormVideos = allVideos.filter(
+    (v) => v.template !== 'article-narrated' && v.template !== 'article-promo',
+  );
 
   return (
     <article className='mx-auto max-w-3xl px-6 py-12'>
