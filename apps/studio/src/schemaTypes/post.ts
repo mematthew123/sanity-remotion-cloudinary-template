@@ -100,7 +100,7 @@ export const postType = defineType({
       group: 'video',
       readOnly: true,
       description:
-        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition (Phase 2). Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
+        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition. Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
       of: [
         defineArrayMember({
           type: 'object',

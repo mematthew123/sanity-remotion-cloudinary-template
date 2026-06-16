@@ -56,7 +56,7 @@ export async function generateSpeechMp3(args: GenerateSpeechArgs): Promise<Buffe
 }
 
 /** Rough cost estimate ($USD) for an ElevenLabs TTS call, used by the cost
- *  preview in the Studio Send dialog (Phase 5). Pay-as-you-go pricing is ~$0.30
+ *  preview in the Studio Send dialog. Pay-as-you-go pricing is ~$0.30
  *  per 1000 characters at time of writing; pinned-tier subscribers should swap
  *  this constant. Reference: https://elevenlabs.io/pricing */
 const USD_PER_1000_CHARS = 0.3
