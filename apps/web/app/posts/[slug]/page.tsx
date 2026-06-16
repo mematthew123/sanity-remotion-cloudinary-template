@@ -3,15 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   PortableText,
-  type PortableTextBlock,
   type PortableTextComponents,
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
-import {
-  allPostsQuery,
-  singlePostQuery,
-  type Video,
-} from '@/lib/sanity.queries';
+import { allPostsQuery, singlePostQuery } from '@/lib/sanity.queries';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
 import VideoPlayer from '@/components/VideoPlayer';
 
@@ -88,23 +83,8 @@ const portableTextComponents: PortableTextComponents = {
   },
 };
 
-type Post = {
-  _id: string;
-  title: string | null;
-  slug: { current: string } | null;
-  publishedAt: string | null;
-  excerpt: string | null;
-  body: PortableTextBlock[] | null;
-  authorName: string | null;
-  authorImageUrl: string | null;
-  mainImage: SanityImageSource | null;
-  videos: Video[] | null;
-};
-
 export async function generateStaticParams() {
-  const posts = await client.fetch<{ slug: { current: string } | null }[]>(
-    allPostsQuery,
-  );
+  const posts = await client.fetch(allPostsQuery);
   return posts
     .map((p) => p.slug?.current)
     .filter((slug): slug is string => Boolean(slug))
@@ -118,7 +98,7 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await client.fetch<Post | null>(singlePostQuery, { slug });
+  const post = await client.fetch(singlePostQuery, { slug });
 
   if (!post) notFound();
 
@@ -175,7 +155,7 @@ export default async function PostPage({
           <div className='relative mb-10 aspect-video w-full overflow-hidden border border-foreground bg-muted/10'>
             <Image
               src={mainImageUrl}
-              alt={post.title ?? ''}
+              alt={post.mainImage?.alt ?? post.title ?? ''}
               fill
               sizes='(max-width: 768px) 100vw, 768px'
               className='object-cover'

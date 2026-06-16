@@ -5,18 +5,8 @@ import { allPostsQuery } from '@/lib/sanity.queries';
 
 export const revalidate = 60;
 
-type PostListItem = {
-  _id: string;
-  title: string | null;
-  slug: { current: string } | null;
-  publishedAt: string | null;
-  excerpt: string | null;
-  mainImageUrl: string | null;
-  authorName: string | null;
-};
-
 export default async function HomePage() {
-  const posts = await client.fetch<PostListItem[]>(allPostsQuery);
+  const posts = await client.fetch(allPostsQuery);
 
   return (
     <div className='mx-auto max-w-5xl px-6 py-12'>

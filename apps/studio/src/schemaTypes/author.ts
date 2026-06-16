@@ -29,6 +29,15 @@ export const authorType = defineType({
       options: {
         hotspot: true,
       },
+      fields: [
+        defineField({
+          name: 'alt',
+          title: 'Alternative text',
+          type: 'string',
+          description: 'Describes the image for screen readers and when the image fails to load.',
+          validation: (rule) => rule.required(),
+        }),
+      ],
     }),
     defineField({
       name: 'bio',

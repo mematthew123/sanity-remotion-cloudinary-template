@@ -10,6 +10,8 @@
     "build": "sanity build",
     "start": "sanity start",
     "deploy": "sanity deploy",
+    "typegen:extract": "sanity schema extract --path schema.json",
+    "typegen": "sanity schema extract --path schema.json && sanity typegen generate",
     "lint": "eslint ."
   },
   "keywords": [

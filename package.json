@@ -13,7 +13,8 @@
     "start": "pnpm --filter @template/web start",
     "lint": "pnpm --filter @template/web lint",
     "deploy:studio": "pnpm --filter @template/studio deploy",
-    "bundle:remotion": "pnpm --filter @template/web bundle:remotion"
+    "bundle:remotion": "pnpm --filter @template/web bundle:remotion",
+    "typegen": "pnpm --filter @template/studio typegen"
   },
   "pnpm": {
     "overrides": {

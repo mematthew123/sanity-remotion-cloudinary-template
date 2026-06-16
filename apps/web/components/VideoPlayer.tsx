@@ -4,10 +4,10 @@ import { useState } from 'react'
 // Safe to import from /registry in a client component: it is React-free
 // metadata (labels + dimensions), no Remotion hooks evaluate here.
 import { findComposition } from '@template/video-core/registry'
-import type { Video } from '@/lib/sanity.queries'
+import type { PostVideo } from '@/lib/sanity.queries'
 
 interface VideoPlayerProps {
-  videos: Video[]
+  videos: PostVideo[]
 }
 
 export default function VideoPlayer({ videos }: VideoPlayerProps) {

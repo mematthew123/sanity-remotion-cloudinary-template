@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { client } from '@/lib/sanity.client';
-import { allVideosQuery, type Video } from '@/lib/sanity.queries';
+import { allVideosQuery } from '@/lib/sanity.queries';
 // React-free metadata import — labels and fallback dimensions only.
 import { findComposition } from '@template/video-core/registry';
 
@@ -13,7 +13,7 @@ export const metadata = {
 };
 
 export default async function VideosPage() {
-  const videos = await client.fetch<Video[]>(allVideosQuery);
+  const videos = await client.fetch(allVideosQuery);
   const playable = videos.filter((v) => v.cloudinaryUrl);
 
   return (

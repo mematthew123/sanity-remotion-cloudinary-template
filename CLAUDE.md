@@ -18,7 +18,11 @@ pnpm lint             # ESLint on apps/web
 pnpm deploy:studio
 
 pnpm bundle:remotion      # local: rebuild apps/web/.remotion-bundle/ via remotion bundle CLI
+
+pnpm typegen          # extract Studio schema + regenerate apps/web/sanity.types.ts
 ```
+
+Run `pnpm typegen` after editing any schema or GROQ query in `apps/web/lib/sanity.queries.ts`. It runs `sanity schema extract` then `sanity typegen generate` (config: `apps/studio/sanity-typegen.json`). The generated `apps/web/sanity.types.ts` is committed (so the web build never depends on the Studio); the intermediate `apps/studio/schema.json` is gitignored. Queries are wrapped in `defineQuery` and `overloadClientMethods` is on, so `client.fetch(query)` is auto-typed — view types in `sanity.queries.ts` are *derived* from the generated result types (`PostListItem`, `SinglePost`, `PostVideo`, `VideoListItem`, `NewsletterForSend`), never hand-written.
 
 Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video-core`). No test suite is wired up.
 

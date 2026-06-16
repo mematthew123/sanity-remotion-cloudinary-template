@@ -1,4 +1,4 @@
-import type {Video} from '@/lib/sanity.queries';
+import type {PostVideo} from '@/lib/sanity.queries';
 
 // Featured player for the article-narrated composition: a long-form narrated
 // reading of the post body. Shown as a hero block on the post page instead
@@ -10,7 +10,7 @@ import type {Video} from '@/lib/sanity.queries';
 // controls + poster handle the play/pause/seek UI for free.
 
 interface Props {
-  video: Video;
+  video: PostVideo;
   /** Used as the video's poster image until the user hits play. */
   posterUrl: string | null;
 }
