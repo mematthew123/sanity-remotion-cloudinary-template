@@ -107,7 +107,7 @@ The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio s
 
 Compositions render from `ArticleVideoProps` (in `packages/video-core/src/types.ts`). To change the source content type you must change that Zod schema, the `post` schema (`apps/studio/src/schemaTypes/post.ts`), and the field mapping in the Studio render action **together** — the render route itself is content-agnostic.
 
-## Env: three prefixes, one shared secret
+## Env: two prefixes, one shared secret
 
 Each surface reads env differently — vars without the right prefix don't reach that surface's client bundle:
 
@@ -115,19 +115,14 @@ Each surface reads env differently — vars without the right prefix don't reach
 | --- | --- | --- |
 | Next.js web | `apps/web/.env.local` | `NEXT_PUBLIC_*` (client) + plain (server) |
 | Sanity Studio (Vite) | `apps/studio/.env` | `SANITY_STUDIO_*` |
-| App SDK app | `apps/video/.env` | `SANITY_APP_*` |
 
-`VIDEO_RENDER_SECRET` is a value you invent and **mirror identically** into three places: `VIDEO_RENDER_SECRET` (web), `SANITY_STUDIO_RENDER_SECRET` (studio), `SANITY_APP_RENDER_SECRET` (video app). It is bundled into the Studio/video-app client JS — fine for local/demo, but for public production you must move the trigger behind a session-authenticated proxy instead.
+`VIDEO_RENDER_SECRET` is a value you invent and **mirror identically** into two places: `VIDEO_RENDER_SECRET` (web) and `SANITY_STUDIO_RENDER_SECRET` (studio). It is bundled into the Studio client JS — fine for local/demo, but for public production you must move the trigger behind a session-authenticated proxy instead.
 
 `NEWSLETTER_SEND_SECRET` follows the same mirror pattern (web + `SANITY_STUDIO_NEWSLETTER_SECRET` in the studio). The blast radius is bigger than render — anyone with the bundled secret can send to your Resend audience — so the send route also enforces a server-side guard (`status === 'draft'` precondition + `ifRevisionID` on the `sending` patch) and requires `confirmAudienceSend: true` on any audience-mode send (the Studio action sets it after a confirm dialog); test-mode sends to typed-in addresses don't need it. There is no recipient-count cap — Resend Broadcasts don't expose a count pre-send.
 
 Resend env (web only): `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`. The audience id must already exist in Resend before any audience send. Sender domain must be verified or test sends land in spam.
 
-Blueprint env (`apps/blueprints/.env`, **not** a Studio/web prefix — read at deploy time and forwarded into the function runtime): `BLUESKY_USERNAME`, `BLUESKY_PASSWORD` (app password, not account), `BLUESKY_HOST` (default `bsky.social`), `SANITY_PROJECT_ID`, `SANITY_DATASET`, `SANITY_WRITE_TOKEN` (Editor scope — required because the function patches `video.socialPostedAt` after posting).
-
 ElevenLabs env (web only): `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Required for the voiceover generation route/script that feeds the `article-narrated` composition (see "The narrated composition" above); the other compositions don't need them.
-
-`SANITY_APP_*` vars are baked into the App SDK bundle **at build time**. A deployed app with `SANITY_APP_RENDER_API_URL=http://localhost:3000` will call the user's local machine — rebuild and redeploy after pointing it at the deployed web URL.
 
 The site reads published content with **no token** (`useCdn: true`, `perspective: 'published'`) — requires a **public** dataset. If kept private, add a read token in `apps/web/lib/sanity.client.ts`. Writes always use the write token regardless.
 
@@ -149,8 +144,6 @@ Each `post` has an optional `voice` reference under the **Settings** group. It's
 - **Rendering is in a Vercel Sandbox** — see `docs/vercel-sandbox.md`. One-time setup: deploy the project, then **Storage → Create → Blob** in the Vercel dashboard and attach the store. `BLOB_READ_WRITE_TOKEN` is auto-injected. Locally, `vercel link && vercel env pull apps/web/.env.local`.
 - The Vercel function carries no Chromium or compositor binary — `@vercel/sandbox` and `@remotion/vercel` are marked `serverExternalPackages` in `apps/web/next.config.ts`. `outputFileTracingIncludes` ships the local bundle output (`apps/web/.remotion-bundle/`) with the function for the dev-fallback path.
 - The sandbox writes its output to a path inside the VM; `uploadToVercelBlob({access: 'public'})` stages it on Vercel Blob just long enough for Cloudinary to fetch it by URL; the route then `del()`s the Blob staging copy, so the canonical copy lives only in Cloudinary.
-- App SDK first deploy is interactive (free-text title prompt; `-y` won't answer it). After the first run, pin `deployment.appId` in the app's `sanity.cli.ts` — subsequent deploys are non-interactive.
-- Blueprints deploy with `pnpm --filter @template/blueprints deploy` (wraps `npx sanity@latest blueprints deploy`). The deploy reads `apps/blueprints/.env` at definition time and bakes the values into the function's runtime env block. Rotate `SANITY_WRITE_TOKEN` by redeploying — the function does not pick up new env without one.
 
 ## React version pinning
 

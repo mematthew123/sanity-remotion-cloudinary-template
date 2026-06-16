@@ -4,7 +4,9 @@
 
 Earlier plan (`PLAN-drip-release.md`, superseded) sliced the monorepo into a numbered series of **separately released** repos so each cut could be its own launch moment. We're abandoning that.
 
-**Reasoning:** the core pitch is *render once → fan out to site / social / email*. That story **is** the fanout. Drip-*releasing* the slices means the first thing the world sees is the spine **without** the fanout — the least impressive cut of the whole idea. Showing the full end-to-end loop on day one is the strongest first impression for stars, adoption, and word-of-mouth.
+**Reasoning:** the core pitch is *render once → fan out to site + email* (plus a full-res YouTube upload and an audio-only podcast for the narrated composition). That story **is** the fanout. Drip-*releasing* the slices means the first thing the world sees is the spine **without** the fanout — the least impressive cut of the whole idea. Showing the full end-to-end loop on day one is the strongest first impression for stars, adoption, and word-of-mouth.
+
+> The App SDK video editor app and the BlueSky Blueprint were both removed to sharpen the template — the monorepo is now `apps/web`, `apps/studio`, and `packages/video-core`, and the fanout is site + email (with YouTube/podcast for narrated).
 
 So we split the two things the old plan conflated:
 
@@ -20,7 +22,7 @@ From originality research: only **one** thing can be a true Exchange **Template*
 | Exchange surface | Content | Role |
 |---|---|---|
 | **Template** (1 listing) | the complete core repo, public, validator-passing | the entry point / headline artifact |
-| **Guides / Recipes** (published over time) | one per fanout surface — Blueprint, newsletter, narrated/TTS, video-editor app | the drip-**promotion** vehicle; each links back to the complete repo |
+| **Guides / Recipes** (published over time) | one per fanout surface — newsletter, narrated/TTS | the drip-**promotion** vehicle; each links back to the complete repo |
 
 The numbered sequence from the old plan becomes the **order we publish promo content**, not the order we ship code.
 
@@ -29,10 +31,8 @@ The numbered sequence from the old plan becomes the **order we publish promo con
 | # | Promo beat | Angle / differentiation (from originality research) |
 |---|---|---|
 | 1 | **Core** — render once → Cloudinary variants → site | the Sanity + Cloudinary flagship; fills the real partnership gap (no public Sanity+Remotion template exists) |
-| 2 | **BlueSky Blueprint** — fan out to social | frame as posting *rendered video* (`social-1x1` variant + `socialPostedAt` idempotency), NOT generic Bluesky posting — Sanity already has a text-only recipe |
-| 3 | **Newsletter** — fan out to email | lead with the video-hero GIF (Cloudinary variant embedded directly, no re-host), NOT "send email from Studio" — crowded slot (wrux plugin + user's own ranking post) |
-| 4 | **Narrated** — long-form TTS | differentiate via CMS trigger, per-chunk voiceover caching, Studio UX vs. the small ElevenLabs+Remotion CLI projects |
-| 5 | **Video editor app** — live `@remotion/player` preview | essentially no prior art — safe to claim novel |
+| 2 | **Newsletter** — fan out to email | lead with the video-hero GIF (Cloudinary variant embedded directly, no re-host), NOT "send email from Studio" — crowded slot (wrux plugin + user's own ranking post) |
+| 3 | **Narrated** — long-form TTS, with YouTube + podcast fanout | differentiate via CMS trigger, per-chunk voiceover caching, Studio UX vs. the small ElevenLabs+Remotion CLI projects; the one render also drives a full-res `youtube-1080p-mp4` upscale and an audio-only `podcast-mp3` |
 
 ## Pre-launch checklist (this monorepo)
 
