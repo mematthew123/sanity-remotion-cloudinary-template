@@ -41,7 +41,7 @@ function ContinuousBackground({mainImageUrl}: {mainImageUrl?: string}) {
         <>
           <Img
             src={mainImageUrl}
-            className="h-full w-full scale-[1.2] object-cover opacity-60 blur-[48px] saturate-[1.1]"
+            className="size-full scale-[1.2] object-cover opacity-60 blur-[48px] saturate-[1.1]"
           />
           <AbsoluteFill className="items-start justify-start p-0">
             <Img
@@ -65,7 +65,7 @@ function CaptionTrack({chunks}: {chunks: TimedChunk[]}) {
   const frame = useCurrentFrame()
 
   return (
-    <AbsoluteFill className="flex items-end justify-center px-[120px] pb-20 pt-0">
+    <AbsoluteFill className="flex items-end justify-center px-30 pt-0 pb-20">
       {chunks.map((chunk) => {
         // Overlapping ramps: a caption begins fading IN before the previous
         // one finishes fading OUT, producing a true crossfade with no blank
@@ -90,7 +90,7 @@ function CaptionTrack({chunks}: {chunks: TimedChunk[]}) {
         return (
           <p
             key={chunk.id}
-            className="absolute bottom-20 left-1/2 m-0 w-[calc(100%-240px)] max-w-[1440px] -translate-x-1/2 overflow-hidden text-center font-medium tracking-[-0.005em] text-white [-webkit-box-orient:vertical] [display:-webkit-box] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
+            className="absolute bottom-20 left-1/2 m-0 [display:-webkit-box] w-[calc(100%-240px)] max-w-360 -translate-x-1/2 overflow-hidden text-center font-medium tracking-[-0.005em] text-white [-webkit-box-orient:vertical] [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
             style={{
               fontSize: cap.fontSize,
               lineHeight: cap.lineHeight,

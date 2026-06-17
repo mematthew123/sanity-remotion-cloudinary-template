@@ -84,7 +84,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
         {Array.from({length: 20}).map((_, i) => (
           <div
             key={i}
-            className="absolute top-[-200px] h-[2400px] w-[2px] rotate-[30deg] bg-highlight"
+            className="absolute -top-50 h-600 w-0.5 rotate-30 bg-highlight"
             style={{left: i * 80 - 200}}
           />
         ))}
@@ -92,7 +92,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
       {/* Brand watermark */}
       <div
-        className="absolute top-[30px] left-10 font-mono text-base font-extrabold tracking-[-0.02em] text-accent uppercase"
+        className="absolute top-7.5 left-10 font-mono text-base font-extrabold tracking-[-0.02em] text-accent uppercase"
         style={{opacity: tagSlide}}
       >
         {BRAND}
@@ -136,7 +136,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* Excerpt */}
         <div
-          className="max-w-[700px] text-center"
+          className="max-w-175 text-center"
           style={{
             transform: `translateY(${interpolate(excerptReveal, [0, 1], [20, 0])}px)`,
             opacity: excerptReveal,
