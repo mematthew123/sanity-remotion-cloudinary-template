@@ -82,14 +82,17 @@ Fill in the env files:
 | `SANITY_API_WRITE_TOKEN` | Editor+ token — the render route creates/updates `video` docs |
 | `VIDEO_RENDER_SECRET` | any random string; the Studio must send this as a bearer token |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
+| `NEXT_PUBLIC_SITE_URL` | public origin, e.g. `https://renderonce.dev` (falls back to `http://localhost:3000`) — drives OG tags, sitemap, RSS |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel; for local dev, `vercel link && vercel env pull apps/web/.env.local`. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
+
+> Newsletter (Resend) and narrated-video (ElevenLabs) features need a few more vars — and the custom-domain / verified-sender setup — see [docs/configuration.md](./docs/configuration.md#custom-domain--resend-sender).
 
 **`apps/studio/.env`**
 
 | Var | What |
 | --- | --- |
 | `SANITY_STUDIO_PROJECT_ID` / `SANITY_STUDIO_DATASET` | same project/dataset as the web app |
-| `SANITY_STUDIO_RENDER_API_URL` | `http://localhost:3000/api/video/render` locally |
+| `SANITY_STUDIO_RENDER_API_URL` | `http://localhost:3000/api/video/render` locally; `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_RENDER_SECRET` | **must equal** the web app's `VIDEO_RENDER_SECRET` |
 
 > The render secret is one value you invent; mirror the **same** string into `VIDEO_RENDER_SECRET` (web) and `SANITY_STUDIO_RENDER_SECRET` (studio).

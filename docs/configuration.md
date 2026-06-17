@@ -28,14 +28,20 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_API_WRITE_TOKEN` | **Editor** token — the render route creates `video` docs. Server-only. |
 | `VIDEO_RENDER_SECRET` | bearer the render trigger must send |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | server-only |
+| `NEXT_PUBLIC_SITE_URL` | canonical public origin (e.g. `https://renderonce.dev`), no trailing slash — drives OG tags, sitemap, RSS, and newsletter CTA links. Falls back to `http://localhost:3000`. |
+| `RESEND_API_KEY` / `RESEND_AUDIENCE_ID` | Resend send + broadcast; server-only |
+| `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | sender identity, e.g. `hello@renderonce.dev` / `Render Once`. **The from-domain must be verified in Resend** or sends bounce / spam-folder. |
+| `NEWSLETTER_SEND_SECRET` | bearer the "Send newsletter" action must send; mirror into Studio's `SANITY_STUDIO_NEWSLETTER_SECRET` |
+| `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step; leave blank otherwise |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel when a Blob store is connected; for local dev, `vercel link` + `vercel env pull apps/web/.env.local`. See [vercel-sandbox.md](./vercel-sandbox.md). |
 
 ### `apps/studio/.env`
 | Var | Notes |
 | --- | --- |
 | `SANITY_STUDIO_PROJECT_ID` / `SANITY_STUDIO_DATASET` | same project/dataset |
-| `SANITY_STUDIO_RENDER_API_URL` | full render URL, e.g. `http://localhost:3000/api/video/render` |
+| `SANITY_STUDIO_RENDER_API_URL` | full render URL — `http://localhost:3000/api/video/render` locally, `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
+| `SANITY_STUDIO_NEWSLETTER_SECRET` | == web `NEWSLETTER_SEND_SECRET` |
 
 ## The shared render secret
 
@@ -61,3 +67,13 @@ The render route needs a token that is a **project member with write (Editor) ac
 ## Dataset visibility
 
 The website reads **published** content with **no token** (`useCdn: true`, `perspective: 'published'`). That only works if the dataset is **public**. If you keep it private, add a read token to `apps/web/lib/sanity.client.ts`. The render route's writes work either way (they use the write token).
+
+## Custom domain & Resend sender
+
+The reference deployment uses **`renderonce.dev`**. Two things hang off it: the public origin (`NEXT_PUBLIC_SITE_URL`) and the newsletter's verified sending domain (`RESEND_FROM_EMAIL`). Wire them up in this order — the Resend `from` only works **after** the domain verifies.
+
+1. **Point the domain at Vercel.** Add `renderonce.dev` (+ `www` redirect) under the web project's **Settings → Domains**, then set `NEXT_PUBLIC_SITE_URL=https://renderonce.dev` in Production env and redeploy. This alone fixes OG cards, the sitemap, the podcast RSS self-link, and newsletter CTA links.
+2. **Verify the domain in Resend.** **Domains → Add Domain → `renderonce.dev`**, then add the records Resend shows (an `MX` + SPF `TXT` on the `send` subdomain, a DKIM `TXT` at `resend._domainkey`, and a recommended `_dmarc` `TXT`) at your registrar. Wait for **Verified**.
+3. **Flip the sender.** Once verified, set `RESEND_FROM_EMAIL=hello@renderonce.dev` and `RESEND_FROM_NAME=Render Once` (web local + Vercel). Until then, sends from an unverified domain bounce or land in spam.
+
+> Mirror local values in `apps/web/.env.local` so previews of OG tags / feeds resolve against the real origin during development.

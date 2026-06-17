@@ -1,6 +1,7 @@
 // Canonical public origin for absolute URLs (OG tags, sitemap, RSS feed).
 // Mirrors the fallback used by the newsletter routes. Set NEXT_PUBLIC_SITE_URL
-// in production so shared links, feeds, and structured data resolve correctly.
+// in production (e.g. https://renderonce.dev) so shared links, feeds, and
+// structured data resolve correctly.
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 ).replace(/\/$/, '');
