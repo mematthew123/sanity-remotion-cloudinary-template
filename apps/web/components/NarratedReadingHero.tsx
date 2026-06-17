@@ -30,14 +30,10 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
   const durationLabel = formatDuration(video.duration);
 
   return (
-    <section className='mb-10 border-[3px] border-foreground bg-foreground shadow-[6px_6px_0px_var(--color-foreground)]'>
-      <div className='flex items-center justify-between gap-3 border-b-[3px] border-foreground bg-background px-4 py-2 font-mono text-xs font-extrabold tracking-widest uppercase'>
-        <span className='text-foreground'>
-          ▶ Watch the narrated reading
-        </span>
-        {durationLabel && (
-          <span className='text-muted'>{durationLabel}</span>
-        )}
+    <section className='mb-10 overflow-hidden rounded-xl bg-foreground ring-1 ring-foreground/10 shadow-sm'>
+      <div className='flex items-center justify-between gap-3 border-b border-foreground/10 bg-background px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
+        <span className='text-accent'>▶ Watch the narrated reading</span>
+        {durationLabel && <span className='text-muted'>{durationLabel}</span>}
       </div>
       <video
         src={video.cloudinaryUrl}

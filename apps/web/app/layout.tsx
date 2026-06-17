@@ -14,7 +14,7 @@ const instrumentSerif = Instrument_Serif({
     variable: '--font-instrument',
     subsets: ['latin'],
     weight: ['400'],
-    style: ['italic'],
+    style: ['normal', 'italic'],
     display: 'swap',
 });
 
@@ -44,18 +44,21 @@ export default function RootLayout({
             className={`${jetbrainsMono.variable} ${instrumentSerif.variable} ${inter.variable}`}
         >
             <body className='antialiased min-h-dvh flex flex-col'>
-                <header className='flex items-center justify-between border-b border-foreground/15 px-6 py-4'>
+                <header className='flex items-center justify-between border-b border-foreground/10 px-6 py-5'>
                     <Link
                         href='/'
-                        className='font-mono text-sm font-extrabold uppercase tracking-tight'
+                        className='font-serif text-xl tracking-tight transition-colors hover:text-accent'
                     >
                         Template
                     </Link>
-                    <nav className='flex gap-6 font-mono text-xs font-bold uppercase tracking-wide'>
-                        <Link href='/' className='hover:text-accent'>
+                    <nav className='flex gap-8 font-mono text-xs tracking-[0.15em] uppercase text-muted'>
+                        <Link href='/' className='transition-colors hover:text-foreground'>
                             Home
                         </Link>
-                        <Link href='/videos' className='hover:text-accent'>
+                        <Link
+                            href='/videos'
+                            className='transition-colors hover:text-foreground'
+                        >
                             Videos
                         </Link>
                     </nav>

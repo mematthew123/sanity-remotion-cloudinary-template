@@ -2,16 +2,7 @@
 
 import { useRef, useState } from 'react';
 
-// Standalone "Listen to this article" audio feature. Decoupled from the
-// narrated-video hero (NarratedReadingHero) so the MP3 narration stands on its
-// own near the top of the post — listen-on-the-go / accessibility affordance,
-// independent of whether the reader watches the animated video below.
-//
-// The audio source is the `podcast-mp3` Cloudinary variant of the
-// `article-narrated` render (no re-render). Custom-built controls in the
-// template's neo-brutalist style; a hidden native <audio> element does the
-// actual playback so we get streaming, range requests, and codec support for
-// free while driving our own UI.
+
 
 interface Props {
   /** The `podcast-mp3` variant URL from the narrated render. */
@@ -94,10 +85,10 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
   }
 
   return (
-    <section className='mb-10 border-[3px] border-foreground bg-background shadow-[6px_6px_0px_var(--color-foreground)]'>
-      <div className='flex items-center justify-between gap-3 border-b-[3px] border-foreground bg-foreground px-4 py-2 font-mono text-xs font-extrabold tracking-widest text-background uppercase'>
-        <span>▶ Listen to this article</span>
-        {listenLabel && <span className='text-background/70'>{listenLabel}</span>}
+    <section className='mb-10 overflow-hidden rounded-xl bg-background ring-1 ring-foreground/10 shadow-sm'>
+      <div className='flex items-center justify-between gap-3 border-b border-foreground/10 px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
+        <span className='text-accent'>▶ Listen to this article</span>
+        {listenLabel && <span className='text-muted'>{listenLabel}</span>}
       </div>
 
       <div className='flex flex-wrap items-center gap-4 p-4'>
@@ -106,7 +97,7 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
           onClick={togglePlay}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           aria-pressed={isPlaying}
-          className='flex size-12 shrink-0 items-center justify-center border-[3px] border-foreground bg-foreground text-background hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+          className='flex size-12 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
         >
           {isPlaying ? (
             <svg viewBox='0 0 24 24' className='size-6 fill-current' aria-hidden='true'>
@@ -131,15 +122,15 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
             aria-valuetext={`${formatClock(currentTime)} of ${formatClock(duration)}`}
             onClick={handleTrackClick}
             onKeyDown={handleTrackKeyDown}
-            className='relative h-4 min-w-0 flex-1 cursor-pointer border-[3px] border-foreground bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+            className='relative h-2 min-w-0 flex-1 cursor-pointer overflow-hidden rounded-full bg-foreground/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
           >
             <div
-              className='absolute inset-y-0 left-0 bg-foreground'
+              className='absolute inset-y-0 left-0 rounded-full bg-accent'
               style={{ width: `${progress}%` }}
               aria-hidden='true'
             />
           </div>
-          <span className='shrink-0 font-mono text-xs font-bold tabular-nums text-muted'>
+          <span className='shrink-0 font-mono text-xs tabular-nums text-muted'>
             {formatClock(currentTime)} / {formatClock(duration)}
           </span>
         </div>
@@ -147,7 +138,7 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
         <a
           href={src}
           download
-          className='shrink-0 font-mono text-xs font-bold tracking-wide text-foreground uppercase underline underline-offset-2 hover:text-muted'
+          className='shrink-0 font-mono text-xs tracking-wide text-muted uppercase underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground'
         >
           ↓ MP3
         </a>

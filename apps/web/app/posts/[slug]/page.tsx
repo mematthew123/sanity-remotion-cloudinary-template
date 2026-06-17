@@ -17,22 +17,20 @@ const portableTextComponents: PortableTextComponents = {
   block: {
     normal: ({ children }) => <p>{children}</p>,
     h2: ({ children }) => (
-      <h2 className='mt-6 font-mono text-2xl font-extrabold tracking-tight uppercase sm:text-3xl'>
+      <h2 className='mt-8 font-serif text-3xl tracking-tight sm:text-4xl'>
         {children}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className='mt-4 font-mono text-xl font-bold tracking-tight uppercase sm:text-2xl'>
+      <h3 className='mt-6 font-serif text-2xl tracking-tight sm:text-3xl'>
         {children}
       </h3>
     ),
     h4: ({ children }) => (
-      <h4 className='mt-4 font-mono text-lg font-bold tracking-tight uppercase'>
-        {children}
-      </h4>
+      <h4 className='mt-4 font-serif text-xl tracking-tight'>{children}</h4>
     ),
     blockquote: ({ children }) => (
-      <blockquote className='border-l-4 border-foreground pl-4 font-serif text-xl text-muted italic'>
+      <blockquote className='border-l-2 border-accent pl-5 font-serif text-2xl leading-snug text-foreground/80 italic'>
         {children}
       </blockquote>
     ),
@@ -70,7 +68,7 @@ const portableTextComponents: PortableTextComponents = {
         .width(1600)
         .url();
       return (
-        <div className='relative my-2 aspect-video w-full overflow-hidden border border-foreground/20 bg-muted/10'>
+        <div className='relative my-2 aspect-video w-full overflow-hidden rounded-lg bg-muted/10'>
           <Image
             src={src}
             alt={(value as { alt?: string } | undefined)?.alt ?? ''}
@@ -118,12 +116,12 @@ export default async function PostPage({
   );
 
   return (
-    <article className='mx-auto max-w-3xl px-6 py-12'>
-      <header className='mb-8'>
-        <h1 className='font-mono text-3xl font-extrabold tracking-tight uppercase sm:text-4xl'>
+    <article className='mx-auto max-w-3xl px-6 py-16'>
+      <header className='mb-10'>
+        <h1 className='font-serif text-4xl leading-[1.08] tracking-tight text-balance sm:text-5xl'>
           {post.title ?? 'Untitled'}
         </h1>
-        <div className='mt-3 font-mono text-xs text-muted uppercase'>
+        <div className='mt-5 font-mono text-xs tracking-[0.15em] text-muted uppercase'>
           {post.authorName ?? 'Unknown'}
           {post.publishedAt && (
             <>
@@ -140,7 +138,7 @@ export default async function PostPage({
           )}
         </div>
         {post.excerpt && (
-          <p className='mt-4 font-serif text-xl text-muted italic'>
+          <p className='mt-6 font-serif text-2xl leading-relaxed text-muted italic'>
             {post.excerpt}
           </p>
         )}
@@ -164,7 +162,7 @@ export default async function PostPage({
         <NarratedReadingHero video={narratedReading} posterUrl={mainImageUrl} />
       ) : (
         mainImageUrl && (
-          <div className='relative mb-10 aspect-video w-full overflow-hidden border border-foreground bg-muted/10'>
+          <div className='relative mb-10 aspect-video w-full overflow-hidden rounded-xl bg-muted/10 ring-1 ring-foreground/10'>
             <Image
               src={mainImageUrl}
               alt={post.mainImage?.alt ?? post.title ?? ''}
