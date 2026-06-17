@@ -70,7 +70,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
       {/* Header bar */}
       <Sequence from={0}>
         <div
-          className="absolute inset-x-0 top-0 flex h-[60px] items-center justify-between bg-foreground px-10"
+          className="absolute inset-x-0 top-0 flex h-15 items-center justify-between bg-foreground px-10"
           style={{transform: `translateY(${interpolate(introSlide, [0, 1], [-60, 0])}px)`}}
         >
           <div className="font-mono text-xl font-extrabold tracking-wider text-accent uppercase">
@@ -83,12 +83,12 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
       </Sequence>
 
       {/* Main content */}
-      <div className="absolute inset-x-10 top-20 bottom-[60px] flex flex-col gap-6">
+      <div className="absolute inset-x-10 top-20 bottom-15 flex flex-col gap-6">
         {/* Main image */}
         {mainImageUrl && (
           <Sequence from={5} layout="none">
             <div
-              className={`h-[340px] w-full overflow-hidden ${BORDER} ${SHADOW}`}
+              className={`h-85 w-full overflow-hidden ${BORDER} ${SHADOW}`}
               style={{
                 transform: `translateY(${interpolate(introSlide, [0, 1], [40, 0])}px)`,
                 opacity: introSlide,
@@ -102,7 +102,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Tag */}
         <Sequence from={20} layout="none">
           <div
-            className={`inline-flex self-start bg-highlight px-[14px] py-[6px] font-mono text-xs font-extrabold tracking-wider text-foreground uppercase ${BORDER}`}
+            className={`inline-flex self-start bg-highlight px-3.5 py-1.5 font-mono text-xs font-extrabold tracking-wider text-foreground uppercase ${BORDER}`}
             style={{transform: `scale(${tagPop})`, transformOrigin: 'left center'}}
           >
             {videoCopy?.kicker ?? 'New Article'}
@@ -168,7 +168,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* CTA */}
         <Sequence from={110} layout="none">
           <div
-            className={`flex items-center justify-between bg-foreground px-6 py-[14px] ${BORDER}`}
+            className={`flex items-center justify-between bg-foreground px-6 py-3.5 ${BORDER}`}
             style={{
               transform: `translateY(${interpolate(ctaReveal, [0, 1], [30, 0])}px)`,
               opacity: ctaReveal,
