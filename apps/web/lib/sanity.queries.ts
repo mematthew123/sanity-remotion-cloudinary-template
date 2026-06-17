@@ -7,6 +7,7 @@ import type {
   SITEMAP_QUERY_RESULT,
   PLAYGROUND_VIDEOS_QUERY_RESULT,
   NEWSLETTER_BY_EITHER_ID_QUERY_RESULT,
+  WELCOME_EMAIL_QUERY_RESULT,
 } from '@/sanity.types';
 
 // Shared fan-out projection: the full Cloudinary variant set on a video doc.
@@ -171,7 +172,21 @@ export type PlaygroundVideo = PLAYGROUND_VIDEOS_QUERY_RESULT[number];
 // of the video projection) plus the optional linked post used for the CTA.
 // Used by /api/newsletter/{preview,send}. The send route reads `_rev` for the
 // optimistic-concurrency guard on the draft→sending transition.
-// Shared projection for both query variants below — keeps the shape identical.
+
+// Shared hero-video sub-projection for email surfaces (newsletter + welcome).
+// Both embed the same `site-preview-gif` (poster fallback) as the email hero, so
+// the GIF/poster URL resolution lives in exactly one place.
+const EMAIL_HERO_VIDEO_PROJECTION = /* groq */ `video->{
+    _id,
+    title,
+    cloudinaryPublicId,
+    status,
+    "gifUrl": variants[variantId == "site-preview-gif"][0].url,
+    "posterUrl": variants[variantId == "site-poster-jpg"][0].url
+  }`;
+
+// Shared projection for both newsletter query variants below — keeps the shape
+// identical.
 const NEWSLETTER_PROJECTION = /* groq */ `{
   _id,
   _rev,
@@ -184,14 +199,7 @@ const NEWSLETTER_PROJECTION = /* groq */ `{
   sentAt,
   recipientCount,
   resendBroadcastId,
-  video->{
-    _id,
-    title,
-    cloudinaryPublicId,
-    status,
-    "gifUrl": variants[variantId == "site-preview-gif"][0].url,
-    "posterUrl": variants[variantId == "site-poster-jpg"][0].url
-  },
+  ${EMAIL_HERO_VIDEO_PROJECTION},
   post->{
     title,
     excerpt,
@@ -217,3 +225,27 @@ export const NEWSLETTER_BY_EITHER_ID_QUERY = defineQuery(/* groq */ `
 // Derived from TypeGen output. The byId and byEitherId queries share
 // NEWSLETTER_PROJECTION, so their result types are identical — pick either.
 export type NewsletterForSend = NonNullable<NEWSLETTER_BY_EITHER_ID_QUERY_RESULT>;
+
+// The welcome-email singleton (id "welcomeEmail"). Drives the public signup
+// flow: the confirmation email's subject/body and the GIF-hero welcome email a
+// subscriber gets after confirming. Read token-free from the published client by
+// the subscribe/confirm routes; the Studio preview route reads it under the
+// `drafts` perspective.
+export const WELCOME_EMAIL_QUERY = defineQuery(/* groq */ `
+  *[_id == "welcomeEmail"][0]{
+    enabled,
+    subject,
+    previewText,
+    intro,
+    confirmationSubject,
+    confirmationBody,
+    ${EMAIL_HERO_VIDEO_PROJECTION},
+    post->{
+      title,
+      excerpt,
+      "slug": slug.current
+    }
+  }
+`);
+
+export type WelcomeEmail = NonNullable<WELCOME_EMAIL_QUERY_RESULT>;

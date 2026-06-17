@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JetBrains_Mono, Instrument_Serif, Inter } from 'next/font/google';
 import { SITE_URL } from '@/lib/siteUrl';
+import NewsletterSignup from '@/components/NewsletterSignup';
 import './globals.css';
 
 const jetbrainsMono = JetBrains_Mono({
@@ -77,6 +78,21 @@ export default function RootLayout({
                     </nav>
                 </header>
                 <main className='flex-1'>{children}</main>
+                <footer className='border-t border-foreground/10 px-6 py-16'>
+                    <div className='mx-auto max-w-2xl text-center'>
+                        <span className='font-mono text-[0.7rem] tracking-[0.25em] text-accent uppercase'>
+                            Newsletter
+                        </span>
+                        <h2 className='mt-3 font-serif text-3xl tracking-tight sm:text-4xl'>
+                            One render, in your inbox
+                        </h2>
+                        <p className='mt-3 mb-8 font-serif text-lg/relaxed text-muted italic'>
+                            Subscribe and we&apos;ll send you a rendered video — the same
+                            GIF-hero email this template produces, start to finish.
+                        </p>
+                        <NewsletterSignup />
+                    </div>
+                </footer>
             </body>
         </html>
     );

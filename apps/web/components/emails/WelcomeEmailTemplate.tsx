@@ -11,20 +11,21 @@ import {
   Section,
   Text,
 } from '@react-email/components';
-import type {NewsletterForSend} from '@/lib/sanity.queries';
+import type {WelcomeEmail} from '@/lib/sanity.queries';
 import {Hero, emailStyles as styles, renderIntro} from './shared';
 
-export interface NewsletterTemplateProps {
-  newsletter: NewsletterForSend;
+// The welcome email a new subscriber receives after confirming (double opt-in).
+// Content is editor-controlled via the `welcomeEmail` singleton in Studio, and
+// the GIF hero is the `site-preview-gif` variant of the chosen render — the same
+// fan-out asset the newsletter uses, here closing the visitor-facing loop.
+export interface WelcomeEmailTemplateProps {
+  welcome: WelcomeEmail;
   siteUrl: string;
-  // When undefined the unsubscribe row renders the Resend Broadcasts placeholder
-  // (`{{{RESEND_UNSUBSCRIBE_URL}}}`) — Resend substitutes it server-side per
-  // recipient. For test sends pass an explicit URL or leave the row out.
   unsubscribeUrl?: string;
 }
 
-export function NewsletterTemplate({newsletter, siteUrl, unsubscribeUrl}: NewsletterTemplateProps) {
-  const {subject, previewText, intro, video, post} = newsletter;
+export function WelcomeEmailTemplate({welcome, siteUrl, unsubscribeUrl}: WelcomeEmailTemplateProps) {
+  const {subject, previewText, intro, video, post} = welcome;
   const heroUrl = video?.gifUrl ?? video?.posterUrl ?? null;
   const heroAlt = video?.title ?? 'Video preview';
   const ctaHref = post?.slug ? `${siteUrl}/posts/${post.slug}` : null;
@@ -52,7 +53,7 @@ export function NewsletterTemplate({newsletter, siteUrl, unsubscribeUrl}: Newsle
           {ctaHref ? (
             <Section style={{margin: '0 0 32px 0'}}>
               <Button href={ctaHref} style={styles.button}>
-                Read on the site
+                Watch on the site
               </Button>
             </Section>
           ) : null}
@@ -60,10 +61,15 @@ export function NewsletterTemplate({newsletter, siteUrl, unsubscribeUrl}: Newsle
           <Hr style={styles.hr} />
 
           <Text style={styles.footer}>
-            You&apos;re receiving this because you subscribed.{' '}
-            <Link href={unsubscribeUrl ?? '{{{RESEND_UNSUBSCRIBE_URL}}}'} style={styles.footerLink}>
-              Unsubscribe
-            </Link>
+            You&apos;re receiving this because you confirmed your subscription.
+            {unsubscribeUrl ? (
+              <>
+                {' '}
+                <Link href={unsubscribeUrl} style={styles.footerLink}>
+                  Unsubscribe
+                </Link>
+              </>
+            ) : null}
           </Text>
         </Container>
       </Body>
@@ -71,4 +77,4 @@ export function NewsletterTemplate({newsletter, siteUrl, unsubscribeUrl}: Newsle
   );
 }
 
-export default NewsletterTemplate;
+export default WelcomeEmailTemplate;

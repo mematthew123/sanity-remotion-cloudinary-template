@@ -4,6 +4,7 @@ import {
   EnvelopeIcon,
   ImagesIcon,
   PlayIcon,
+  RocketIcon,
   SparklesIcon,
   UserIcon,
 } from '@sanity/icons'
@@ -19,6 +20,13 @@ export const structure = (S: StructureBuilder) =>
       S.divider(),
       S.documentTypeListItem('video').title('Videos').icon(PlayIcon),
       S.documentTypeListItem('newsletter').title('Newsletters').icon(EnvelopeIcon),
+      // Singleton: one welcome-email config that drives the public signup form.
+      // Fixed document id so the subscribe/confirm routes can read it by id.
+      S.listItem()
+        .id('welcomeEmail')
+        .title('Welcome Email')
+        .icon(RocketIcon)
+        .child(S.document().schemaType('welcomeEmail').documentId('welcomeEmail')),
       S.divider(),
       // Brand-voice Agent Context docs (@sanity/agent-context). Surfaced so
       // editors can read/tune the voices that AI Assist actions follow. Each

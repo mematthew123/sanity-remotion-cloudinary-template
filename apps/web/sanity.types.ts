@@ -29,26 +29,20 @@ export type PostReference = {
   [internalGroqTypeReferenceTo]?: "post";
 };
 
-export type Newsletter = {
+export type WelcomeEmail = {
   _id: string;
-  _type: "newsletter";
+  _type: "welcomeEmail";
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
-  title?: string;
+  enabled?: boolean;
   subject?: string;
   previewText?: string;
   video?: VideoReference;
   post?: PostReference;
   intro?: BlockContent;
-  recipientSelection?: {
-    selectionType?: "test" | "audience";
-    testEmails?: Array<string>;
-  };
-  status?: "draft" | "sending" | "sent" | "failed";
-  sentAt?: string;
-  recipientCount?: number;
-  resendBroadcastId?: string;
+  confirmationSubject?: string;
+  confirmationBody?: string;
 };
 
 export type SanityImageAssetReference = {
@@ -87,6 +81,28 @@ export type BlockContent = Array<
       _key: string;
     }
 >;
+
+export type Newsletter = {
+  _id: string;
+  _type: "newsletter";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title?: string;
+  subject?: string;
+  previewText?: string;
+  video?: VideoReference;
+  post?: PostReference;
+  intro?: BlockContent;
+  recipientSelection?: {
+    selectionType?: "test" | "audience";
+    testEmails?: Array<string>;
+  };
+  status?: "draft" | "sending" | "sent" | "failed";
+  sentAt?: string;
+  recipientCount?: number;
+  resendBroadcastId?: string;
+};
 
 export type Video = {
   _id: string;
@@ -480,9 +496,10 @@ export type Geopoint = {
 export type AllSanitySchemaTypes =
   | VideoReference
   | PostReference
-  | Newsletter
+  | WelcomeEmail
   | SanityImageAssetReference
   | BlockContent
+  | Newsletter
   | Video
   | AuthorReference
   | SanityAgentContextReference
@@ -740,6 +757,78 @@ export type NEWSLETTER_BY_EITHER_ID_QUERY_RESULT = {
   } | null;
 } | null;
 
+// Source: ../web/lib/sanity.queries.ts
+// Variable: WELCOME_EMAIL_QUERY
+// Query: *[_id == "welcomeEmail"][0]{    enabled,    subject,    previewText,    intro,    confirmationSubject,    confirmationBody,    video->{    _id,    title,    cloudinaryPublicId,    status,    "gifUrl": variants[variantId == "site-preview-gif"][0].url,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url  },    post->{      title,      excerpt,      "slug": slug.current    }  }
+export type WELCOME_EMAIL_QUERY_RESULT =
+  | {
+      enabled: null;
+      subject: null;
+      previewText: null;
+      intro: null;
+      confirmationSubject: null;
+      confirmationBody: null;
+      video: null;
+      post: null;
+    }
+  | {
+      enabled: null;
+      subject: null;
+      previewText: null;
+      intro: null;
+      confirmationSubject: null;
+      confirmationBody: null;
+      video: null;
+      post: {
+        title: string | null;
+        excerpt: string | null;
+        slug: string | null;
+      } | null;
+    }
+  | {
+      enabled: null;
+      subject: string | null;
+      previewText: string | null;
+      intro: BlockContent | null;
+      confirmationSubject: null;
+      confirmationBody: null;
+      video: {
+        _id: string;
+        title: string | null;
+        cloudinaryPublicId: string | null;
+        status: "failed" | "ready" | "rendering" | "uploading" | null;
+        gifUrl: string | null;
+        posterUrl: string | null;
+      } | null;
+      post: {
+        title: string | null;
+        excerpt: string | null;
+        slug: string | null;
+      } | null;
+    }
+  | {
+      enabled: boolean | null;
+      subject: string | null;
+      previewText: string | null;
+      intro: BlockContent | null;
+      confirmationSubject: string | null;
+      confirmationBody: string | null;
+      video: {
+        _id: string;
+        title: string | null;
+        cloudinaryPublicId: string | null;
+        status: "failed" | "ready" | "rendering" | "uploading" | null;
+        gifUrl: string | null;
+        posterUrl: string | null;
+      } | null;
+      post: {
+        title: string | null;
+        excerpt: string | null;
+        slug: string | null;
+      } | null;
+    }
+  | null;
+
 // Query TypeMap
 import "@sanity/client";
 declare module "@sanity/client" {
@@ -753,5 +842,6 @@ declare module "@sanity/client" {
     '\n  *[_type == "video" && status == "ready" && defined(cloudinaryPublicId)] | order(renderedAt desc)[0...12]{\n    _id,\n    title,\n    template,\n    width,\n    height,\n    cloudinaryPublicId\n  }\n': PLAYGROUND_VIDEOS_QUERY_RESULT;
     '\n  *[_type == "newsletter" && _id == $id][0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_ID_QUERY_RESULT;
     '\n  *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_EITHER_ID_QUERY_RESULT;
+    '\n  *[_id == "welcomeEmail"][0]{\n    enabled,\n    subject,\n    previewText,\n    intro,\n    confirmationSubject,\n    confirmationBody,\n    video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n    post->{\n      title,\n      excerpt,\n      "slug": slug.current\n    }\n  }\n': WELCOME_EMAIL_QUERY_RESULT;
   }
 }

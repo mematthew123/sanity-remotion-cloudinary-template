@@ -50,5 +50,11 @@ export default defineConfig({
             RenderArticleNarrated,
           ]
         : prev,
+    // welcomeEmail is a singleton — reachable only via its fixed structure item,
+    // never created ad hoc. Drop it from the global "create new document" menu.
+    newDocumentOptions: (prev, {creationContext}) =>
+      creationContext.type === 'global'
+        ? prev.filter((template) => template.templateId !== 'welcomeEmail')
+        : prev,
   },
 })
