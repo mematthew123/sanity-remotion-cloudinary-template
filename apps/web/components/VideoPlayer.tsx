@@ -62,7 +62,7 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
         >
           <video
             key={active._id}
-            src={active.cloudinaryUrl}
+            src={active.siteMp4Url ?? active.cloudinaryUrl}
             poster={active.posterUrl ?? undefined}
             controls
             playsInline

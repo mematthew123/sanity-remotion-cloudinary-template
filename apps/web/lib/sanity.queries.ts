@@ -3,6 +3,9 @@ import type {
   ALL_POSTS_QUERY_RESULT,
   SINGLE_POST_QUERY_RESULT,
   ALL_VIDEOS_QUERY_RESULT,
+  PODCAST_FEED_QUERY_RESULT,
+  SITEMAP_QUERY_RESULT,
+  PLAYGROUND_VIDEOS_QUERY_RESULT,
   NEWSLETTER_BY_EITHER_ID_QUERY_RESULT,
 } from '@/sanity.types';
 
@@ -57,10 +60,12 @@ export const SINGLE_POST_QUERY = defineQuery(/* groq */ `
       height,
       cloudinaryUrl,
       cloudinaryPublicId,
+      renderStartedAt,
       renderedAt,
       "podcastUrl": variants[variantId == "podcast-mp3"][0].url,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
       "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,
+      "siteMp4Url": variants[variantId == "site-mp4"][0].url,
       ${VIDEO_VARIANTS_PROJECTION}
     }
   }
@@ -81,6 +86,7 @@ export const ALL_VIDEOS_QUERY = defineQuery(/* groq */ `
     renderedAt,
     "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
     "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
+    "siteMp4Url": variants[variantId == "site-mp4"][0].url,
     ${VIDEO_VARIANTS_PROJECTION},
     "post": post->{title, slug}
   }
@@ -102,6 +108,64 @@ export type PostVideo = SinglePost['videos'][number];
 // A ready video as projected by `ALL_VIDEOS_QUERY` (carries a light back-ref to
 // its post for the listing grid; no `podcastUrl`).
 export type VideoListItem = ALL_VIDEOS_QUERY_RESULT[number];
+
+// ── Podcast feed ────────────────────────────────────────────────────────────
+// Narrated readings carrying a podcast-mp3 variant, newest first. Drives the
+// RSS podcast feed at /feed.xml — the `podcast` fan-out surface as a real,
+// subscribable channel rather than a one-off download.
+export const PODCAST_FEED_QUERY = defineQuery(/* groq */ `
+  *[_type == "video" && template == "article-narrated" && status == "ready" && count(variants[variantId == "podcast-mp3"]) > 0] | order(renderedAt desc){
+    _id,
+    title,
+    duration,
+    renderedAt,
+    "audioUrl": variants[variantId == "podcast-mp3"][0].url,
+    "post": post->{title, excerpt, "slug": slug.current}
+  }
+`);
+export type PodcastFeedItem = PODCAST_FEED_QUERY_RESULT[number];
+
+// ── Sitemap ─────────────────────────────────────────────────────────────────
+// Every post with its primary ready video (if any), for the video-sitemap
+// extension on /sitemap.xml so rendered videos are discoverable in search.
+export const SITEMAP_QUERY = defineQuery(/* groq */ `
+  *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
+    "slug": slug.current,
+    title,
+    excerpt,
+    publishedAt,
+    _updatedAt,
+    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{
+      title,
+      cloudinaryUrl,
+      "posterUrl": variants[variantId == "site-poster-jpg"][0].url
+    }
+  }
+`);
+export type SitemapEntry = SITEMAP_QUERY_RESULT[number];
+
+// ── Captions ────────────────────────────────────────────────────────────────
+// Narration chunks for one post — text + per-chunk duration reconstruct the
+// WebVTT cue timings served at /posts/<slug>/captions.vtt.
+export const POST_CAPTIONS_QUERY = defineQuery(/* groq */ `
+  *[_type == "post" && slug.current == $slug][0]{
+    "chunks": voiceoverChunks[]{text, durationSeconds}
+  }
+`);
+
+// ── Playground ──────────────────────────────────────────────────────────────
+// A handful of ready renders to seed the public Cloudinary transform playground.
+export const PLAYGROUND_VIDEOS_QUERY = defineQuery(/* groq */ `
+  *[_type == "video" && status == "ready" && defined(cloudinaryPublicId)] | order(renderedAt desc)[0...12]{
+    _id,
+    title,
+    template,
+    width,
+    height,
+    cloudinaryPublicId
+  }
+`);
+export type PlaygroundVideo = PLAYGROUND_VIDEOS_QUERY_RESULT[number];
 
 // Loads a newsletter doc with its hero video (variant URLs flattened to the top
 // of the video projection) plus the optional linked post used for the CTA.

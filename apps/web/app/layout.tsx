@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JetBrains_Mono, Instrument_Serif, Inter } from 'next/font/google';
+import { SITE_URL } from '@/lib/siteUrl';
 import './globals.css';
 
 const jetbrainsMono = JetBrains_Mono({
@@ -25,12 +26,18 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+    metadataBase: new URL(SITE_URL),
     title: {
         default: 'Sanity + Remotion + Cloudinary Template',
         template: '%s | Template',
     },
     description:
         'Render videos from Sanity content with Remotion, publish to Next.js via Cloudinary.',
+    alternates: {
+        types: {
+            'application/rss+xml': [{ url: '/feed.xml', title: 'Podcast feed' }],
+        },
+    },
 };
 
 export default function RootLayout({
@@ -60,6 +67,12 @@ export default function RootLayout({
                             className='transition-colors hover:text-foreground'
                         >
                             Videos
+                        </Link>
+                        <Link
+                            href='/playground'
+                            className='transition-colors hover:text-foreground'
+                        >
+                            Playground
                         </Link>
                     </nav>
                 </header>

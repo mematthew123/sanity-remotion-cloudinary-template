@@ -54,7 +54,7 @@ export default async function VideosPage() {
               <li key={video._id} className='group flex flex-col'>
                 <div className='overflow-hidden rounded-xl bg-foreground shadow-sm ring-1 ring-foreground/10'>
                   <video
-                    src={video.cloudinaryUrl!}
+                    src={video.siteMp4Url ?? video.cloudinaryUrl!}
                     poster={video.posterUrl ?? undefined}
                     controls
                     playsInline

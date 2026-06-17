@@ -540,7 +540,7 @@ export type ALL_POSTS_QUERY_RESULT = Array<{
 
 // Source: ../web/lib/sanity.queries.ts
 // Variable: SINGLE_POST_QUERY
-// Query: *[_type == "post" && slug.current == $slug][0]{    _id,    title,    slug,    publishedAt,    excerpt,    body,    "authorName": author->name,    "authorImageUrl": author->image.asset->url,    mainImage,    "videos": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){      _id,      title,      template,      format,      duration,      width,      height,      cloudinaryUrl,      cloudinaryPublicId,      renderedAt,      "podcastUrl": variants[variantId == "podcast-mp3"][0].url,      "posterUrl": variants[variantId == "site-poster-jpg"][0].url,      "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,        variants[]{variantId, surface, format, url, width, height}    }  }
+// Query: *[_type == "post" && slug.current == $slug][0]{    _id,    title,    slug,    publishedAt,    excerpt,    body,    "authorName": author->name,    "authorImageUrl": author->image.asset->url,    mainImage,    "videos": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){      _id,      title,      template,      format,      duration,      width,      height,      cloudinaryUrl,      cloudinaryPublicId,      renderStartedAt,      renderedAt,      "podcastUrl": variants[variantId == "podcast-mp3"][0].url,      "posterUrl": variants[variantId == "site-poster-jpg"][0].url,      "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,      "siteMp4Url": variants[variantId == "site-mp4"][0].url,        variants[]{variantId, surface, format, url, width, height}    }  }
 export type SINGLE_POST_QUERY_RESULT = {
   _id: string;
   title: string | null;
@@ -568,10 +568,12 @@ export type SINGLE_POST_QUERY_RESULT = {
     height: number | null;
     cloudinaryUrl: string | null;
     cloudinaryPublicId: string | null;
+    renderStartedAt: string | null;
     renderedAt: string | null;
     podcastUrl: string | null;
     posterUrl: string | null;
     youtubeUrl: string | null;
+    siteMp4Url: string | null;
     variants: Array<{
       variantId: string | null;
       surface: string | null;
@@ -585,7 +587,7 @@ export type SINGLE_POST_QUERY_RESULT = {
 
 // Source: ../web/lib/sanity.queries.ts
 // Variable: ALL_VIDEOS_QUERY
-// Query: *[_type == "video" && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){    _id,    title,    template,    format,    duration,    width,    height,    cloudinaryUrl,    cloudinaryPublicId,    renderedAt,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,      variants[]{variantId, surface, format, url, width, height},    "post": post->{title, slug}  }
+// Query: *[_type == "video" && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){    _id,    title,    template,    format,    duration,    width,    height,    cloudinaryUrl,    cloudinaryPublicId,    renderedAt,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,    "siteMp4Url": variants[variantId == "site-mp4"][0].url,      variants[]{variantId, surface, format, url, width, height},    "post": post->{title, slug}  }
 export type ALL_VIDEOS_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -599,6 +601,7 @@ export type ALL_VIDEOS_QUERY_RESULT = Array<{
   renderedAt: string | null;
   posterUrl: string | null;
   previewGifUrl: string | null;
+  siteMp4Url: string | null;
   variants: Array<{
     variantId: string | null;
     surface: string | null;
@@ -611,6 +614,60 @@ export type ALL_VIDEOS_QUERY_RESULT = Array<{
     title: string | null;
     slug: Slug | null;
   } | null;
+}>;
+
+// Source: ../web/lib/sanity.queries.ts
+// Variable: PODCAST_FEED_QUERY
+// Query: *[_type == "video" && template == "article-narrated" && status == "ready" && count(variants[variantId == "podcast-mp3"]) > 0] | order(renderedAt desc){    _id,    title,    duration,    renderedAt,    "audioUrl": variants[variantId == "podcast-mp3"][0].url,    "post": post->{title, excerpt, "slug": slug.current}  }
+export type PODCAST_FEED_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+  duration: number | null;
+  renderedAt: string | null;
+  audioUrl: string | null;
+  post: {
+    title: string | null;
+    excerpt: string | null;
+    slug: string | null;
+  } | null;
+}>;
+
+// Source: ../web/lib/sanity.queries.ts
+// Variable: SITEMAP_QUERY
+// Query: *[_type == "post" && defined(slug.current)] | order(publishedAt desc){    "slug": slug.current,    title,    excerpt,    publishedAt,    _updatedAt,    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{      title,      cloudinaryUrl,      "posterUrl": variants[variantId == "site-poster-jpg"][0].url    }  }
+export type SITEMAP_QUERY_RESULT = Array<{
+  slug: string | null;
+  title: string | null;
+  excerpt: string | null;
+  publishedAt: string | null;
+  _updatedAt: string;
+  video: {
+    title: string | null;
+    cloudinaryUrl: string | null;
+    posterUrl: string | null;
+  } | null;
+}>;
+
+// Source: ../web/lib/sanity.queries.ts
+// Variable: POST_CAPTIONS_QUERY
+// Query: *[_type == "post" && slug.current == $slug][0]{    "chunks": voiceoverChunks[]{text, durationSeconds}  }
+export type POST_CAPTIONS_QUERY_RESULT = {
+  chunks: Array<{
+    text: string | null;
+    durationSeconds: number | null;
+  }> | null;
+} | null;
+
+// Source: ../web/lib/sanity.queries.ts
+// Variable: PLAYGROUND_VIDEOS_QUERY
+// Query: *[_type == "video" && status == "ready" && defined(cloudinaryPublicId)] | order(renderedAt desc)[0...12]{    _id,    title,    template,    width,    height,    cloudinaryPublicId  }
+export type PLAYGROUND_VIDEOS_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+  template: "article-narrated" | "article-promo" | "article-teaser" | null;
+  width: number | null;
+  height: number | null;
+  cloudinaryPublicId: string;
 }>;
 
 // Source: ../web/lib/sanity.queries.ts
@@ -688,8 +745,12 @@ import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
     '\n  *[_type == "post" && defined(slug.current)] | order(publishedAt desc){\n    _id,\n    title,\n    slug,\n    publishedAt,\n    excerpt,\n    mainImage,\n    "authorName": author->name,\n    "preview": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{\n      "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,\n      "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n    }\n  }\n': ALL_POSTS_QUERY_RESULT;
-    '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    slug,\n    publishedAt,\n    excerpt,\n    body,\n    "authorName": author->name,\n    "authorImageUrl": author->image.asset->url,\n    mainImage,\n    "videos": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){\n      _id,\n      title,\n      template,\n      format,\n      duration,\n      width,\n      height,\n      cloudinaryUrl,\n      cloudinaryPublicId,\n      renderedAt,\n      "podcastUrl": variants[variantId == "podcast-mp3"][0].url,\n      "posterUrl": variants[variantId == "site-poster-jpg"][0].url,\n      "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,\n      \n  variants[]{variantId, surface, format, url, width, height}\n\n    }\n  }\n': SINGLE_POST_QUERY_RESULT;
-    '\n  *[_type == "video" && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){\n    _id,\n    title,\n    template,\n    format,\n    duration,\n    width,\n    height,\n    cloudinaryUrl,\n    cloudinaryPublicId,\n    renderedAt,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,\n    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,\n    \n  variants[]{variantId, surface, format, url, width, height}\n,\n    "post": post->{title, slug}\n  }\n': ALL_VIDEOS_QUERY_RESULT;
+    '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    slug,\n    publishedAt,\n    excerpt,\n    body,\n    "authorName": author->name,\n    "authorImageUrl": author->image.asset->url,\n    mainImage,\n    "videos": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){\n      _id,\n      title,\n      template,\n      format,\n      duration,\n      width,\n      height,\n      cloudinaryUrl,\n      cloudinaryPublicId,\n      renderStartedAt,\n      renderedAt,\n      "podcastUrl": variants[variantId == "podcast-mp3"][0].url,\n      "posterUrl": variants[variantId == "site-poster-jpg"][0].url,\n      "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,\n      "siteMp4Url": variants[variantId == "site-mp4"][0].url,\n      \n  variants[]{variantId, surface, format, url, width, height}\n\n    }\n  }\n': SINGLE_POST_QUERY_RESULT;
+    '\n  *[_type == "video" && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){\n    _id,\n    title,\n    template,\n    format,\n    duration,\n    width,\n    height,\n    cloudinaryUrl,\n    cloudinaryPublicId,\n    renderedAt,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,\n    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "siteMp4Url": variants[variantId == "site-mp4"][0].url,\n    \n  variants[]{variantId, surface, format, url, width, height}\n,\n    "post": post->{title, slug}\n  }\n': ALL_VIDEOS_QUERY_RESULT;
+    '\n  *[_type == "video" && template == "article-narrated" && status == "ready" && count(variants[variantId == "podcast-mp3"]) > 0] | order(renderedAt desc){\n    _id,\n    title,\n    duration,\n    renderedAt,\n    "audioUrl": variants[variantId == "podcast-mp3"][0].url,\n    "post": post->{title, excerpt, "slug": slug.current}\n  }\n': PODCAST_FEED_QUERY_RESULT;
+    '\n  *[_type == "post" && defined(slug.current)] | order(publishedAt desc){\n    "slug": slug.current,\n    title,\n    excerpt,\n    publishedAt,\n    _updatedAt,\n    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{\n      title,\n      cloudinaryUrl,\n      "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n    }\n  }\n': SITEMAP_QUERY_RESULT;
+    '\n  *[_type == "post" && slug.current == $slug][0]{\n    "chunks": voiceoverChunks[]{text, durationSeconds}\n  }\n': POST_CAPTIONS_QUERY_RESULT;
+    '\n  *[_type == "video" && status == "ready" && defined(cloudinaryPublicId)] | order(renderedAt desc)[0...12]{\n    _id,\n    title,\n    template,\n    width,\n    height,\n    cloudinaryPublicId\n  }\n': PLAYGROUND_VIDEOS_QUERY_RESULT;
     '\n  *[_type == "newsletter" && _id == $id][0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_ID_QUERY_RESULT;
     '\n  *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_EITHER_ID_QUERY_RESULT;
   }

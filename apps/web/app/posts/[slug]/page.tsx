@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,10 +8,13 @@ import {
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
 import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
+import { absoluteUrl } from '@/lib/siteUrl';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
 import ArticleAudioPlayer from '@/components/ArticleAudioPlayer';
 import VideoPlayer from '@/components/VideoPlayer';
 import FanoutPanel from '@/components/FanoutPanel';
+import ProvenancePanel from '@/components/ProvenancePanel';
+import VideoJsonLd from '@/components/VideoJsonLd';
 
 export const revalidate = 60;
 
@@ -91,6 +95,55 @@ export async function generateStaticParams() {
     .map((slug) => ({ slug }));
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await client.fetch(SINGLE_POST_QUERY, { slug });
+  if (!post) return {};
+
+  const title = post.title ?? 'Untitled';
+  const description =
+    post.excerpt ?? 'A post rendered to video from Sanity content.';
+  const url = absoluteUrl(`/posts/${slug}`);
+
+  // Prefer a rendered video's poster (showcases the Cloudinary fan-out powering
+  // the social card); fall back to the post's main image.
+  const videoPoster = (post.videos ?? [])
+    .map((v) => v.posterUrl)
+    .find((u): u is string => Boolean(u));
+  const ogImage =
+    videoPoster ??
+    (post.mainImage
+      ? urlFor(post.mainImage).width(1200).height(630).fit('crop').url()
+      : null);
+  const images = ogImage
+    ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
+    : [];
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      title,
+      description,
+      url,
+      images,
+      ...(post.publishedAt ? { publishedTime: post.publishedAt } : {}),
+    },
+    twitter: {
+      card: ogImage ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: ogImage ? [ogImage] : [],
+    },
+  };
+}
+
 export default async function PostPage({
   params,
 }: {
@@ -121,8 +174,20 @@ export default async function PostPage({
   // to whatever render the post has so the showcase still appears.
   const fanoutVideo = narratedReading ?? shortFormVideos[0] ?? allVideos[0] ?? null;
 
+  // Narrated readings carry a WebVTT caption track reconstructed from their
+  // narration chunks (served by the sibling captions.vtt route).
+  const captionsUrl = narratedReading ? `/posts/${slug}/captions.vtt` : null;
+
   return (
     <article className='mx-auto max-w-3xl px-6 py-16'>
+      <VideoJsonLd
+        videos={allVideos}
+        postTitle={post.title ?? 'Untitled'}
+        description={post.excerpt ?? 'A post rendered to video from Sanity content.'}
+        pageUrl={absoluteUrl(`/posts/${slug}`)}
+        fallbackThumbnail={mainImageUrl}
+        uploadDate={post.publishedAt}
+      />
       <header className='mb-10'>
         <h1 className='font-serif text-4xl leading-[1.08] tracking-tight text-balance sm:text-5xl'>
           {post.title ?? 'Untitled'}
@@ -165,7 +230,11 @@ export default async function PostPage({
           static main image would go. The mainImage doubles as the video's
           poster frame inside the hero. */}
       {narratedReading ? (
-        <NarratedReadingHero video={narratedReading} posterUrl={mainImageUrl} />
+        <NarratedReadingHero
+          video={narratedReading}
+          posterUrl={mainImageUrl}
+          captionsUrl={captionsUrl}
+        />
       ) : (
         mainImageUrl && (
           <div className='relative mb-10 aspect-video w-full overflow-hidden rounded-xl bg-muted/10 ring-1 ring-foreground/10'>
@@ -189,7 +258,12 @@ export default async function PostPage({
 
       <VideoPlayer videos={shortFormVideos} />
 
-      {fanoutVideo && <FanoutPanel video={fanoutVideo} />}
+      {fanoutVideo && (
+        <>
+          <ProvenancePanel video={fanoutVideo} />
+          <FanoutPanel video={fanoutVideo} />
+        </>
+      )}
     </article>
   );
 }

@@ -17,6 +17,8 @@ interface Props {
   video: PostVideo;
   /** Used as the video's poster image until the user hits play. */
   posterUrl: string | null;
+  /** WebVTT caption track URL (/posts/<slug>/captions.vtt), when narrated. */
+  captionsUrl?: string | null;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -25,9 +27,12 @@ function formatDuration(seconds: number | null): string {
   return mins <= 1 ? '1 min' : `${mins} min`;
 }
 
-export default function NarratedReadingHero({video, posterUrl}: Props) {
+export default function NarratedReadingHero({video, posterUrl, captionsUrl}: Props) {
   if (!video.cloudinaryUrl) return null;
   const durationLabel = formatDuration(video.duration);
+  // Prefer the adaptive site-mp4 derivation (Cloudinary picks codec + quality
+  // per device); fall back to the canonical render.
+  const playbackSrc = video.siteMp4Url ?? video.cloudinaryUrl;
 
   return (
     <section className='mb-10 overflow-hidden rounded-xl bg-foreground shadow-sm ring-1 ring-foreground/10'>
@@ -51,11 +56,14 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
         </div>
       </div>
       <video
-        src={video.cloudinaryUrl}
+        src={playbackSrc}
         controls
         preload='metadata'
         playsInline
         poster={posterUrl ?? undefined}
+        // crossOrigin lets the same-origin <track> overlay the cross-origin
+        // (Cloudinary) video; Cloudinary serves permissive CORS headers.
+        crossOrigin='anonymous'
         // Mute autoplay isn't useful here (audio is the whole point), so
         // we don't set autoplay. The native poster handles the still frame.
         style={{
@@ -63,7 +71,17 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
           aspectRatio: `${video.width ?? 1920}/${video.height ?? 1080}`,
           display: 'block',
         }}
-      />
+      >
+        {captionsUrl && (
+          <track
+            kind='captions'
+            srcLang='en'
+            label='English'
+            src={captionsUrl}
+            default
+          />
+        )}
+      </video>
     </section>
   );
 }
