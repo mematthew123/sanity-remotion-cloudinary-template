@@ -6,9 +6,18 @@ import type {
   NEWSLETTER_BY_EITHER_ID_QUERY_RESULT,
 } from '@/sanity.types';
 
+// Shared fan-out projection: the full Cloudinary variant set on a video doc.
+// Reused everywhere the site surfaces the "render once → fan out" derivations.
+const VIDEO_VARIANTS_PROJECTION = /* groq */ `
+  variants[]{variantId, surface, format, url, width, height}
+`;
+
 // All published posts, newest first. `mainImage` is projected as the full image
 // object (not a flattened URL) so list views can size/optimize it via urlFor();
-// `authorName` is flattened so cards don't need reference resolution.
+// `authorName` is flattened so cards don't need reference resolution. The
+// `preview` sub-object pulls the post's newest ready render's GIF + poster
+// variants so the home feed can animate a card on hover — the fan-out made
+// visible on the most-visited page.
 export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
     _id,
@@ -17,7 +26,11 @@ export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
     publishedAt,
     excerpt,
     mainImage,
-    "authorName": author->name
+    "authorName": author->name,
+    "preview": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{
+      "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
+      "posterUrl": variants[variantId == "site-poster-jpg"][0].url
+    }
   }
 `);
 
@@ -45,7 +58,10 @@ export const SINGLE_POST_QUERY = defineQuery(/* groq */ `
       cloudinaryUrl,
       cloudinaryPublicId,
       renderedAt,
-      "podcastUrl": variants[variantId == "podcast-mp3"][0].url
+      "podcastUrl": variants[variantId == "podcast-mp3"][0].url,
+      "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
+      "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,
+      ${VIDEO_VARIANTS_PROJECTION}
     }
   }
 `);
@@ -63,6 +79,9 @@ export const ALL_VIDEOS_QUERY = defineQuery(/* groq */ `
     cloudinaryUrl,
     cloudinaryPublicId,
     renderedAt,
+    "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
+    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
+    ${VIDEO_VARIANTS_PROJECTION},
     "post": post->{title, slug}
   }
 `);

@@ -33,7 +33,22 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
     <section className='mb-10 overflow-hidden rounded-xl bg-foreground ring-1 ring-foreground/10 shadow-sm'>
       <div className='flex items-center justify-between gap-3 border-b border-foreground/10 bg-background px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
         <span className='text-accent'>▶ Watch the narrated reading</span>
-        {durationLabel && <span className='text-muted'>{durationLabel}</span>}
+        <div className='flex items-center gap-4'>
+          {durationLabel && <span className='text-muted'>{durationLabel}</span>}
+          {video.youtubeUrl && (
+            <a
+              href={video.youtubeUrl}
+              download
+              className='group inline-flex items-center gap-1 text-muted transition-colors hover:text-foreground'
+              title='Download the full-resolution 1080p master'
+            >
+              1080p
+              <span className='transition-transform group-hover:translate-y-0.5'>
+                ↓
+              </span>
+            </a>
+          )}
+        </div>
       </div>
       <video
         src={video.cloudinaryUrl}

@@ -70,7 +70,9 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     format: 'gif',
     transformation: 'w_540,du_3,fps_15,fl_lossy,q_70,f_gif',
     width: 540,
-    eager: false,
+    // Eager: materialized at upload so the home-feed hover preview is instant
+    // (no first-request generation delay). Costs a little render-time upload.
+    eager: true,
   },
 
   // ----- Long-form: full YouTube upload (the canonical render at 1080p) ---

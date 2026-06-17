@@ -40,12 +40,22 @@ export default async function VideosPage() {
             const height = video.height ?? meta?.height ?? 1080;
             const label = meta?.label ?? video.template ?? 'Video';
             const postSlug = video.post?.slug?.current ?? null;
+            // Distinct output formats from the fan-out, shown as badges so the
+            // grid hints at every derivation a single render produced.
+            const formats = Array.from(
+              new Set(
+                (video.variants ?? [])
+                  .map((v) => v.format)
+                  .filter((f): f is string => Boolean(f)),
+              ),
+            );
 
             return (
               <li key={video._id} className='group flex flex-col'>
                 <div className='overflow-hidden rounded-xl bg-foreground shadow-sm ring-1 ring-foreground/10'>
                   <video
                     src={video.cloudinaryUrl!}
+                    poster={video.posterUrl ?? undefined}
                     controls
                     playsInline
                     style={{
@@ -62,6 +72,18 @@ export default async function VideosPage() {
                   <h2 className='font-serif text-xl leading-snug tracking-tight'>
                     {video.title ?? 'Untitled'}
                   </h2>
+                  {formats.length > 0 && (
+                    <ul className='flex flex-wrap gap-1.5 pt-1'>
+                      {formats.map((f) => (
+                        <li
+                          key={f}
+                          className='rounded-full px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.12em] text-muted uppercase ring-1 ring-foreground/15'
+                        >
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {postSlug ? (
                     <Link
                       href={`/posts/${postSlug}`}

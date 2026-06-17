@@ -10,6 +10,7 @@ import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
 import ArticleAudioPlayer from '@/components/ArticleAudioPlayer';
 import VideoPlayer from '@/components/VideoPlayer';
+import FanoutPanel from '@/components/FanoutPanel';
 
 export const revalidate = 60;
 
@@ -115,6 +116,11 @@ export default async function PostPage({
     (v) => v.template !== 'article-narrated' && v.template !== 'article-promo',
   );
 
+  // The fan-out panel showcases one render's full Cloudinary variant set.
+  // Prefer the narrated reading (richest — 5 derivations); otherwise fall back
+  // to whatever render the post has so the showcase still appears.
+  const fanoutVideo = narratedReading ?? shortFormVideos[0] ?? allVideos[0] ?? null;
+
   return (
     <article className='mx-auto max-w-3xl px-6 py-16'>
       <header className='mb-10'>
@@ -182,6 +188,8 @@ export default async function PostPage({
       )}
 
       <VideoPlayer videos={shortFormVideos} />
+
+      {fanoutVideo && <FanoutPanel video={fanoutVideo} />}
     </article>
   );
 }

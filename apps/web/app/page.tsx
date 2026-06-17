@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { client, urlFor } from '@/lib/sanity.client';
 import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
+import VideoHoverPreview from '@/components/VideoHoverPreview';
 
 export const revalidate = 60;
 
@@ -13,7 +13,8 @@ export default async function HomePage() {
     href: post.slug?.current ? `/posts/${post.slug.current}` : null,
     imageUrl: post.mainImage
       ? urlFor(post.mainImage).width(800).height(450).fit('crop').url()
-      : null,
+      : (post.preview?.posterUrl ?? null),
+    previewGifUrl: post.preview?.previewGifUrl ?? null,
     imageAlt: post.mainImage?.alt ?? post.title ?? '',
     title: post.title ?? 'Untitled',
     excerpt: post.excerpt ?? null,
@@ -88,14 +89,13 @@ export default async function HomePage() {
                     </span>
                   </span>
                 </div>
-                {card.imageUrl && (
+                {(card.imageUrl || card.previewGifUrl) && (
                   <div className='relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted/10 sm:order-last'>
-                    <Image
-                      src={card.imageUrl}
-                      alt={card.imageAlt}
-                      fill
+                    <VideoHoverPreview
+                      imageUrl={card.imageUrl}
+                      gifUrl={card.previewGifUrl}
+                      imageAlt={card.imageAlt}
                       sizes='(max-width: 640px) 100vw, 320px'
-                      className='object-cover transition-transform duration-500 group-hover:scale-[1.03]'
                     />
                   </div>
                 )}
