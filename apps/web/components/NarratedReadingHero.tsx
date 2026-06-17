@@ -54,7 +54,7 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
           re-render). For listening without watching, or taking it offline. */}
       {video.podcastUrl && (
         <div className='flex flex-wrap items-center justify-between gap-3 border-t-[3px] border-foreground bg-background px-4 py-3'>
-          <span className='font-mono text-xs font-extrabold uppercase tracking-[0.1em] text-foreground'>
+          <span className='font-mono text-xs font-extrabold uppercase tracking-widest text-foreground'>
             🎧 Audio version
           </span>
           <audio

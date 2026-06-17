@@ -1,28 +1,29 @@
 import { defineQuery } from 'next-sanity';
 import type {
-  AllPostsQueryResult,
-  SinglePostQueryResult,
-  AllVideosQueryResult,
-  NewsletterByEitherIdQueryResult,
+  ALL_POSTS_QUERY_RESULT,
+  SINGLE_POST_QUERY_RESULT,
+  ALL_VIDEOS_QUERY_RESULT,
+  NEWSLETTER_BY_EITHER_ID_QUERY_RESULT,
 } from '@/sanity.types';
 
-// All published posts, newest first. `mainImageUrl` and `authorName` are
-// flattened so list views don't need image-url / reference resolution.
-export const allPostsQuery = defineQuery(/* groq */ `
+// All published posts, newest first. `mainImage` is projected as the full image
+// object (not a flattened URL) so list views can size/optimize it via urlFor();
+// `authorName` is flattened so cards don't need reference resolution.
+export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
     _id,
     title,
     slug,
     publishedAt,
     excerpt,
-    "mainImageUrl": mainImage.asset->url,
+    mainImage,
     "authorName": author->name
   }
 `);
 
 // A single post plus its ready videos (back-referenced — the video doc points
 // at the post via `post`, the post does not hold a videos[] array).
-export const singlePostQuery = defineQuery(/* groq */ `
+export const SINGLE_POST_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && slug.current == $slug][0]{
     _id,
     title,
@@ -50,7 +51,7 @@ export const singlePostQuery = defineQuery(/* groq */ `
 `);
 
 // Every ready video across the site, with a light reference back to its post.
-export const allVideosQuery = defineQuery(/* groq */ `
+export const ALL_VIDEOS_QUERY = defineQuery(/* groq */ `
   *[_type == "video" && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc){
     _id,
     title,
@@ -72,16 +73,16 @@ export const allVideosQuery = defineQuery(/* groq */ `
  * projections above. Don't hand-edit these shapes — change the query and
  * re-run typegen.
  */
-export type PostListItem = AllPostsQueryResult[number];
-export type SinglePost = NonNullable<SinglePostQueryResult>;
+export type PostListItem = ALL_POSTS_QUERY_RESULT[number];
+export type SinglePost = NonNullable<SINGLE_POST_QUERY_RESULT>;
 
-// A post's ready video as projected by `singlePostQuery` (carries the
+// A post's ready video as projected by `SINGLE_POST_QUERY` (carries the
 // audio-only `podcastUrl` from the podcast-mp3 variant; no back-ref to post).
 export type PostVideo = SinglePost['videos'][number];
 
-// A ready video as projected by `allVideosQuery` (carries a light back-ref to
+// A ready video as projected by `ALL_VIDEOS_QUERY` (carries a light back-ref to
 // its post for the listing grid; no `podcastUrl`).
-export type VideoListItem = AllVideosQueryResult[number];
+export type VideoListItem = ALL_VIDEOS_QUERY_RESULT[number];
 
 // Loads a newsletter doc with its hero video (variant URLs flattened to the top
 // of the video projection) plus the optional linked post used for the CTA.
@@ -119,17 +120,17 @@ const NEWSLETTER_PROJECTION = /* groq */ `{
 
 // Used by /api/newsletter/preview — relies on `perspective: 'drafts'` to find
 // the in-progress doc. _id may be rewritten to the base form by the perspective.
-export const newsletterByIdQuery = defineQuery(/* groq */ `
+export const NEWSLETTER_BY_ID_QUERY = defineQuery(/* groq */ `
   *[_type == "newsletter" && _id == $id][0]${NEWSLETTER_PROJECTION}
 `);
 
 // Used by /api/newsletter/send under `perspective: 'raw'`. Returns the actual
 // storage _id (drafts.X or X) so the ifRevisionID patch targets the right doc.
 // Order by _updatedAt so the draft (newer) wins when both exist.
-export const newsletterByEitherIdQuery = defineQuery(/* groq */ `
+export const NEWSLETTER_BY_EITHER_ID_QUERY = defineQuery(/* groq */ `
   *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]${NEWSLETTER_PROJECTION}
 `);
 
 // Derived from TypeGen output. The byId and byEitherId queries share
 // NEWSLETTER_PROJECTION, so their result types are identical — pick either.
-export type NewsletterForSend = NonNullable<NewsletterByEitherIdQueryResult>;
+export type NewsletterForSend = NonNullable<NEWSLETTER_BY_EITHER_ID_QUERY_RESULT>;

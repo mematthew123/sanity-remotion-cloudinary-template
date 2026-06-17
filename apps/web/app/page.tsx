@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { client } from '@/lib/sanity.client';
-import { allPostsQuery } from '@/lib/sanity.queries';
+import { client, urlFor } from '@/lib/sanity.client';
+import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const posts = await client.fetch(allPostsQuery);
+  const posts = await client.fetch(ALL_POSTS_QUERY);
 
   return (
     <div className='mx-auto max-w-5xl px-6 py-12'>
@@ -38,14 +38,17 @@ export default async function HomePage() {
             const href = post.slug?.current
               ? `/posts/${post.slug.current}`
               : null;
-            const imageUrl = post.mainImageUrl ?? null;
+            const imageUrl = post.mainImage
+              ? urlFor(post.mainImage).width(800).height(450).fit('crop').url()
+              : null;
+            const imageAlt = post.mainImage?.alt ?? post.title ?? '';
             const card = (
               <article className='flex h-full flex-col border border-foreground/20 transition-colors hover:border-foreground'>
                 {imageUrl && (
                   <div className='relative aspect-video w-full overflow-hidden border-b border-foreground/20 bg-muted/10'>
                     <Image
                       src={imageUrl}
-                      alt={post.title ?? ''}
+                      alt={imageAlt}
                       fill
                       sizes='(max-width: 640px) 100vw, 50vw'
                       className='object-cover'

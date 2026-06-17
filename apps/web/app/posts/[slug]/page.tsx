@@ -6,7 +6,7 @@ import {
   type PortableTextComponents,
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
-import { allPostsQuery, singlePostQuery } from '@/lib/sanity.queries';
+import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
 import VideoPlayer from '@/components/VideoPlayer';
 
@@ -84,7 +84,7 @@ const portableTextComponents: PortableTextComponents = {
 };
 
 export async function generateStaticParams() {
-  const posts = await client.fetch(allPostsQuery);
+  const posts = await client.fetch(ALL_POSTS_QUERY);
   return posts
     .map((p) => p.slug?.current)
     .filter((slug): slug is string => Boolean(slug))
@@ -98,7 +98,7 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await client.fetch(singlePostQuery, { slug });
+  const post = await client.fetch(SINGLE_POST_QUERY, { slug });
 
   if (!post) notFound();
 

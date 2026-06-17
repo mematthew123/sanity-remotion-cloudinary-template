@@ -163,6 +163,7 @@ export const videoType = defineType({
       title: 'Input Props',
       type: 'text',
       group: 'technical',
+      readOnly: true,
       description: 'JSON snapshot of the props used to render this video',
     }),
   ],

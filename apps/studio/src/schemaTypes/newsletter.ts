@@ -96,6 +96,14 @@ export const newsletterType = defineType({
           hidden: ({parent}) => parent?.selectionType !== 'test',
           description:
             'One-off addresses for smoke-testing. The send route loops resend.emails.send over these — no audience needed.',
+          // In test mode there must be at least one address, or the send route
+          // would loop over nothing. Skipped in audience mode (field is hidden).
+          validation: (rule) =>
+            rule.custom((value, context) => {
+              const parent = context.parent as {selectionType?: string} | undefined
+              if (parent?.selectionType !== 'test') return true
+              return value && value.length > 0 ? true : 'Add at least one test address'
+            }),
         }),
       ],
     }),
