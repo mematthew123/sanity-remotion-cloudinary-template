@@ -8,6 +8,7 @@ import {
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
 import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
+import ArticleAudioPlayer from '@/components/ArticleAudioPlayer';
 import VideoPlayer from '@/components/VideoPlayer';
 
 export const revalidate = 60;
@@ -144,6 +145,17 @@ export default async function PostPage({
           </p>
         )}
       </header>
+
+      {/* Standalone "listen" affordance: the audio-only narration (the
+          podcast-mp3 variant of the narrated render), surfaced right under the
+          byline so readers can start listening before scrolling. Decoupled from
+          the narrated-video hero below — listen here, watch there. */}
+      {narratedReading?.podcastUrl && (
+        <ArticleAudioPlayer
+          src={narratedReading.podcastUrl}
+          durationSeconds={narratedReading.duration}
+        />
+      )}
 
       {/* When a narrated reading exists, surface it instead of (and where) the
           static main image would go. The mainImage doubles as the video's
