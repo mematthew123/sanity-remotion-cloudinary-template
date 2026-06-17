@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       title: `${validatedProps.title} — ${meta.label}`,
       status: 'rendering',
       renderStartedAt: new Date().toISOString(),
-      ...(postId ? {post: {_type: 'reference', _ref: postId, _weak: true}} : {}),
+      ...(postId ? {post: {_type: 'reference', _ref: postId}} : {}),
       format: 'mp4',
       template: compositionId,
       width: width ?? meta.width,

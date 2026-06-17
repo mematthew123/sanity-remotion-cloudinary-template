@@ -141,7 +141,16 @@ export async function generateVoiceoverForPost(
     await args.onProgress?.({index: i, total: chunks.length, chunk: entry, cached: false})
   }
 
-  await sanity.patch(post._id).set({voiceoverChunks: resolved}).commit()
+  // Each array-of-object member needs a unique, stable `_key` or Studio can't
+  // edit the list ("Missing keys"). The chunk `id` is a deterministic hash of
+  // (text, voiceId, modelId) — suffix the index so identical paragraphs (same
+  // id) still get distinct keys.
+  const voiceoverChunks = resolved.map((chunk, i) => ({
+    _key: `${chunk.id}-${i}`,
+    ...chunk,
+  }))
+
+  await sanity.patch(post._id).set({voiceoverChunks}).commit()
 
   const totalSeconds = resolved.reduce((sum, c) => sum + c.durationSeconds, 0)
 
