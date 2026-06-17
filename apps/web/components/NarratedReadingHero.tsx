@@ -1,16 +1,20 @@
-import type {Video} from '@/lib/sanity.queries';
+import type {PostVideo} from '@/lib/sanity.queries';
 
-// Featured player for the article-narrated composition: a long-form narrated
-// reading of the post body. Shown as a hero block on the post page instead
-// of buried in the short-form video grid — the narrated reading has audio
-// and runs minutes, not seconds, so it needs a different affordance than the
-// silent looping promos.
+// Featured *video* player for the article-narrated composition: a long-form
+// animated reading of the post body. Shown as a hero block on the post page
+// instead of buried in the short-form video grid — the narrated reading runs
+// minutes, not seconds, so it needs a different affordance than the silent
+// looping promos.
+//
+// The audio-only version of the same narration is its own standalone feature
+// (ArticleAudioPlayer) surfaced above this hero — this component is the *watch*
+// affordance, that one is the *listen* affordance. Keep them decoupled.
 //
 // Server component — no interactivity needed. The browser's native <video>
 // controls + poster handle the play/pause/seek UI for free.
 
 interface Props {
-  video: Video;
+  video: PostVideo;
   /** Used as the video's poster image until the user hits play. */
   posterUrl: string | null;
 }
@@ -18,7 +22,7 @@ interface Props {
 function formatDuration(seconds: number | null): string {
   if (!seconds || seconds <= 0) return '';
   const mins = Math.round(seconds / 60);
-  return mins <= 1 ? '1 min listen' : `${mins} min listen`;
+  return mins <= 1 ? '1 min' : `${mins} min`;
 }
 
 export default function NarratedReadingHero({video, posterUrl}: Props) {
@@ -26,14 +30,25 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
   const durationLabel = formatDuration(video.duration);
 
   return (
-    <section className='mb-10 border-[3px] border-foreground bg-foreground shadow-[6px_6px_0px_var(--color-foreground)]'>
-      <div className='flex items-center justify-between gap-3 border-b-[3px] border-foreground bg-background px-4 py-2 font-mono text-xs font-extrabold uppercase tracking-[0.1em]'>
-        <span className='text-foreground'>
-          ▶ Listen to this article
-        </span>
-        {durationLabel && (
-          <span className='text-muted'>{durationLabel}</span>
-        )}
+    <section className='mb-10 overflow-hidden rounded-xl bg-foreground ring-1 ring-foreground/10 shadow-sm'>
+      <div className='flex items-center justify-between gap-3 border-b border-foreground/10 bg-background px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
+        <span className='text-accent'>▶ Watch the narrated reading</span>
+        <div className='flex items-center gap-4'>
+          {durationLabel && <span className='text-muted'>{durationLabel}</span>}
+          {video.youtubeUrl && (
+            <a
+              href={video.youtubeUrl}
+              download
+              className='group inline-flex items-center gap-1 text-muted transition-colors hover:text-foreground'
+              title='Download the full-resolution 1080p master'
+            >
+              1080p
+              <span className='transition-transform group-hover:translate-y-0.5'>
+                ↓
+              </span>
+            </a>
+          )}
+        </div>
       </div>
       <video
         src={video.cloudinaryUrl}
@@ -49,29 +64,6 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
           display: 'block',
         }}
       />
-      {/* Audio-only version: the same narration, served by Cloudinary as an
-          MP3 sliced from the canonical render (the `podcast-mp3` variant — no
-          re-render). For listening without watching, or taking it offline. */}
-      {video.podcastUrl && (
-        <div className='flex flex-wrap items-center justify-between gap-3 border-t-[3px] border-foreground bg-background px-4 py-3'>
-          <span className='font-mono text-xs font-extrabold uppercase tracking-[0.1em] text-foreground'>
-            🎧 Audio version
-          </span>
-          <audio
-            src={video.podcastUrl}
-            controls
-            preload='none'
-            className='h-9 min-w-0 flex-1 sm:max-w-md'
-          />
-          <a
-            href={video.podcastUrl}
-            download
-            className='font-mono text-xs font-bold uppercase tracking-wide text-foreground underline underline-offset-2 hover:text-muted'
-          >
-            ↓ MP3
-          </a>
-        </div>
-      )}
     </section>
   );
 }

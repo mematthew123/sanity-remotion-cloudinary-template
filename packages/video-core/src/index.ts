@@ -10,8 +10,6 @@ export {
   type VideoCopy,
 } from './types'
 
-export {fonts, borderBrutal, shadowBrutal, headline, label, accent, body} from './styles'
-
 export {loadedFonts} from './fonts'
 
 export {ArticlePromo} from './compositions/ArticlePromo'

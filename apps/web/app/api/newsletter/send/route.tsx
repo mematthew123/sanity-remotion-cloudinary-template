@@ -3,7 +3,7 @@ import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
 import {Resend} from 'resend';
 import {timingSafeEqual} from 'node:crypto';
-import {newsletterByEitherIdQuery, type NewsletterForSend} from '@/lib/sanity.queries';
+import {NEWSLETTER_BY_EITHER_ID_QUERY, type NewsletterForSend} from '@/lib/sanity.queries';
 import {NewsletterTemplate} from '@/components/emails/NewsletterTemplate';
 
 // Auth follows the render route's `Authorization: Bearer ${SECRET}` pattern so
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   const baseId = documentId.replace(/^drafts\./, '');
   const draftId = `drafts.${baseId}`;
   const newsletter = await client.fetch<NewsletterForSend | null>(
-    newsletterByEitherIdQuery,
+    NEWSLETTER_BY_EITHER_ID_QUERY,
     {draftId, baseId},
   );
   if (!newsletter) {

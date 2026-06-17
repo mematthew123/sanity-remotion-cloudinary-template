@@ -18,7 +18,11 @@ pnpm lint             # ESLint on apps/web
 pnpm deploy:studio
 
 pnpm bundle:remotion      # local: rebuild apps/web/.remotion-bundle/ via remotion bundle CLI
+
+pnpm typegen          # extract Studio schema + regenerate apps/web/sanity.types.ts
 ```
+
+Run `pnpm typegen` after editing any schema or GROQ query in `apps/web/lib/sanity.queries.ts`. It runs `sanity schema extract` then `sanity typegen generate` (config: `apps/studio/sanity-typegen.json`). The generated `apps/web/sanity.types.ts` is committed (so the web build never depends on the Studio); the intermediate `apps/studio/schema.json` is gitignored. Queries are wrapped in `defineQuery` and `overloadClientMethods` is on, so `client.fetch(query)` is auto-typed — view types in `sanity.queries.ts` are *derived* from the generated result types (`PostListItem`, `SinglePost`, `PostVideo`, `VideoListItem`, `NewsletterForSend`), never hand-written.
 
 Per-package scripts run via `pnpm --filter @template/<name> <script>` (names: `web`, `studio`, `video-core`). No test suite is wired up.
 
@@ -75,7 +79,7 @@ The catalog is the fanout spine: the site player reads the canonical `cloudinary
 
 ### The narrated composition (long-form, TTS-driven)
 
-`article-narrated` reads the whole post body aloud (design history: `PLAN-narrated-videos.md`; Remotion guidance it leaned on: `.agents/skills/remotion-best-practices/`). It differs from promo/teaser in every dimension that matters:
+`article-narrated` reads the whole post body aloud (Remotion guidance it leaned on: `.agents/skills/remotion-best-practices/`). It differs from promo/teaser in every dimension that matters:
 
 - **Voiceover is a precondition.** Per-paragraph ElevenLabs MP3s must exist on `post.voiceoverChunks` before rendering. Generate them via the Studio **Generate voiceover** action → `POST /api/voiceover/generate` (deliberately reuses `VIDEO_RENDER_SECRET`), or the CLI: `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. Both run the same shared logic in `apps/web/lib/voiceoverGenerate.ts`; MP3s are hosted on Cloudinary and cached per chunk.
 - **Duration is computed, not declared** — `calculateMetadata` in the registry sums chunk `durationSeconds`.

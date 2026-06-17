@@ -1,4 +1,5 @@
-// generate-voiceover.ts — Phase 1 deliverable from PLAN-narrated-videos.md.
+// generate-voiceover.ts — CLI to pre-generate ElevenLabs voiceover for the
+// `article-narrated` composition.
 //
 // Usage:
 //   pnpm --filter @template/web generate-voiceover -- --post-id=<id> [--voice-id=<id>] [--model=<id>] [--dry-run]

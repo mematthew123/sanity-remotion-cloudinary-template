@@ -54,6 +54,15 @@ export const postType = defineType({
       options: {
         hotspot: true,
       },
+      fields: [
+        defineField({
+          name: 'alt',
+          title: 'Alternative text',
+          type: 'string',
+          description: 'Describes the image for screen readers and when the image fails to load.',
+          validation: (rule) => rule.required(),
+        }),
+      ],
     }),
     defineField({
       name: 'publishedAt',
@@ -100,7 +109,7 @@ export const postType = defineType({
       group: 'video',
       readOnly: true,
       description:
-        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition (Phase 2). Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
+        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition. Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
       of: [
         defineArrayMember({
           type: 'object',

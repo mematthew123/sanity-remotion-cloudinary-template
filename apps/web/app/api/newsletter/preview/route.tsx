@@ -2,7 +2,7 @@ import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
 import {timingSafeEqual} from 'node:crypto';
-import {newsletterByIdQuery, type NewsletterForSend} from '@/lib/sanity.queries';
+import {NEWSLETTER_BY_ID_QUERY, type NewsletterForSend} from '@/lib/sanity.queries';
 import {NewsletterTemplate} from '@/components/emails/NewsletterTemplate';
 
 // Preview is a GET because the Studio plugin embeds it in an iframe; iframes
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     perspective: 'drafts',
   });
 
-  const newsletter = await client.fetch<NewsletterForSend | null>(newsletterByIdQuery, {id});
+  const newsletter = await client.fetch<NewsletterForSend | null>(NEWSLETTER_BY_ID_QUERY, {id});
   if (!newsletter) {
     return jsonResponse({error: `Newsletter ${id} not found`}, {status: 404});
   }

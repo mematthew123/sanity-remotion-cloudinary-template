@@ -6,15 +6,13 @@ Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is
 
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
-## The release series
+## What's included
 
-This monorepo is the **complete edition** of a numbered template series published on Sanity Exchange. Each installment is a small standalone repo that layers one fanout surface onto the core — the variant catalog in [`packages/video-core/src/registry.ts`](./packages/video-core/src/registry.ts) is grouped by installment so each one is a clean append:
+On top of the core render loop, the template ships three fanout surfaces, all driven by the one canonical render:
 
-1. **Core — render once.** Studio render action → Vercel Sandbox → Cloudinary → site playback (promo + teaser compositions, site variants).
+1. **Site — render once.** Studio render action → Vercel Sandbox → Cloudinary → site playback (promo + teaser compositions, site variants).
 2. **Newsletter — fan out to email.** A Resend-backed `newsletter` doc that embeds the `site-preview-gif` variant as the email hero.
-3. **Narrated — long-form TTS.** The `article-narrated` composition: ElevenLabs voiceover, computed duration, and the long-form variant family (YouTube 1080p, podcast MP3, short-form clips).
-
-Installment repos are regenerated from this monorepo (see [`PLAN-drip-release.md`](./PLAN-drip-release.md)); links land here as each one publishes.
+3. **Narrated — long-form TTS.** The `article-narrated` composition: ElevenLabs voiceover, computed duration, and the long-form variant family (YouTube 1080p, podcast MP3).
 
 ## How it works
 
@@ -135,7 +133,7 @@ Then tune the voice by editing the **Brand Voice** doc in the Studio — that's 
 
 ## Deploy
 
-Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **300s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary, render secret). Point `SANITY_STUDIO_RENDER_API_URL` at the deployed URL. Deploy the Studio with `pnpm deploy:studio`.
+Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **800s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary, render secret). Point `SANITY_STUDIO_RENDER_API_URL` at the deployed URL. Deploy the Studio with `pnpm deploy:studio`.
 
 ## ⚠️ Security note
 

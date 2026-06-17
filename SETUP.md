@@ -110,7 +110,7 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
 ## 8. Deploy
 
 1. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
-   to **300s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The
+   to **800s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The
    Blob store you connected in step 5 auto-injects `BLOB_READ_WRITE_TOKEN`; no
    AWS keys needed.
 2. Point `SANITY_STUDIO_RENDER_API_URL` at the deployed web URL.

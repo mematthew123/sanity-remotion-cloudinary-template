@@ -3,17 +3,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   PortableText,
-  type PortableTextBlock,
   type PortableTextComponents,
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
-import {
-  allPostsQuery,
-  singlePostQuery,
-  type Video,
-} from '@/lib/sanity.queries';
+import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
+import ArticleAudioPlayer from '@/components/ArticleAudioPlayer';
 import VideoPlayer from '@/components/VideoPlayer';
+import FanoutPanel from '@/components/FanoutPanel';
 
 export const revalidate = 60;
 
@@ -21,22 +18,20 @@ const portableTextComponents: PortableTextComponents = {
   block: {
     normal: ({ children }) => <p>{children}</p>,
     h2: ({ children }) => (
-      <h2 className='mt-6 font-mono text-2xl font-extrabold uppercase tracking-tight sm:text-3xl'>
+      <h2 className='mt-8 font-serif text-3xl tracking-tight sm:text-4xl'>
         {children}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className='mt-4 font-mono text-xl font-bold uppercase tracking-tight sm:text-2xl'>
+      <h3 className='mt-6 font-serif text-2xl tracking-tight sm:text-3xl'>
         {children}
       </h3>
     ),
     h4: ({ children }) => (
-      <h4 className='mt-4 font-mono text-lg font-bold uppercase tracking-tight'>
-        {children}
-      </h4>
+      <h4 className='mt-4 font-serif text-xl tracking-tight'>{children}</h4>
     ),
     blockquote: ({ children }) => (
-      <blockquote className='border-l-4 border-foreground pl-4 font-serif text-xl italic text-muted'>
+      <blockquote className='border-l-2 border-accent pl-5 font-serif text-2xl leading-snug text-foreground/80 italic'>
         {children}
       </blockquote>
     ),
@@ -74,7 +69,7 @@ const portableTextComponents: PortableTextComponents = {
         .width(1600)
         .url();
       return (
-        <div className='relative my-2 aspect-video w-full overflow-hidden border border-foreground/20 bg-muted/10'>
+        <div className='relative my-2 aspect-video w-full overflow-hidden rounded-lg bg-muted/10'>
           <Image
             src={src}
             alt={(value as { alt?: string } | undefined)?.alt ?? ''}
@@ -88,23 +83,8 @@ const portableTextComponents: PortableTextComponents = {
   },
 };
 
-type Post = {
-  _id: string;
-  title: string | null;
-  slug: { current: string } | null;
-  publishedAt: string | null;
-  excerpt: string | null;
-  body: PortableTextBlock[] | null;
-  authorName: string | null;
-  authorImageUrl: string | null;
-  mainImage: SanityImageSource | null;
-  videos: Video[] | null;
-};
-
 export async function generateStaticParams() {
-  const posts = await client.fetch<{ slug: { current: string } | null }[]>(
-    allPostsQuery,
-  );
+  const posts = await client.fetch(ALL_POSTS_QUERY);
   return posts
     .map((p) => p.slug?.current)
     .filter((slug): slug is string => Boolean(slug))
@@ -118,7 +98,7 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await client.fetch<Post | null>(singlePostQuery, { slug });
+  const post = await client.fetch(SINGLE_POST_QUERY, { slug });
 
   if (!post) notFound();
 
@@ -136,13 +116,18 @@ export default async function PostPage({
     (v) => v.template !== 'article-narrated' && v.template !== 'article-promo',
   );
 
+  // The fan-out panel showcases one render's full Cloudinary variant set.
+  // Prefer the narrated reading (richest — 5 derivations); otherwise fall back
+  // to whatever render the post has so the showcase still appears.
+  const fanoutVideo = narratedReading ?? shortFormVideos[0] ?? allVideos[0] ?? null;
+
   return (
-    <article className='mx-auto max-w-3xl px-6 py-12'>
-      <header className='mb-8'>
-        <h1 className='font-mono text-3xl font-extrabold uppercase tracking-tight sm:text-4xl'>
+    <article className='mx-auto max-w-3xl px-6 py-16'>
+      <header className='mb-10'>
+        <h1 className='font-serif text-4xl leading-[1.08] tracking-tight text-balance sm:text-5xl'>
           {post.title ?? 'Untitled'}
         </h1>
-        <div className='mt-3 font-mono text-xs uppercase text-muted'>
+        <div className='mt-5 font-mono text-xs tracking-[0.15em] text-muted uppercase'>
           {post.authorName ?? 'Unknown'}
           {post.publishedAt && (
             <>
@@ -159,11 +144,22 @@ export default async function PostPage({
           )}
         </div>
         {post.excerpt && (
-          <p className='mt-4 font-serif text-xl italic text-muted'>
+          <p className='mt-6 font-serif text-2xl leading-relaxed text-muted italic'>
             {post.excerpt}
           </p>
         )}
       </header>
+
+      {/* Standalone "listen" affordance: the audio-only narration (the
+          podcast-mp3 variant of the narrated render), surfaced right under the
+          byline so readers can start listening before scrolling. Decoupled from
+          the narrated-video hero below — listen here, watch there. */}
+      {narratedReading?.podcastUrl && (
+        <ArticleAudioPlayer
+          src={narratedReading.podcastUrl}
+          durationSeconds={narratedReading.duration}
+        />
+      )}
 
       {/* When a narrated reading exists, surface it instead of (and where) the
           static main image would go. The mainImage doubles as the video's
@@ -172,10 +168,10 @@ export default async function PostPage({
         <NarratedReadingHero video={narratedReading} posterUrl={mainImageUrl} />
       ) : (
         mainImageUrl && (
-          <div className='relative mb-10 aspect-video w-full overflow-hidden border border-foreground bg-muted/10'>
+          <div className='relative mb-10 aspect-video w-full overflow-hidden rounded-xl bg-muted/10 ring-1 ring-foreground/10'>
             <Image
               src={mainImageUrl}
-              alt={post.title ?? ''}
+              alt={post.mainImage?.alt ?? post.title ?? ''}
               fill
               sizes='(max-width: 768px) 100vw, 768px'
               className='object-cover'
@@ -192,6 +188,8 @@ export default async function PostPage({
       )}
 
       <VideoPlayer videos={shortFormVideos} />
+
+      {fanoutVideo && <FanoutPanel video={fanoutVideo} />}
     </article>
   );
 }
