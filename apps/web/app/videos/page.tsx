@@ -23,7 +23,7 @@ export default async function VideosPage() {
           The render gallery
         </span>
         <h1 className='mt-4 font-serif text-5xl tracking-tight'>Videos</h1>
-        <p className='mt-4 max-w-xl font-serif text-xl leading-relaxed text-muted italic'>
+        <p className='mt-4 max-w-xl font-serif text-xl/relaxed text-muted italic'>
           Rendered with Remotion, served from Cloudinary.
         </p>
       </header>
@@ -69,7 +69,7 @@ export default async function VideosPage() {
                   <span className='font-mono text-[0.7rem] tracking-[0.18em] text-accent uppercase'>
                     {label}
                   </span>
-                  <h2 className='font-serif text-xl leading-snug tracking-tight'>
+                  <h2 className='font-serif text-xl/snug tracking-tight'>
                     {video.title ?? 'Untitled'}
                   </h2>
                   {formats.length > 0 && (

@@ -31,7 +31,7 @@ const portableTextComponents: PortableTextComponents = {
       <h4 className='mt-4 font-serif text-xl tracking-tight'>{children}</h4>
     ),
     blockquote: ({ children }) => (
-      <blockquote className='border-l-2 border-accent pl-5 font-serif text-2xl leading-snug text-foreground/80 italic'>
+      <blockquote className='border-l-2 border-accent pl-5 font-serif text-2xl/snug text-foreground/80 italic'>
         {children}
       </blockquote>
     ),
@@ -144,7 +144,7 @@ export default async function PostPage({
           )}
         </div>
         {post.excerpt && (
-          <p className='mt-6 font-serif text-2xl leading-relaxed text-muted italic'>
+          <p className='mt-6 font-serif text-2xl/relaxed text-muted italic'>
             {post.excerpt}
           </p>
         )}

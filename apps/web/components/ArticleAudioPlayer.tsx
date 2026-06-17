@@ -85,7 +85,7 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
   }
 
   return (
-    <section className='mb-10 overflow-hidden rounded-xl bg-background ring-1 ring-foreground/10 shadow-sm'>
+    <section className='mb-10 overflow-hidden rounded-xl bg-background shadow-sm ring-1 ring-foreground/10'>
       <div className='flex items-center justify-between gap-3 border-b border-foreground/10 px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
         <span className='text-accent'>▶ Listen to this article</span>
         {listenLabel && <span className='text-muted'>{listenLabel}</span>}
@@ -130,7 +130,7 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
               aria-hidden='true'
             />
           </div>
-          <span className='shrink-0 font-mono text-xs tabular-nums text-muted'>
+          <span className='shrink-0 font-mono text-xs text-muted tabular-nums'>
             {formatClock(currentTime)} / {formatClock(duration)}
           </span>
         </div>

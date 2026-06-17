@@ -30,7 +30,7 @@ export default function NarratedReadingHero({video, posterUrl}: Props) {
   const durationLabel = formatDuration(video.duration);
 
   return (
-    <section className='mb-10 overflow-hidden rounded-xl bg-foreground ring-1 ring-foreground/10 shadow-sm'>
+    <section className='mb-10 overflow-hidden rounded-xl bg-foreground shadow-sm ring-1 ring-foreground/10'>
       <div className='flex items-center justify-between gap-3 border-b border-foreground/10 bg-background px-5 py-3 font-mono text-xs tracking-[0.18em] uppercase'>
         <span className='text-accent'>▶ Watch the narrated reading</span>
         <div className='flex items-center gap-4'>

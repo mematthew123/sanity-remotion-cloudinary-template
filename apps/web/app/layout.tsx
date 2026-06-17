@@ -43,7 +43,7 @@ export default function RootLayout({
             lang='en'
             className={`${jetbrainsMono.variable} ${instrumentSerif.variable} ${inter.variable}`}
         >
-            <body className='antialiased min-h-dvh flex flex-col'>
+            <body className='flex min-h-dvh flex-col antialiased'>
                 <header className='flex items-center justify-between border-b border-foreground/10 px-6 py-5'>
                     <Link
                         href='/'
@@ -51,7 +51,7 @@ export default function RootLayout({
                     >
                         Template
                     </Link>
-                    <nav className='flex gap-8 font-mono text-xs tracking-[0.15em] uppercase text-muted'>
+                    <nav className='flex gap-8 font-mono text-xs tracking-[0.15em] text-muted uppercase'>
                         <Link href='/' className='transition-colors hover:text-foreground'>
                             Home
                         </Link>

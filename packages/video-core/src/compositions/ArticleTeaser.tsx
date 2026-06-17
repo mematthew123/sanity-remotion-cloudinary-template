@@ -92,17 +92,17 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
       {/* Brand watermark */}
       <div
-        className="absolute left-10 top-[30px] font-mono text-base font-extrabold uppercase tracking-[-0.02em] text-accent"
+        className="absolute top-[30px] left-10 font-mono text-base font-extrabold tracking-[-0.02em] text-accent uppercase"
         style={{opacity: tagSlide}}
       >
         {BRAND}
       </div>
 
       {/* Center content */}
-      <div className="absolute left-1/2 top-1/2 flex w-4/5 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-6">
+      <div className="absolute top-1/2 left-1/2 flex w-4/5 -translate-1/2 flex-col items-center gap-6">
         {/* Tag */}
         <div
-          className="border-[3px] border-highlight bg-highlight px-5 py-2 font-mono text-sm font-extrabold uppercase tracking-[0.1em] text-foreground"
+          className="border-[3px] border-highlight bg-highlight px-5 py-2 font-mono text-sm font-extrabold tracking-widest text-foreground uppercase"
           style={{
             transform: `translateY(${interpolate(tagSlide, [0, 1], [30, 0])}px)`,
             opacity: tagSlide,
@@ -113,7 +113,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* Title */}
         <div
-          className="text-center font-mono text-5xl font-extrabold uppercase leading-[1.1] tracking-[-0.02em] text-background"
+          className="text-center font-mono text-5xl leading-[1.1] font-extrabold tracking-[-0.02em] text-background uppercase"
           style={{
             transform: `translateY(${interpolate(titleSlide, [0, 1], [50, 0])}px)`,
             opacity: titleProgress,
@@ -124,7 +124,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* "New Article" badge */}
         <div
-          className="border-[3px] border-accent bg-accent px-7 py-3 font-mono text-lg font-extrabold uppercase tracking-[0.05em] text-white"
+          className="border-[3px] border-accent bg-accent px-7 py-3 font-mono text-lg font-extrabold tracking-wider text-white uppercase"
           style={{
             transform: `scale(${badgeSlam})`,
             transformOrigin: 'center',
@@ -142,7 +142,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
             opacity: excerptReveal,
           }}
         >
-          <div className="font-serif text-2xl italic leading-[1.4] text-background">
+          <div className="font-serif text-2xl leading-[1.4] text-background italic">
             &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
           </div>
         </div>
@@ -155,10 +155,10 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
             opacity: authorReveal,
           }}
         >
-          <div className="font-mono text-sm font-extrabold uppercase tracking-[0.15em] text-muted">
+          <div className="font-mono text-sm font-extrabold tracking-[0.15em] text-muted uppercase">
             By {authorName}
           </div>
-          <div className="mt-3 border-[3px] border-background px-6 py-2.5 font-mono text-sm font-extrabold uppercase tracking-[0.05em] text-background">
+          <div className="mt-3 border-[3px] border-background px-6 py-2.5 font-mono text-sm font-extrabold tracking-wider text-background uppercase">
             {videoCopy?.ctaPrimary ?? 'Read more'}
           </div>
         </div>

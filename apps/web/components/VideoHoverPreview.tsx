@@ -26,7 +26,7 @@ export default function VideoHoverPreview({
 
   return (
     <div
-      className='relative h-full w-full'
+      className='relative size-full'
       onMouseEnter={() => {
         setArmed(true);
         setHovered(true);

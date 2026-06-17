@@ -73,17 +73,17 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
           className="absolute inset-x-0 top-0 flex h-[60px] items-center justify-between bg-foreground px-10"
           style={{transform: `translateY(${interpolate(introSlide, [0, 1], [-60, 0])}px)`}}
         >
-          <div className="font-mono text-xl font-extrabold uppercase tracking-[0.05em] text-accent">
+          <div className="font-mono text-xl font-extrabold tracking-wider text-accent uppercase">
             {BRAND}
           </div>
-          <div className="font-mono text-sm font-bold uppercase tracking-[0.1em] text-highlight">
+          <div className="font-mono text-sm font-bold tracking-widest text-highlight uppercase">
             Article
           </div>
         </div>
       </Sequence>
 
       {/* Main content */}
-      <div className="absolute inset-x-10 bottom-[60px] top-20 flex flex-col gap-6">
+      <div className="absolute inset-x-10 top-20 bottom-[60px] flex flex-col gap-6">
         {/* Main image */}
         {mainImageUrl && (
           <Sequence from={5} layout="none">
@@ -94,7 +94,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
                 opacity: introSlide,
               }}
             >
-              <Img src={mainImageUrl} className="h-full w-full object-cover" />
+              <Img src={mainImageUrl} className="size-full object-cover" />
             </div>
           </Sequence>
         )}
@@ -102,7 +102,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Tag */}
         <Sequence from={20} layout="none">
           <div
-            className={`inline-flex self-start bg-highlight px-[14px] py-[6px] font-mono text-xs font-extrabold uppercase tracking-[0.05em] text-foreground ${BORDER}`}
+            className={`inline-flex self-start bg-highlight px-[14px] py-[6px] font-mono text-xs font-extrabold tracking-wider text-foreground uppercase ${BORDER}`}
             style={{transform: `scale(${tagPop})`, transformOrigin: 'left center'}}
           >
             {videoCopy?.kicker ?? 'New Article'}
@@ -112,7 +112,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Title */}
         <Sequence from={30} layout="none">
           <div
-            className={`font-mono font-extrabold uppercase leading-[1.1] tracking-[-0.02em] text-foreground ${
+            className={`font-mono leading-[1.1] font-extrabold tracking-[-0.02em] text-foreground uppercase ${
               mainImageUrl ? 'text-4xl' : 'text-5xl'
             }`}
             style={{
@@ -127,7 +127,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Excerpt */}
         <Sequence from={70} layout="none">
           <div
-            className="line-clamp-3 font-serif text-[22px] italic leading-[1.4] text-muted"
+            className="line-clamp-3 font-serif text-[22px] leading-[1.4] text-muted italic"
             style={{
               transform: `translateY(${interpolate(excerptReveal, [0, 1], [20, 0])}px)`,
               opacity: excerptReveal,
@@ -153,10 +153,10 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
                 {authorName.charAt(0).toUpperCase()}
               </div>
               <div>
-                <div className="font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted">
+                <div className="font-mono text-xs font-bold tracking-widest text-muted uppercase">
                   By
                 </div>
-                <div className="font-mono text-base font-extrabold uppercase tracking-[-0.02em] text-foreground">
+                <div className="font-mono text-base font-extrabold tracking-[-0.02em] text-foreground uppercase">
                   {authorName}
                 </div>
               </div>
@@ -174,7 +174,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
               opacity: ctaReveal,
             }}
           >
-            <div className="font-mono text-sm font-extrabold uppercase tracking-[0.05em] text-background">
+            <div className="font-mono text-sm font-extrabold tracking-wider text-background uppercase">
               {videoCopy?.ctaPrimary ?? 'Read more'}
             </div>
             <div className="font-mono text-2xl text-accent">&rarr;</div>

@@ -38,7 +38,7 @@ export default async function HomePage() {
         <h1 className='mt-5 max-w-3xl font-serif text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl'>
           Turn your writing into video, automatically.
         </h1>
-        <p className='mt-6 max-w-xl font-serif text-xl leading-relaxed text-muted italic'>
+        <p className='mt-6 max-w-xl font-serif text-xl/relaxed text-muted italic'>
           Sanity content becomes Remotion video, delivered through Cloudinary and
           published here — all from a single click in the Studio.
         </p>
@@ -74,7 +74,7 @@ export default async function HomePage() {
                       {card.authorName} · {card.dateLabel}
                     </div>
                   )}
-                  <h3 className='font-serif text-3xl leading-tight tracking-tight transition-colors group-hover:text-accent'>
+                  <h3 className='font-serif text-3xl/tight tracking-tight transition-colors group-hover:text-accent'>
                     {card.title}
                   </h3>
                   {card.excerpt && (
@@ -90,7 +90,7 @@ export default async function HomePage() {
                   </span>
                 </div>
                 {(card.imageUrl || card.previewGifUrl) && (
-                  <div className='relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted/10 sm:order-last'>
+                  <div className='relative aspect-4/3 w-full overflow-hidden rounded-lg bg-muted/10 sm:order-last'>
                     <VideoHoverPreview
                       imageUrl={card.imageUrl}
                       gifUrl={card.previewGifUrl}
