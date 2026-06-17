@@ -16,22 +16,22 @@ const portableTextComponents: PortableTextComponents = {
   block: {
     normal: ({ children }) => <p>{children}</p>,
     h2: ({ children }) => (
-      <h2 className='mt-6 font-mono text-2xl font-extrabold uppercase tracking-tight sm:text-3xl'>
+      <h2 className='mt-6 font-mono text-2xl font-extrabold tracking-tight uppercase sm:text-3xl'>
         {children}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className='mt-4 font-mono text-xl font-bold uppercase tracking-tight sm:text-2xl'>
+      <h3 className='mt-4 font-mono text-xl font-bold tracking-tight uppercase sm:text-2xl'>
         {children}
       </h3>
     ),
     h4: ({ children }) => (
-      <h4 className='mt-4 font-mono text-lg font-bold uppercase tracking-tight'>
+      <h4 className='mt-4 font-mono text-lg font-bold tracking-tight uppercase'>
         {children}
       </h4>
     ),
     blockquote: ({ children }) => (
-      <blockquote className='border-l-4 border-foreground pl-4 font-serif text-xl italic text-muted'>
+      <blockquote className='border-l-4 border-foreground pl-4 font-serif text-xl text-muted italic'>
         {children}
       </blockquote>
     ),
@@ -119,10 +119,10 @@ export default async function PostPage({
   return (
     <article className='mx-auto max-w-3xl px-6 py-12'>
       <header className='mb-8'>
-        <h1 className='font-mono text-3xl font-extrabold uppercase tracking-tight sm:text-4xl'>
+        <h1 className='font-mono text-3xl font-extrabold tracking-tight uppercase sm:text-4xl'>
           {post.title ?? 'Untitled'}
         </h1>
-        <div className='mt-3 font-mono text-xs uppercase text-muted'>
+        <div className='mt-3 font-mono text-xs text-muted uppercase'>
           {post.authorName ?? 'Unknown'}
           {post.publishedAt && (
             <>
@@ -139,7 +139,7 @@ export default async function PostPage({
           )}
         </div>
         {post.excerpt && (
-          <p className='mt-4 font-serif text-xl italic text-muted'>
+          <p className='mt-4 font-serif text-xl text-muted italic'>
             {post.excerpt}
           </p>
         )}

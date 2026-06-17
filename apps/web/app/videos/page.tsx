@@ -18,7 +18,7 @@ export default async function VideosPage() {
 
   return (
     <div className='mx-auto max-w-6xl px-6 py-12'>
-      <h1 className='mb-2 font-mono text-3xl font-extrabold uppercase tracking-tight'>
+      <h1 className='mb-2 font-mono text-3xl font-extrabold tracking-tight uppercase'>
         Videos
       </h1>
       <p className='mb-10 text-muted'>
@@ -56,7 +56,7 @@ export default async function VideosPage() {
                   />
                 </div>
                 <div className='flex flex-1 flex-col gap-2 p-4'>
-                  <span className='font-mono text-xs font-bold uppercase tracking-wide text-accent'>
+                  <span className='font-mono text-xs font-bold tracking-wide text-accent uppercase'>
                     {label}
                   </span>
                   <h2 className='font-mono text-sm font-bold'>
@@ -65,13 +65,13 @@ export default async function VideosPage() {
                   {postSlug ? (
                     <Link
                       href={`/posts/${postSlug}`}
-                      className='mt-auto pt-2 font-mono text-xs uppercase text-muted hover:text-foreground'
+                      className='mt-auto pt-2 font-mono text-xs text-muted uppercase hover:text-foreground'
                     >
                       {video.post?.title ?? 'View post'} →
                     </Link>
                   ) : (
                     video.post?.title && (
-                      <span className='mt-auto pt-2 font-mono text-xs uppercase text-muted'>
+                      <span className='mt-auto pt-2 font-mono text-xs text-muted uppercase'>
                         {video.post.title}
                       </span>
                     )

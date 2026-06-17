@@ -30,7 +30,7 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
   return (
     <section className='w-full border-t border-foreground/15 py-10'>
       <div className='mx-auto max-w-3xl px-4'>
-        <h2 className='mb-6 font-mono text-xl font-extrabold uppercase tracking-tight'>
+        <h2 className='mb-6 font-mono text-xl font-extrabold tracking-tight uppercase'>
           Video
         </h2>
 
@@ -44,7 +44,7 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
                 <button
                   key={video._id}
                   onClick={() => setActiveId(video._id)}
-                  className={`border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
+                  className={`border px-4 py-2 font-mono text-xs font-bold tracking-wide uppercase transition-colors ${
                     isActive
                       ? 'border-foreground bg-foreground text-background'
                       : 'border-foreground/30 text-foreground hover:border-foreground'
@@ -75,7 +75,7 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
           />
         </div>
 
-        <div className='mt-4 flex items-center gap-4 font-mono text-xs uppercase text-muted'>
+        <div className='mt-4 flex items-center gap-4 font-mono text-xs text-muted uppercase'>
           <span>{label}</span>
           <span>{active.duration ?? 0}s</span>
           {active.renderedAt && (

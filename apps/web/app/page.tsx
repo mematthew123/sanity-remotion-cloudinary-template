@@ -11,7 +11,7 @@ export default async function HomePage() {
   return (
     <div className='mx-auto max-w-5xl px-6 py-12'>
       <section className='mb-12'>
-        <h1 className='font-mono text-3xl font-extrabold uppercase tracking-tight sm:text-5xl'>
+        <h1 className='font-mono text-3xl font-extrabold tracking-tight uppercase sm:text-5xl'>
           Sanity → Remotion → Cloudinary
         </h1>
         <p className='mt-4 max-w-2xl text-muted'>
@@ -20,13 +20,13 @@ export default async function HomePage() {
         </p>
         <Link
           href='/videos'
-          className='mt-6 inline-block border border-foreground px-5 py-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background'
+          className='mt-6 inline-block border border-foreground px-5 py-2 font-mono text-xs font-bold tracking-wide uppercase transition-colors hover:bg-foreground hover:text-background'
         >
           Browse all videos
         </Link>
       </section>
 
-      <h2 className='mb-6 font-mono text-sm font-bold uppercase tracking-wide text-muted'>
+      <h2 className='mb-6 font-mono text-sm font-bold tracking-wide text-muted uppercase'>
         Posts
       </h2>
 
@@ -62,7 +62,7 @@ export default async function HomePage() {
                   {post.excerpt && (
                     <p className='text-sm text-muted'>{post.excerpt}</p>
                   )}
-                  <div className='mt-auto pt-2 font-mono text-xs uppercase text-muted'>
+                  <div className='mt-auto pt-2 font-mono text-xs text-muted uppercase'>
                     {post.authorName ?? 'Unknown'}
                     {post.publishedAt && (
                       <>
