@@ -16,7 +16,7 @@ there's a short explanation of what it is, what it does, and what to look for.
 | TypeScript | All samples — strict TS throughout (discriminated unions, Zod, type-safe GROQ) |
 | Meaningful React (state, hooks, complex components, data fetching) | `renderVideo.tsx`, `ArticleAudioPlayer.tsx` |
 | Node.js / Next.js | `route.ts` (Next.js API route), `voiceoverGenerate.ts` (Node), `sanity.queries.ts` (data fetching) |
-| Automated testing | **Not present in this repo** — see "A note on automated testing" below |
+| Automated testing | `voiceoverGenerate.test.ts` (Vitest — mocks, dependency injection, branch + error coverage) |
 
 ---
 
@@ -165,25 +165,83 @@ hand.
 
 ---
 
-## A note on automated testing
+## 6. Automated testing — Vitest unit suite
 
-This repository does **not** currently have an automated test suite wired up
-(no test runner config, no `*.test.ts`/`*.spec.ts` files) — it's a
-demonstration/template project, so that gap is by design rather than an oversight.
+**File:** `apps/web/lib/voiceoverGenerate.test.ts` (~250 lines, 9 cases)
+**Demonstrates:** Unit testing, mocking, dependency injection, branch + error coverage.
 
-I'd rather flag that honestly than submit a sample that isn't representative of my
-own test-writing. A couple of these files are deliberately structured to be
-testable and would make good targets — in particular `voiceoverGenerate.ts`
-(pure function with an injectable Sanity client and a `dryRun` path) and the
-registry helpers it depends on (`eagerTransformsFor`, `snapshotVariants`, the
-chunking logic), which are pure functions over plain data. If a separate testing
-sample is needed for this application, I can add a focused unit-test file (Vitest)
-around one of those as a standalone submission.
+**What it is.** A Vitest suite covering `generateVoiceoverForPost` (sample #4). The
+repo had no test runner; this also wires up Vitest (`vitest.config.ts`,
+`pnpm --filter @template/web test`).
+
+**What it does / what to look for.**
+- **Mocks the effectful boundaries** — `./elevenlabs` and `./voiceoverStore`
+  (network + Cloudinary) are replaced with `vi.mock` factories, and the Sanity
+  client is supplied as a **fake** via the function's dependency-injection seam,
+  so the suite runs offline and deterministically.
+- **Leaves the real logic under test** — the actual Portable Text chunker from
+  `@template/video-core/registry` is left unmocked, so the tests exercise real
+  paragraph splitting rather than a stub.
+- **Covers the branches that matter**: the side-effect-free `dryRun` path
+  (asserts ElevenLabs/Cloudinary/Sanity are *not* touched), cold-cache generation
+  (one patch, correct counts), Cloudinary **cache hits** skipping ElevenLabs,
+  mixed hit/miss runs, **unique `_key`s** for identical paragraphs, and all four
+  guard-clause error paths (missing post, no body, zero narratable paragraphs,
+  unconfigured Cloudinary).
+
+Run it with `pnpm --filter @template/web test`.
+
+## A note on the rest of the repository
+
+Aside from the suite above, this is a demonstration/template project, so it
+isn't blanketed in tests. The voiceover suite is included specifically to show
+test-writing — mocking, DI, and edge-case coverage — rather than to claim broad
+coverage. The same patterns would extend naturally to the registry helpers
+(`eagerTransformsFor`, `snapshotVariants`, the chunker), which are pure functions
+over plain data.
 
 ---
 
 ## Authorship & NDA
 
-All of the files above were authored by me in this project. They're self-contained
-enough to review individually; file paths are included so each can be opened on its
-own. Nothing here is under NDA.
+All of the files above were authored by me in this project, which I own. They're
+self-contained enough to review individually; file paths are included so each can
+be opened on its own. Nothing here is under NDA.
+
+My current professional work is employer IP and would require legal sign-off to
+share, so I've deliberately kept it out and submitted only work I personally own
+(plus, for the testing category, a sample built from scratch for this purpose).
+
+---
+
+## Paste-ready submission note
+
+> The samples are from a personal open-source project I built — a TypeScript
+> monorepo (Next.js + Sanity + a shared React/Remotion package) that turns
+> articles into rendered, hosted videos. I'm the sole author and own the code; none
+> of it is under NDA.
+>
+> - **TypeScript** runs through everything — Zod validation, discriminated unions,
+>   and type-safe GROQ where `client.fetch(query)` is auto-typed.
+> - **Meaningful React:** `renderVideo.tsx` (custom Sanity document actions —
+>   hooks, async GROQ data fetching with fallback, and a dry-run→confirm→execute
+>   dialog flow) and `ArticleAudioPlayer.tsx` (an accessible custom media player —
+>   `useRef`/`useState`, derived state, keyboard seeking).
+> - **Node.js / Next.js:** `app/api/video/render/route.ts` — a Next.js API route
+>   that orchestrates a full render (Zod validation, idempotency, a document status
+>   state machine, a soft-timeout that converts a platform hard-kill into a
+>   recoverable failure, and resource cleanup on every path) — and
+>   `lib/voiceoverGenerate.ts`, a reusable generation loop shared by a CLI and a
+>   route via dependency injection.
+> - **Automated testing:** `lib/voiceoverGenerate.test.ts` — a Vitest suite over
+>   that generation loop, mocking the network/Cloudinary boundaries, injecting a
+>   fake Sanity client, and covering the dry-run path, cache hits, unique-key
+>   assignment, and the error guards. Run with `pnpm --filter @template/web test`.
+>
+> Each file stands on its own; I've attached them individually along with a short
+> guide (`docs/job-application-code-samples.md`) explaining what to look for in each.
+>
+> One note on scope: my day-job work is my employer's IP and would need legal
+> sign-off to share, so I've intentionally submitted only code I personally own.
+> Happy to walk through any of this or talk through my testing approach in more
+> depth.
