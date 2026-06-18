@@ -208,12 +208,26 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
       title: articleDefaultProps.title,
       authorName: articleDefaultProps.authorName,
       publishedAt: articleDefaultProps.publishedAt,
+      brandName: 'The Template',
+      kicker: 'Narrated Reading',
       chunks: [
         {
           id: 'demo-1',
-          text: 'A narrated reading of the article would play here.',
+          text: 'A narrated reading of the article would play here, paragraph by paragraph.',
           audioUrl: '',
-          durationSeconds: 5,
+          durationSeconds: 6,
+        },
+        {
+          id: 'demo-2',
+          text: 'Each paragraph crossfades as its voiceover plays, while the progress bar and brand lockup stay continuous across the whole reading.',
+          audioUrl: '',
+          durationSeconds: 7,
+        },
+        {
+          id: 'demo-3',
+          text: 'An intro title card opens the video and an outro call-to-action closes it.',
+          audioUrl: '',
+          durationSeconds: 6,
         },
       ],
     } satisfies ArticleNarratedProps,

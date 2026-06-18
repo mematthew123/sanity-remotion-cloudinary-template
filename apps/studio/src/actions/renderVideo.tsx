@@ -161,6 +161,7 @@ const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
   publishedAt,
   "authorName": author->name,
   "mainImageUrl": mainImage.asset->url,
+  "kicker": videoCopy.kicker,
   voiceoverChunks
 }`
 
@@ -169,6 +170,7 @@ type NarratedFields = {
   publishedAt?: string
   authorName?: string
   mainImageUrl?: string
+  kicker?: string
   voiceoverChunks?: Array<{id: string; text: string; audioUrl: string; durationSeconds: number}>
 }
 
@@ -226,6 +228,7 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
         authorName: resolved?.authorName ?? 'Unknown',
         publishedAt: resolved?.publishedAt ?? new Date().toISOString(),
         mainImageUrl: resolved?.mainImageUrl || undefined,
+        kicker: resolved?.kicker || undefined,
         chunks,
       }
 

@@ -65,6 +65,10 @@ export const ArticleNarratedPropsSchema = z.object({
   publishedAt: z.string(),
   mainImageUrl: z.string().optional(),
   chunks: z.array(ArticleNarratedChunkSchema),
+  /** Brand lockup shown top-left and on the outro card. Falls back to a constant. */
+  brandName: z.string().optional(),
+  /** Short label above the headline on the intro card (e.g. from videoCopy.kicker). */
+  kicker: z.string().optional(),
 })
 
 export type ArticleNarratedProps = z.infer<typeof ArticleNarratedPropsSchema>

@@ -1,7 +1,24 @@
 import React from 'react'
 import {AbsoluteFill, Audio, Img, Sequence, interpolate, useCurrentFrame, useVideoConfig} from 'remotion'
-import type {ArticleNarratedChunk, ArticleNarratedProps} from '../types'
+import {COLORS, type ArticleNarratedChunk, type ArticleNarratedProps} from '../types'
 import '../fonts'
+
+// Editorial-broadcast chrome: a top progress bar, a persistent brand lockup, an
+// intro title card and an outro CTA card frame the reading without touching the
+// audio timeline. Intro/outro are pure OVERLAYS over the first/last frames —
+// the chunk <Sequence> audio and the computed `calculateMetadata` duration are
+// untouched, so timing stays exact and nothing needs re-summing.
+const INTRO_FRAMES = 75 // ~2.5s @ 30fps
+const OUTRO_FRAMES = 90 // ~3s @ 30fps
+const DEFAULT_BRAND = 'The Template'
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric'})
+  } catch {
+    return ''
+  }
+}
 
 // Long-form narrated reading. Each chunk is one paragraph: its MP3 plays in a
 // dedicated <Sequence> for exact audio timing. The background image, blurred
@@ -106,8 +123,136 @@ function CaptionTrack({chunks}: {chunks: TimedChunk[]}) {
   )
 }
 
-export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({mainImageUrl, chunks}) => {
+// Thin broadcast progress bar across the very top — fills 0→100% across the
+// whole reading so viewers can gauge how much is left. Rendered last so it
+// stays visible over the intro/outro cards.
+function ProgressBar() {
+  const frame = useCurrentFrame()
+  const {durationInFrames} = useVideoConfig()
+  const pct = interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [0, 100], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+
+  return (
+    <div className="absolute inset-x-0 top-0 h-[5px] bg-white/10">
+      <div className="h-full" style={{width: `${pct}%`, backgroundColor: COLORS.accent}} />
+    </div>
+  )
+}
+
+// Persistent top-left brand lockup + byline. Fades in as the intro card clears
+// so the two don't overlap, and is held back during the outro by the outro
+// scrim sitting above it.
+function BrandLockup({brandName, authorName}: {brandName: string; authorName: string}) {
+  const frame = useCurrentFrame()
+  const opacity = interpolate(frame, [INTRO_FRAMES - 12, INTRO_FRAMES + 6], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+
+  return (
+    <div className="absolute top-9 left-16 flex items-center gap-3" style={{opacity}}>
+      <span className="size-3 rounded-full" style={{backgroundColor: COLORS.accent}} />
+      <span className="text-[22px] font-semibold tracking-[-0.01em] text-white">{brandName}</span>
+      <span className="text-[20px] text-white/40">·</span>
+      <span className="text-[20px] font-medium text-white/70">by {authorName}</span>
+    </div>
+  )
+}
+
+// Intro title card over the first INTRO_FRAMES: kicker + headline + byline,
+// fading out as the first paragraph caption emerges underneath.
+function IntroCard({
+  kicker,
+  title,
+  authorName,
+  publishedAt,
+}: {
+  kicker?: string
+  title: string
+  authorName: string
+  publishedAt: string
+}) {
+  const frame = useCurrentFrame()
+  const opacity = interpolate(frame, [0, 8, INTRO_FRAMES - 16, INTRO_FRAMES], [0, 1, 1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+  if (opacity <= 0) return null
+
+  const rise = interpolate(frame, [0, 22], [26, 0], {extrapolateRight: 'clamp'})
+
+  return (
+    <AbsoluteFill
+      className="flex flex-col items-start justify-center bg-black/45 px-24"
+      style={{opacity}}
+    >
+      <div style={{transform: `translateY(${rise}px)`}} className="max-w-[80%]">
+        {kicker ? (
+          <p
+            className="m-0 mb-5 text-[24px] font-semibold uppercase tracking-[0.22em]"
+            style={{color: COLORS.accent}}
+          >
+            {kicker}
+          </p>
+        ) : null}
+        <h1 className="m-0 text-[68px] font-bold leading-[1.06] tracking-[-0.02em] text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.8)]">
+          {title}
+        </h1>
+        <div className="mt-7 mb-5 h-px w-24" style={{backgroundColor: COLORS.accent}} />
+        <p className="m-0 text-[22px] font-medium text-white/75">
+          {authorName}
+          {formatDate(publishedAt) ? `  ·  ${formatDate(publishedAt)}` : ''}
+        </p>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+// Outro CTA over the last OUTRO_FRAMES, anchored to the end of the timeline.
+function OutroCard({brandName}: {brandName: string}) {
+  const frame = useCurrentFrame()
+  const {durationInFrames} = useVideoConfig()
+  const start = durationInFrames - OUTRO_FRAMES
+  const opacity = interpolate(frame, [start, start + 16], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+  if (opacity <= 0) return null
+
+  const rise = interpolate(frame, [start, start + 22], [22, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+
+  return (
+    <AbsoluteFill className="flex flex-col items-center justify-center bg-black/60" style={{opacity}}>
+      <div style={{transform: `translateY(${rise}px)`}} className="flex flex-col items-center">
+        <span
+          className="mb-6 size-3.5 rounded-full"
+          style={{backgroundColor: COLORS.accent}}
+        />
+        <p className="m-0 text-[52px] font-bold tracking-[-0.02em] text-white">Read the full article</p>
+        <p className="mt-4 text-[24px] font-medium uppercase tracking-[0.18em] text-white/55">
+          {brandName}
+        </p>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({
+  title,
+  authorName,
+  publishedAt,
+  mainImageUrl,
+  chunks,
+  brandName,
+  kicker,
+}) => {
   const {fps} = useVideoConfig()
+  const brand = brandName?.trim() || DEFAULT_BRAND
 
   // Walk the chunks once, computing each chunk's absolute start/end frame so
   // the caption track and the audio sequences can share the same timeline.
@@ -126,15 +271,27 @@ export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({mainImageUrl, c
 
       <CaptionTrack chunks={timedChunks} />
 
-      {timedChunks.map((chunk) => (
-        <Sequence
-          key={chunk.id}
-          from={chunk.startFrame}
-          durationInFrames={chunk.endFrame - chunk.startFrame}
-        >
-          <Audio src={chunk.audioUrl} />
-        </Sequence>
-      ))}
+      <BrandLockup brandName={brand} authorName={authorName} />
+
+      <IntroCard kicker={kicker} title={title} authorName={authorName} publishedAt={publishedAt} />
+
+      <OutroCard brandName={brand} />
+
+      <ProgressBar />
+
+      {timedChunks.map((chunk) =>
+        // Guard the empty-`audioUrl` demo/preview chunks — Remotion's <Audio>
+        // throws on an empty src. Real renders always have a Cloudinary URL.
+        chunk.audioUrl ? (
+          <Sequence
+            key={chunk.id}
+            from={chunk.startFrame}
+            durationInFrames={chunk.endFrame - chunk.startFrame}
+          >
+            <Audio src={chunk.audioUrl} />
+          </Sequence>
+        ) : null,
+      )}
     </AbsoluteFill>
   )
 }
