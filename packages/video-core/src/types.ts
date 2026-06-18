@@ -69,6 +69,14 @@ export const ArticleNarratedPropsSchema = z.object({
   brandName: z.string().optional(),
   /** Short label above the headline on the intro card (e.g. from videoCopy.kicker). */
   kicker: z.string().optional(),
+  /** H2/H3 headings → chapter cards, each tied to the narration chunk it opens. */
+  chapters: z
+    .array(z.object({title: z.string(), chunkIndex: z.number().int().nonnegative()}))
+    .optional(),
+  /** Body images for the b-roll track, each tied to the chunk it appears after (-1 = opening). */
+  images: z
+    .array(z.object({url: z.string(), afterChunkIndex: z.number().int()}))
+    .optional(),
 })
 
 export type ArticleNarratedProps = z.infer<typeof ArticleNarratedPropsSchema>

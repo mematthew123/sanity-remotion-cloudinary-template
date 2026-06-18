@@ -72,14 +72,12 @@ export default function NarratedReadingHero({video, posterUrl, captionsUrl}: Pro
           display: 'block',
         }}
       >
+        {/* Captions are opt-in (no `default`): the reading is a sound-on,
+            cinematic visual, and the full text is available as the read-along
+            transcript above. Viewers can still toggle CC from the player's
+            controls. */}
         {captionsUrl && (
-          <track
-            kind='captions'
-            srcLang='en'
-            label='English'
-            src={captionsUrl}
-            default
-          />
+          <track kind='captions' srcLang='en' label='English' src={captionsUrl} />
         )}
       </video>
     </section>

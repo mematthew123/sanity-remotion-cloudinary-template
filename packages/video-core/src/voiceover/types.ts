@@ -9,6 +9,18 @@ export type Chunk = {
 }
 
 /**
+ * One word with its start/end offset in seconds, RELATIVE to its own chunk's
+ * MP3 (each chunk's audio starts at 0). Produced by ElevenLabs forced
+ * alignment; consumed by the captions.vtt route, which adds the chunk's
+ * cumulative offset to turn these into absolute cue times.
+ */
+export type WordTiming = {
+  text: string
+  start: number
+  end: number
+}
+
+/**
  * A chunk after the generate-voiceover step has resolved it: deterministic
  * cache id, Cloudinary-hosted MP3 URL, and the duration in seconds captured
  * from Cloudinary's video metadata. The duration lets the composition's
@@ -23,4 +35,6 @@ export type ResolvedChunk = Chunk & {
   id: string
   audioUrl: string
   durationSeconds: number
+  /** Per-word alignment for closed captions. Absent if alignment was skipped/failed. */
+  words?: WordTiming[]
 }

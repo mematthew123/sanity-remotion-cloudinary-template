@@ -9,7 +9,7 @@ import {
 // barrel in v5), so import it from there directly.
 import {useToast} from '@sanity/ui'
 import {PlayIcon, SparklesIcon} from '@sanity/icons'
-import type {CompositionId} from '@template/video-core/registry'
+import {extractNarrationScenes, type CompositionId} from '@template/video-core/registry'
 import type {ArticleVideoProps} from '@template/video-core/types'
 
 // Fields the render route needs that may not be on the draft/published snapshot
@@ -162,7 +162,14 @@ const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
   "authorName": author->name,
   "mainImageUrl": mainImage.asset->url,
   "kicker": videoCopy.kicker,
-  voiceoverChunks
+  voiceoverChunks,
+  // Project the body in order, resolving image asset URLs inline so
+  // extractNarrationScenes() can pull chapters (H2/H3) + b-roll images without
+  // a second deref. Non-image blocks keep their children/style for chunking.
+  "body": body[]{
+    ...,
+    "imageUrl": asset->url
+  }
 }`
 
 type NarratedFields = {
@@ -172,6 +179,7 @@ type NarratedFields = {
   mainImageUrl?: string
   kicker?: string
   voiceoverChunks?: Array<{id: string; text: string; audioUrl: string; durationSeconds: number}>
+  body?: unknown[]
 }
 
 function RenderArticleNarratedAction(props: DocumentActionProps): DocumentActionDescription {
@@ -223,12 +231,18 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
         return
       }
 
+      // Chapter cards (H2/H3) + b-roll images, indexed in lockstep with the
+      // voiceover chunks (both derive from the same body block order).
+      const {chapters, images} = extractNarrationScenes(resolved?.body)
+
       const inputProps = {
         title: resolved?.title ?? 'Untitled',
         authorName: resolved?.authorName ?? 'Unknown',
         publishedAt: resolved?.publishedAt ?? new Date().toISOString(),
         mainImageUrl: resolved?.mainImageUrl || undefined,
         kicker: resolved?.kicker || undefined,
+        chapters,
+        images,
         chunks,
       }
 
