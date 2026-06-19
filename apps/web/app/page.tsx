@@ -5,6 +5,53 @@ import VideoHoverPreview from '@/components/VideoHoverPreview';
 
 export const revalidate = 60;
 
+// One canonical render branching into the four delivery surfaces — the visual
+// shorthand for "render once, derive infinitely". Pure SVG, no deps.
+function FanoutDiagram() {
+  const targets = ['Site', 'Email', 'YouTube', 'Podcast'];
+  const ys = [22, 54, 86, 118];
+  return (
+    <svg
+      viewBox='0 0 220 140'
+      className='mt-6 w-full max-w-[240px] text-accent'
+      role='img'
+      aria-label='One render fans out to the site, email, YouTube, and podcast'
+    >
+      {ys.map((y) => (
+        <path
+          key={y}
+          d={`M40 70 C 90 70, 90 ${y}, 128 ${y}`}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          opacity='0.5'
+        />
+      ))}
+      <circle cx='34' cy='70' r='8' fill='currentColor' />
+      <text
+        x='34'
+        y='94'
+        textAnchor='middle'
+        className='fill-muted font-mono text-[8px] tracking-wide uppercase'
+      >
+        1 render
+      </text>
+      {ys.map((y, i) => (
+        <g key={targets[i]}>
+          <circle cx='132' cy={y} r='4' fill='currentColor' />
+          <text
+            x='144'
+            y={y + 3}
+            className='fill-foreground font-mono text-[9px] tracking-wide'
+          >
+            {targets[i]}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export default async function HomePage() {
   const posts = await client.fetch(ALL_POSTS_QUERY);
 
@@ -83,6 +130,7 @@ export default async function HomePage() {
                 {item.name}
               </h3>
               <p className='mt-3 leading-relaxed text-muted'>{item.body}</p>
+              {item.step === '03' && <FanoutDiagram />}
             </li>
           ))}
         </ol>
