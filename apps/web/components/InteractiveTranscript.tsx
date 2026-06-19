@@ -12,17 +12,15 @@ type FlatWord = { start: number; pIndex: number; wIndex: number };
 
 export default function InteractiveTranscript({ paragraphs }: Props) {
   const playback = useAudioPlayback();
-  // Collapsed by default — the full text already lives in the article body
-  // below; this is an optional read-along.
+  // Collapsed by default — optional read-along over the article body.
   const [open, setOpen] = useState(false);
-  // `${p}:${w}` for the active word, `${p}` for paragraph-level fallback, or null.
+  // `${p}:${w}` for the active word, `${p}` for paragraph fallback, or null.
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const activeElRef = useRef<HTMLElement | null>(null);
-  // Auto-scroll "follow" mode: on while playing, off the moment the reader
-  // scrolls by hand so we never yank the page out from under them.
+  // Auto-scroll follow mode: on while playing, off on manual scroll.
   const followRef = useRef(true);
 
-  // Flattened, start-sorted word index for O(log n) active-word lookup.
+  // Flattened, start-sorted word index for O(log n) lookup.
   const flat = useMemo<FlatWord[]>(() => {
     const out: FlatWord[] = [];
     for (const p of paragraphs) {
@@ -32,9 +30,8 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
   }, [paragraphs]);
   const hasWords = flat.length > 0;
 
-  // Drive the active key off the shared <audio> element directly via rAF, so
-  // this component re-renders only when the active word actually changes — not
-  // on every animation frame.
+  // Drive the active key off the shared <audio> via rAF, re-rendering only
+  // when the active word changes — not every frame.
   useEffect(() => {
     if (!open) return;
     const audio = playback?.audioRef.current;
@@ -52,7 +49,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
     const compute = () => {
       const t = audio.currentTime;
       if (hasWords) {
-        // Rightmost word whose start <= t (stays on the last spoken word in gaps).
+        // Rightmost word with start <= t (holds last word during gaps).
         let lo = 0;
         let hi = flat.length - 1;
         let idx = -1;
@@ -103,7 +100,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
     };
   }, [open, playback, flat, hasWords, paragraphs]);
 
-  // Manual scroll disables follow; pressing play re-enables it (see onPlay).
+  // Manual scroll disables follow; play re-enables it (see onPlay).
   useEffect(() => {
     const disable = () => {
       followRef.current = false;
@@ -122,7 +119,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
     activeElRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [activeKey]);
 
-  // Parse the active key once per render for played/active styling.
+  // Parse the active key for played/active styling.
   let activeP = -1;
   let activeW = -1;
   if (activeKey) {
@@ -138,8 +135,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
       <button
         type='button'
         onClick={() => {
-          // When expanding, snap follow back on so it scrolls to the current
-          // position rather than wherever the reader last was.
+          // Re-engage follow on expand so it scrolls to the current word.
           if (!open) followRef.current = true;
           setOpen((v) => !v);
         }}
@@ -161,7 +157,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
           const paragraphActive = activeKey === `${p.index}`;
 
           if (p.words.length === 0) {
-            // Not yet word-aligned: the whole paragraph seeks to its start.
+            // Not word-aligned yet: seek to the paragraph start.
             return (
               <p key={p.index} className='mb-4 last:mb-0'>
                 <button

@@ -14,24 +14,23 @@ import {
   voiceoverPublicId,
 } from './voiceoverStore'
 
-// Shared generation loop. Used by both the CLI (apps/web/scripts/generate-voiceover.ts)
-// and the Studio-driven API route (apps/web/app/api/voiceover/generate/route.ts) so
-// they don't drift. Pure server-side; safe in any Node context.
+// Shared TTS generation loop used by both the CLI and the
+// /api/voiceover/generate route so they don't drift. Pure server-side.
 
 export type GenerateVoiceoverArgs = {
   postId: string
   voiceId: string
   modelId?: string
-  /** When true, skip ElevenLabs + Cloudinary uploads — only report what *would* happen. */
+  /** Skip ElevenLabs + Cloudinary; only report what *would* happen. */
   dryRun?: boolean
-  /** Optional per-chunk progress callback. Fires after each chunk resolves. */
+  /** Per-chunk progress callback, fired after each chunk resolves. */
   onProgress?: (event: {
     index: number
     total: number
     chunk: ResolvedChunk
     cached: boolean
   }) => void | Promise<void>
-  /** Inject a Sanity client (route handlers pass one configured for their env). */
+  /** Injectable Sanity client (routes pass one configured for their env). */
   sanityClient?: SanityClient
 }
 
@@ -39,7 +38,7 @@ export type GenerateVoiceoverResult = {
   chunkCount: number
   totalChars: number
   estimatedFreshCostUsd: number
-  /** When dryRun, this is what *would* have been written. Otherwise it's the patched value. */
+  /** On dryRun, what *would* have been written; otherwise the patched value. */
   chunks: ResolvedChunk[]
   cacheHits: number
   generated: number
@@ -93,17 +92,15 @@ export async function generateVoiceoverForPost(
   if (!post) throw new Error(`Post ${args.postId} not found (looked at ${draftId} and ${baseId})`)
   if (!post.body) throw new Error(`Post ${args.postId} has no body`)
 
-  // Reuse word alignments already stored for unchanged chunks (keyed by the
-  // deterministic chunk id) so re-runs don't re-call forced alignment. New or
-  // changed chunks get aligned once, below.
+  // Reuse word alignments stored for unchanged chunks (keyed by chunk id) so
+  // re-runs skip forced alignment; new/changed chunks get aligned below.
   const existingWordsById = new Map<string, WordTiming[]>()
   for (const c of post.voiceoverChunks ?? []) {
     if (c?.id && Array.isArray(c.words) && c.words.length > 0) existingWordsById.set(c.id, c.words)
   }
 
-  // Resolve word timings for a chunk: reuse if we already have them, otherwise
-  // run forced alignment. Alignment failure is non-fatal — captions fall back
-  // to paragraph-level cues, so a flaky alignment call never blocks a render.
+  // Resolve word timings: reuse if stored, else run forced alignment. Failure
+  // is non-fatal — captions fall back to paragraph-level cues.
   const resolveWords = async (
     id: string,
     text: string,
@@ -154,8 +151,8 @@ export async function generateVoiceoverForPost(
 
     const cached = await existingVoiceoverUrl(publicId)
     if (cached) {
-      // Cached audio: pull the MP3 back from Cloudinary only if we still need to
-      // align it (resolveWords short-circuits when words already exist).
+      // Cached audio: re-fetch the MP3 only if alignment is still needed
+      // (resolveWords short-circuits when words exist).
       const words = await resolveWords(id, chunk.text, async () =>
         Buffer.from(await (await fetch(cached.url)).arrayBuffer()),
       )
@@ -187,15 +184,13 @@ export async function generateVoiceoverForPost(
     await args.onProgress?.({index: i, total: chunks.length, chunk: entry, cached: false})
   }
 
-  // Each array-of-object member needs a unique, stable `_key` or Studio can't
-  // edit the list ("Missing keys"). The chunk `id` is a deterministic hash of
-  // (text, voiceId, modelId) — suffix the index so identical paragraphs (same
-  // id) still get distinct keys.
+  // Each array member needs a unique, stable `_key` or Studio errors ("Missing
+  // keys"). `id` is a hash of (text, voiceId, modelId) — suffix the index so
+  // identical paragraphs still get distinct keys.
   const voiceoverChunks = resolved.map((chunk, i) => ({
     _key: `${chunk.id}-${i}`,
     ...chunk,
-    // Array-of-object members need stable `_key`s too, or Studio flags the
-    // word list with "Missing keys". Index is stable per chunk.
+    // Word members need stable `_key`s too; index is stable per chunk.
     ...(chunk.words
       ? {words: chunk.words.map((w, wi) => ({_key: `w${wi}`, text: w.text, start: w.start, end: w.end}))}
       : {}),

@@ -10,13 +10,10 @@ import {
   type RefObject,
 } from 'react';
 
-// Shares ONE <audio> element between the audio-player UI and the interactive
-// transcript. The audio element (owned by ArticleAudioPlayer) is the single
-// source of truth; the transcript reads its `currentTime` directly via rAF and
-// drives it with `seek`. The context value is intentionally STABLE (the ref
-// object and the memoised `seek` never change identity), so consumers don't
-// re-render as playback time advances — only the components that read the
-// element's time inside their own loop do.
+// Shares ONE <audio> element (owned by ArticleAudioPlayer) between the player
+// UI and the transcript: the transcript reads `currentTime` via rAF and drives
+// it with `seek`. The context value is intentionally STABLE (ref + memoised
+// `seek` never change identity) so consumers don't re-render as time advances.
 
 type AudioPlaybackValue = {
   audioRef: RefObject<HTMLAudioElement | null>;

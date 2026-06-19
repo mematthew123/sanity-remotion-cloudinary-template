@@ -1,5 +1,4 @@
 import {
-  useClient,
   type DocumentActionComponent,
   type DocumentActionDescription,
   type DocumentActionProps,
@@ -7,6 +6,7 @@ import {
 // `useToast` is exported from @sanity/ui, not the `sanity` barrel.
 import {useToast} from '@sanity/ui'
 import type {ArticleVideoProps} from '@template/video-core/types'
+import {useStudioClient} from '../lib/useStudioClient'
 
 // The plain document snapshot carries the editable fields directly; only the
 // author name and main-image URL live behind a reference/asset and need a deref.
@@ -64,7 +64,7 @@ export function withAutoPromoOnPublish(
 ): DocumentActionComponent {
   function PublishWithAutoPromo(props: DocumentActionProps): DocumentActionDescription | null {
     const original = originalPublishAction(props)
-    const client = useClient({apiVersion: '2024-12-27'})
+    const client = useStudioClient()
     const toast = useToast()
 
     if (!original) return original

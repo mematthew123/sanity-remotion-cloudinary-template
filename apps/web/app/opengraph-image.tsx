@@ -8,9 +8,8 @@ import {
 import { SITE_URL } from '@/lib/siteUrl';
 
 /**
- * Site-wide default share card. Next applies this to every route that doesn't
- * export its own `opengraph-image`, so one branded 1200×630 card covers the
- * whole site (home, videos, playground, …). See lib/og.tsx for the card.
+ * Site-wide default share card — Next applies it to every route without its own
+ * `opengraph-image`. See lib/og.tsx for the card.
  */
 
 export const alt = 'Sanity + Remotion + Cloudinary Template';

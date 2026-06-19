@@ -8,24 +8,20 @@ import {
 import {del as deleteBlob} from '@vercel/blob'
 import {createClient} from '@sanity/client'
 import {v2 as cloudinary} from 'cloudinary'
-// Import from /registry, not the package barrel: the barrel re-exports Remotion
-// components, which evaluate hooks like `useCurrentFrame` at module load.
-// Pulling those into a server route breaks page-data collection ("Remotion
-// requires React.createContext") and causes Turbopack export-resolution
-// flakiness on Vercel. /registry is pure, React-free metadata.
+// Import from /registry, not the barrel: the barrel re-exports Remotion
+// components that evaluate hooks at module load, which breaks server routes
+// ("Remotion requires React.createContext"). /registry is React-free metadata.
 import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
 
 import {bundleRemotionProject} from './helpers'
 import {restoreSnapshot} from './restore-snapshot'
 
-export const maxDuration = 800 // Vercel Pro's function-execution ceiling. Article-narrated renders an 8-min reading in ~5-7 min; promo/teaser still finish well under 60s.
+export const maxDuration = 800 // Vercel Pro ceiling. Narrated renders take ~5-7 min; promo/teaser <60s.
 
-// Secrets come from the environment only — no hardcoded fallbacks.
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
 
-// Vercel Blob staging token. On Vercel deployments this is auto-injected when a
-// Blob store is connected to the project. Locally, run `vercel link` + `vercel
-// env pull apps/web/.env.local` to fetch it. See docs/vercel-sandbox.md.
+// Vercel Blob staging token — auto-injected when a Blob store is connected.
+// Locally: `vercel link` + `vercel env pull`. See docs/vercel-sandbox.md.
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN
 
 cloudinary.config({
@@ -58,15 +54,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Auth check
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${RENDER_SECRET}`) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401, headers: corsHeaders})
   }
 
-  // Lazy-init the Sanity client so a not-yet-configured dev server returns a
-  // clean error instead of crashing at module load (createClient throws when
-  // projectId is undefined).
+  // Lazy-init the Sanity client so an unconfigured dev server returns a clean
+  // error instead of crashing at module load.
   const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
   const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
   const token = process.env.SANITY_API_WRITE_TOKEN
@@ -88,7 +82,7 @@ export async function POST(req: NextRequest) {
   })
 
   let sanityDocId: string | null = null
-  // Vercel Sandbox / Blob handles for cleanup on success and error paths.
+  // Sandbox / Blob handles, tracked for cleanup on success and error paths.
   let sandbox: Awaited<ReturnType<typeof createSandbox>> | null = null
   let blobUrl: string | null = null
 
@@ -120,8 +114,8 @@ export async function POST(req: NextRequest) {
     }
     const validatedProps = propsResult.data as {title: string}
 
-    // Idempotency: skip if a video already exists for this post + template
-    // and is ready or in flight, so we don't double-render.
+    // Idempotency: short-circuit if a ready/in-flight video already exists for
+    // this post + template.
     if (postId) {
       const existing = await sanityClient.fetch<{_id: string; status: string} | null>(
         `*[_type == "video" && post._ref == $postId && template == $template && status in ["ready", "rendering", "uploading"]][0]{ _id, status }`,
@@ -136,9 +130,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create the Sanity video document with status: 'rendering'. The video
-    // back-references its source post; we never write a videos[] array onto
-    // the post.
+    // Create the video doc (status: 'rendering'). It back-references its post;
+    // we never write a videos[] array onto the post.
     const sanityDoc = await sanityClient.create({
       _type: 'video',
       title: `${validatedProps.title} — ${meta.label}`,
@@ -159,15 +152,10 @@ export async function POST(req: NextRequest) {
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
 
-    // Spin up a Vercel Sandbox. On Vercel we resume from a snapshot baked at
-    // build time (scripts/create-snapshot.ts) — fast and includes the Remotion
-    // bundle. Locally we create a fresh sandbox and add the bundle per
-    // request (slower; matches the reference template's dev fallback).
-    //
-    // Narrated renders are CPU-bound (default sandbox observed at ~0.7
-    // frames/sec on a 1920x1080 composition — a 3-min video then needs >2
-    // hours to finish, well past `maxDuration`). Allocate 8 vCPU so multiple
-    // frames render in parallel; promo/teaser stay on the default.
+    // Spin up a Vercel Sandbox. On Vercel resume from the build-time snapshot
+    // (fast, includes the bundle); locally create a fresh one and add the
+    // bundle per request. Narrated renders are CPU-bound, so give them 8 vCPU
+    // to render frames in parallel; promo/teaser stay on the default.
     const isLongForm = compositionId === 'article-narrated'
     const sandboxVcpus = isLongForm ? 8 : undefined
 
@@ -175,11 +163,8 @@ export async function POST(req: NextRequest) {
       ? await restoreSnapshot({vcpus: sandboxVcpus})
       : await createSandbox()
 
-    // The sandbox is created with a 5-minute timeout by default
-    // (@remotion/vercel's createSandbox + our restore-snapshot.ts constant).
-    // Long-form narrated renders take 5–7 minutes of actual render work, so
-    // extend the budget for the article-narrated composition. The render
-    // route's outer maxDuration (800s on Pro) is the upper bound.
+    // Default sandbox timeout is 5 min; narrated renders take 5–7 min of work,
+    // so extend it (bounded by the route's maxDuration).
     if (isLongForm) {
       await sandbox.extendTimeout(25 * 60 * 1000)
     }
@@ -189,11 +174,10 @@ export async function POST(req: NextRequest) {
       await addBundleToSandbox({sandbox, bundleDir: '.remotion-bundle'})
     }
 
-    // Render inside the sandbox. Output is written to a path inside the VM.
-    // The render is wrapped in a soft timeout that fires ~80s before the outer
-    // `maxDuration` so the catch block has room to mark the doc `failed` and
-    // clean up Blob staging. Without this the platform hard-kills the function
-    // mid-render and the doc stays stuck in `rendering` forever.
+    // Render inside the sandbox (output written to a path in the VM). Wrapped
+    // in a soft timeout firing ~80s before `maxDuration` so the catch block can
+    // mark the doc `failed` and clean up before the platform hard-kills us —
+    // otherwise the doc stays stuck in `rendering` forever.
     const RENDER_SOFT_TIMEOUT_MS = (maxDuration - 80) * 1000
     let lastStage = 'starting'
     let lastRenderedFrames = 0
@@ -204,9 +188,8 @@ export async function POST(req: NextRequest) {
       compositionId,
       inputProps: validatedProps,
       codec: 'h264',
-      // Match concurrency to the sandbox vCPU count so each core is busy.
-      // Default (auto-detect) often resolves to 1 inside the sandbox, which
-      // serializes frame rendering and starves the larger box.
+      // Match concurrency to vCPU count; the default auto-detect often
+      // resolves to 1 in the sandbox and serializes frames.
       ...(sandboxVcpus ? {concurrency: sandboxVcpus} : {}),
       onProgress: (progress) => {
         lastStage = progress.stage
@@ -231,9 +214,8 @@ export async function POST(req: NextRequest) {
 
     const {sandboxFilePath, contentType} = await Promise.race([renderPromise, timeoutPromise])
 
-    // Stage the rendered MP4 in Vercel Blob with a public URL so Cloudinary can
-    // fetch it directly — same shape as the old Lambda→S3 handoff, just with
-    // Blob in place of S3.
+    // Stage the MP4 on Vercel Blob with a public URL so Cloudinary can fetch
+    // it directly.
     const {url: stagedBlobUrl} = await uploadToVercelBlob({
       sandbox,
       sandboxFilePath,
@@ -249,14 +231,9 @@ export async function POST(req: NextRequest) {
     // Upload to Cloudinary directly from the Blob URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
-    // Long-form renders ask Cloudinary to transcode the full video (e.g.
-    // youtube-1080p-mp4) and extract the full podcast-mp3. With sync eagers
-    // that blocks the render function for multiple minutes on top of the
-    // already-long render — enough to blow past `maxDuration` and leave the
-    // doc stuck in `rendering` because the platform hard-kills the process
-    // before the catch block can mark it `failed`. Async eagers let
-    // Cloudinary queue the derivations and return immediately; the variant
-    // URLs are deterministic and resolve lazily on first request.
+    // Long-form eagers (youtube-1080p-mp4, podcast-mp3) take minutes; running
+    // them sync would blow past `maxDuration`. Async eagers return immediately
+    // and the deterministic variant URLs resolve lazily on first request.
     const uploadResult = (await cloudinary.uploader.upload(stagedBlobUrl, {
       resource_type: 'video',
       folder: 'template/videos',
@@ -266,8 +243,8 @@ export async function POST(req: NextRequest) {
       eager_async: isLongForm,
     })) as {public_id: string; secure_url: string}
 
-    // The canonical MP4 now lives in Cloudinary, so drop the Blob staging
-    // copy. Best-effort: a failure here doesn't affect the rendered result.
+    // Canonical MP4 is in Cloudinary now; drop the Blob staging copy
+    // (best-effort).
     try {
       await deleteBlob(stagedBlobUrl, {token: BLOB_TOKEN})
       blobUrl = null
@@ -275,15 +252,14 @@ export async function POST(req: NextRequest) {
       console.warn('Failed to delete Vercel Blob staging file:', cleanupError)
     }
 
-    // Snapshot every variant URL for this composition onto the doc. cloudName
-    // comes from the env only; it's required for the upload above, so it should
-    // be present here — but guard anyway and skip variants gracefully if not.
+    // Snapshot every variant URL onto the doc. cloudName is required for the
+    // upload above, but guard anyway and skip variants if absent.
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
     const variants = cloudName
       ? snapshotVariants(cloudName, uploadResult.public_id, meta.variantIds)
       : undefined
 
-    // Cloudinary videos are immediately available — no webhook needed.
+    // Cloudinary videos are immediately available — no webhook.
     await sanityClient
       .patch(sanityDocId)
       .set({
@@ -313,7 +289,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Render error:', error)
 
-    // If we already created a Sanity doc, mark it as failed.
+    // Mark the doc failed if it was created.
     if (sanityDocId) {
       try {
         await sanityClient
@@ -324,12 +300,11 @@ export async function POST(req: NextRequest) {
           })
           .commit()
       } catch {
-        // Ignore patch errors during error handling
+        // ignore patch errors during error handling
       }
     }
 
-    // Best-effort cleanup of an orphaned Blob staging file when the render
-    // succeeded but a later step (Cloudinary, Sanity patch) threw.
+    // Clean up an orphaned Blob staging file if a step after upload threw.
     if (blobUrl) {
       try {
         await deleteBlob(blobUrl, {token: BLOB_TOKEN})
@@ -343,8 +318,7 @@ export async function POST(req: NextRequest) {
       {status: 500, headers: corsHeaders},
     )
   } finally {
-    // The sandbox is ephemeral but stopping it explicitly releases the slot
-    // immediately rather than waiting for the 5-minute idle timeout.
+    // Stop explicitly to release the slot now rather than at the idle timeout.
     if (sandbox) {
       await sandbox.stop().catch(() => undefined)
     }
