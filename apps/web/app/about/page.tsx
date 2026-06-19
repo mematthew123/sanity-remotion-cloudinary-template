@@ -58,10 +58,11 @@ export default function AboutPage() {
           <div className='mt-8 max-w-prose space-y-5 leading-relaxed text-muted'>
             <p>
               I&apos;m <strong className='text-foreground'>Matthew Rhoads</strong>,
-              a Sanity specialist and the developer behind RenderOnce. I build
-              tools that turn content into video, audio, and email —
-              automatically, straight from the CMS. Everything you see here is
-              production code you can read, fork, and ship.
+              a Sanity specialist and the developer behind RenderOnce. I help
+              teams turn what they publish into video, audio, and email —
+              automatically, no manual busywork. RenderOnce is one of those
+              systems, built in the open: production code you can read, fork, and
+              ship.
             </p>
             <p>
               RenderOnce is open-source, released in partnership with{' '}
