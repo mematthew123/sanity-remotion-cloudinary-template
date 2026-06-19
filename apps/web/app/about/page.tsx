@@ -59,9 +59,9 @@ export default function AboutPage() {
             <p>
               I&apos;m <strong className='text-foreground'>Matthew Rhoads</strong>,
               a Sanity specialist and the developer behind RenderOnce. I build
-              content-automation tooling and integrations across Sanity, Remotion,
-              and Cloudinary — everything you see here is production code you can
-              read, fork, and ship.
+              tools that turn content into video, audio, and email —
+              automatically, straight from the CMS. Everything you see here is
+              production code you can read, fork, and ship.
             </p>
             <p>
               RenderOnce is open-source, released in partnership with{' '}
