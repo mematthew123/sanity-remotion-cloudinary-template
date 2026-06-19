@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { GITHUB_REPO_URL } from '@/lib/links';
 import { client, urlFor } from '@/lib/sanity.client';
 import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 import VideoHoverPreview from '@/components/VideoHoverPreview';
@@ -89,15 +90,26 @@ export default async function HomePage() {
           Sanity content becomes Remotion video, delivered through Cloudinary and
           published here — all from a single click in the Studio.
         </p>
-        <Link
-          href='/videos'
-          className='group mt-9 inline-flex items-center gap-2 text-sm font-medium text-foreground'
-        >
-          <span className='border-b border-foreground/30 pb-0.5 transition-colors group-hover:border-foreground'>
-            Browse all videos
-          </span>
-          <span className='transition-transform group-hover:translate-x-1'>→</span>
-        </Link>
+        <div className='mt-9 flex flex-wrap items-center gap-6'>
+          <a
+            href={GITHUB_REPO_URL}
+            target='_blank'
+            rel='noreferrer'
+            className='group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90'
+          >
+            <span>View the source on GitHub</span>
+            <span className='transition-transform group-hover:translate-x-1'>→</span>
+          </a>
+          <Link
+            href='/videos'
+            className='group inline-flex items-center gap-2 text-sm font-medium text-foreground'
+          >
+            <span className='border-b border-foreground/30 pb-0.5 transition-colors group-hover:border-foreground'>
+              Browse all videos
+            </span>
+            <span className='transition-transform group-hover:translate-x-1'>→</span>
+          </Link>
+        </div>
       </section>
 
       <section className='mb-20 border-b border-foreground/10 pb-16'>

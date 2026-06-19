@@ -1,36 +1,38 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import {
+  GITHUB_REPO_URL,
+  FORTIVEX_URL,
+  FORTIVEX_INTAKE_URL,
+  SANITY_MIGRATIONS_URL,
+  ZEPHYR_PIXELS_URL,
+} from '@/lib/links';
 
-// ─── Edit me ─────────────────────────────────────────────────────────────────
-// Personal copy lives here so the layout below stays untouched. Swap these for
-// your own details, then drop your headshot at apps/web/public/me.jpg (or change
-// PHOTO_SRC below).
-const NAME = 'Your Name';
-const ROLE = 'Designer & developer';
+// Headshot: drop the file at apps/web/public/me.jpg (or change PHOTO_SRC).
 const PHOTO_SRC = '/me.jpg';
-const PHOTO_ALT = 'Portrait of Your Name';
-
-// The "Work with me" CTA points at the agency (Fortivex). Set the address you
-// want enquiries to land in.
-const WORK_EMAIL = 'hello@fortivex.com'; // TODO: real Fortivex inbox
-const WORK_SUBJECT = 'Project enquiry via renderonce.dev';
-
-// Each string is its own paragraph.
-const BIO: string[] = [
-  'I build content-to-video pipelines — the kind of system that turns a piece of writing into a finished, distributable video without anyone touching a timeline.',
-  'This template is one of those systems, made in partnership with Sanity and Cloudinary: author in the Studio, render once with Remotion, and let Cloudinary fan that single asset out to every surface.',
-  'I work through Fortivex, where I take on a small number of build engagements at a time — from one-off pipelines like this to full production systems.',
-];
-// ─────────────────────────────────────────────────────────────────────────────
+const PHOTO_ALT = 'Matthew Rhoads';
 
 export const metadata: Metadata = {
   title: 'About',
-  description: `Built by ${NAME} — ${ROLE}.`,
+  description:
+    'RenderOnce is built by Matthew Rhoads, a Sanity specialist, in partnership with Fortivex.',
 };
 
-export default function AboutPage() {
-  const mailto = `mailto:${WORK_EMAIL}?subject=${encodeURIComponent(WORK_SUBJECT)}`;
+// Inline link styled to match the site's understated underline treatment.
+function A({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target='_blank'
+      rel='noreferrer'
+      className='border-b border-foreground/30 pb-0.5 text-foreground transition-colors hover:border-foreground'
+    >
+      {children}
+    </a>
+  );
+}
 
+export default function AboutPage() {
   return (
     <div className='mx-auto max-w-5xl px-6 py-20'>
       <section className='grid grid-cols-1 gap-12 sm:grid-cols-[280px_1fr] sm:items-start'>
@@ -47,26 +49,56 @@ export default function AboutPage() {
 
         <div>
           <span className='font-mono text-[0.7rem] tracking-[0.25em] text-accent uppercase'>
-            Built by
+            About
           </span>
           <h1 className='mt-4 font-serif text-5xl leading-[1.05] tracking-tight'>
-            {NAME}
+            Built by Matthew Rhoads
           </h1>
-          <p className='mt-3 font-serif text-xl text-muted italic'>{ROLE}</p>
 
           <div className='mt-8 max-w-prose space-y-5 leading-relaxed text-muted'>
-            {BIO.map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
-            ))}
+            <p>
+              I&apos;m <strong className='text-foreground'>Matthew Rhoads</strong>,
+              a Sanity specialist and the developer behind RenderOnce. I build
+              content-automation tooling and integrations across Sanity, Remotion,
+              and Cloudinary — everything you see here is production code you can
+              read, fork, and ship.
+            </p>
+            <p>
+              RenderOnce is open-source, released in partnership with{' '}
+              <A href={FORTIVEX_URL}>Fortivex</A>.
+            </p>
+            <p>
+              When I&apos;m not building open tooling like this, I run{' '}
+              <A href={SANITY_MIGRATIONS_URL}>Sanity Migrations</A> — specialist
+              consulting for content, schema, and platform migrations — under my
+              studio, <A href={ZEPHYR_PIXELS_URL}>Zephyr Pixels</A>.
+            </p>
           </div>
 
-          <a
-            href={mailto}
-            className='group mt-10 inline-flex items-center gap-2 rounded-full border border-foreground/30 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background'
-          >
-            <span>Work with me</span>
-            <span className='transition-transform group-hover:translate-x-1'>→</span>
-          </a>
+          <div className='mt-10 flex flex-wrap items-center gap-4'>
+            <a
+              href={GITHUB_REPO_URL}
+              target='_blank'
+              rel='noreferrer'
+              className='group inline-flex items-center gap-2 rounded-full border border-foreground/30 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground'
+            >
+              <span>View the source on GitHub</span>
+              <span className='transition-transform group-hover:translate-x-1'>
+                →
+              </span>
+            </a>
+            <a
+              href={FORTIVEX_INTAKE_URL}
+              target='_blank'
+              rel='noreferrer'
+              className='group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90'
+            >
+              <span>Work with me</span>
+              <span className='transition-transform group-hover:translate-x-1'>
+                →
+              </span>
+            </a>
+          </div>
         </div>
       </section>
     </div>
