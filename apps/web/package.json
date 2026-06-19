@@ -9,6 +9,7 @@
     "vercel-build": "next build && tsx scripts/create-snapshot.mts",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "dev:remotion": "remotion studio remotion/index.ts",
     "bundle:remotion": "remotion bundle remotion/index.ts --out-dir .remotion-bundle",
     "create-snapshot": "tsx scripts/create-snapshot.mts",
@@ -46,6 +47,7 @@
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.19.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }
