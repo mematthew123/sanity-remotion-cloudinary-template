@@ -53,6 +53,41 @@ export default async function HomePage() {
         </Link>
       </section>
 
+      <section className='mb-20 border-b border-foreground/10 pb-16'>
+        <h2 className='mb-10 font-mono text-xs tracking-[0.2em] text-muted uppercase'>
+          How it works
+        </h2>
+        <ol className='grid grid-cols-1 gap-10 sm:grid-cols-3'>
+          {[
+            {
+              step: '01',
+              name: 'Sanity authors',
+              body: 'Write the post and trigger a render with one click in the Studio. Content is the only source of truth.',
+            },
+            {
+              step: '02',
+              name: 'Remotion renders',
+              body: 'A sandboxed render turns that content into one canonical MP4 — the single expensive step, run exactly once.',
+            },
+            {
+              step: '03',
+              name: 'Cloudinary delivers',
+              body: 'That one render fans out into every surface — site player, email GIF, YouTube, podcast — as cheap derivations.',
+            },
+          ].map((item) => (
+            <li key={item.step}>
+              <div className='font-mono text-xs tracking-[0.2em] text-accent'>
+                {item.step}
+              </div>
+              <h3 className='mt-3 font-serif text-2xl/tight tracking-tight'>
+                {item.name}
+              </h3>
+              <p className='mt-3 leading-relaxed text-muted'>{item.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <h2 className='mb-10 font-mono text-xs tracking-[0.2em] text-muted uppercase'>
         Latest writing
       </h2>
