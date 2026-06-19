@@ -1,5 +1,11 @@
 # Code Sample Submission
 
+> **INTERNAL — do not submit or reference this file.** It's a working notes sheet
+> for choosing which source files to upload and for copying their per-file
+> explanations into the application form. The reviewer should only ever see the
+> source files themselves (and the explanations pasted into the form). This branch
+> is throwaway and gets deleted after submission.
+
 A curated set of code samples from this repository, mapped to the categories the
 reviewer asked for. The repository is a TypeScript monorepo (pnpm workspaces) for
 a content-to-video pipeline: a **Next.js** site + API, a **Sanity Studio**, and a
@@ -336,8 +342,8 @@ share, so I've deliberately kept it out and submitted only work I personally own
 >   reuse, non-fatal alignment failure, and the error guards. Run with
 >   `pnpm --filter @template/web test`.
 >
-> Each file stands on its own; I've attached them individually along with a short
-> guide (`docs/job-application-code-samples.md`) explaining what to look for in each.
+> Each file stands on its own; I've attached them individually and included a
+> short explanation of each — what it is, what it does, and what to look for.
 >
 > One note on scope: my day-job work is my employer's IP and would need legal
 > sign-off to share, so I've intentionally submitted only code I personally own.
