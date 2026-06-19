@@ -3,8 +3,9 @@ import {
   chunkPortableTextForNarration,
   type Chunk,
   type ResolvedChunk,
+  type WordTiming,
 } from '@template/video-core/registry'
-import {generateSpeechMp3, estimateSpeechCostUsd} from './elevenlabs'
+import {generateSpeechMp3, estimateSpeechCostUsd, forceAlignWords} from './elevenlabs'
 import {
   computeChunkId,
   configureCloudinaryFromEnv,
@@ -78,12 +79,49 @@ export async function generateVoiceoverForPost(
   const baseId = args.postId.replace(/^drafts\./, '')
   const draftId = `drafts.${baseId}`
 
-  const post = await sanity.fetch<{_id: string; _rev: string; body: unknown[] | null} | null>(
-    `*[_type == "post" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{_id, _rev, body}`,
+  const post = await sanity.fetch<{
+    _id: string
+    _rev: string
+    body: unknown[] | null
+    voiceoverChunks?: Array<{id?: string; words?: WordTiming[]}> | null
+  } | null>(
+    `*[_type == "post" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{
+      _id, _rev, body, "voiceoverChunks": voiceoverChunks[]{id, words}
+    }`,
     {draftId, baseId},
   )
   if (!post) throw new Error(`Post ${args.postId} not found (looked at ${draftId} and ${baseId})`)
   if (!post.body) throw new Error(`Post ${args.postId} has no body`)
+
+  // Reuse word alignments already stored for unchanged chunks (keyed by the
+  // deterministic chunk id) so re-runs don't re-call forced alignment. New or
+  // changed chunks get aligned once, below.
+  const existingWordsById = new Map<string, WordTiming[]>()
+  for (const c of post.voiceoverChunks ?? []) {
+    if (c?.id && Array.isArray(c.words) && c.words.length > 0) existingWordsById.set(c.id, c.words)
+  }
+
+  // Resolve word timings for a chunk: reuse if we already have them, otherwise
+  // run forced alignment. Alignment failure is non-fatal — captions fall back
+  // to paragraph-level cues, so a flaky alignment call never blocks a render.
+  const resolveWords = async (
+    id: string,
+    text: string,
+    getAudio: () => Promise<Buffer>,
+  ): Promise<WordTiming[] | undefined> => {
+    const existing = existingWordsById.get(id)
+    if (existing) return existing
+    try {
+      const words = await forceAlignWords(await getAudio(), text)
+      return words.length > 0 ? words : undefined
+    } catch (err) {
+      console.warn(
+        `[voiceover] forced alignment failed for chunk ${id}:`,
+        err instanceof Error ? err.message : err,
+      )
+      return undefined
+    }
+  }
 
   const chunks: Chunk[] = chunkPortableTextForNarration(post.body)
   if (chunks.length === 0) {
@@ -116,11 +154,17 @@ export async function generateVoiceoverForPost(
 
     const cached = await existingVoiceoverUrl(publicId)
     if (cached) {
+      // Cached audio: pull the MP3 back from Cloudinary only if we still need to
+      // align it (resolveWords short-circuits when words already exist).
+      const words = await resolveWords(id, chunk.text, async () =>
+        Buffer.from(await (await fetch(cached.url)).arrayBuffer()),
+      )
       const entry: ResolvedChunk = {
         id,
         text: chunk.text,
         audioUrl: cached.url,
         durationSeconds: cached.durationSeconds,
+        ...(words ? {words} : {}),
       }
       resolved.push(entry)
       cacheHits += 1
@@ -130,11 +174,13 @@ export async function generateVoiceoverForPost(
 
     const mp3 = await generateSpeechMp3({text: chunk.text, voiceId: args.voiceId, modelId})
     const uploaded = await uploadVoiceoverMp3(publicId, mp3)
+    const words = await resolveWords(id, chunk.text, async () => mp3)
     const entry: ResolvedChunk = {
       id,
       text: chunk.text,
       audioUrl: uploaded.url,
       durationSeconds: uploaded.durationSeconds,
+      ...(words ? {words} : {}),
     }
     resolved.push(entry)
     generated += 1
@@ -148,6 +194,11 @@ export async function generateVoiceoverForPost(
   const voiceoverChunks = resolved.map((chunk, i) => ({
     _key: `${chunk.id}-${i}`,
     ...chunk,
+    // Array-of-object members need stable `_key`s too, or Studio flags the
+    // word list with "Missing keys". Index is stable per chunk.
+    ...(chunk.words
+      ? {words: chunk.words.map((w, wi) => ({_key: `w${wi}`, text: w.text, start: w.start, end: w.end}))}
+      : {}),
   }))
 
   await sanity.patch(post._id).set({voiceoverChunks}).commit()

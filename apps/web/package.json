@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "dev:remotion": "remotion studio remotion/index.ts",
     "bundle:remotion": "remotion bundle remotion/index.ts --out-dir .remotion-bundle",
     "create-snapshot": "tsx scripts/create-snapshot.mts",
     "generate-voiceover": "tsx scripts/generate-voiceover.ts"

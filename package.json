@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @template/web dev",
     "dev:web": "pnpm --filter @template/web dev",
     "dev:studio": "pnpm --filter @template/studio dev",
+    "dev:remotion": "pnpm --filter @template/web dev:remotion",
     "build": "pnpm --filter @template/web build",
     "build:web": "pnpm --filter @template/web build",
     "build:studio": "pnpm --filter @template/studio build",

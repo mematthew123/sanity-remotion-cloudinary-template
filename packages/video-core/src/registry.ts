@@ -208,12 +208,56 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
       title: articleDefaultProps.title,
       authorName: articleDefaultProps.authorName,
       publishedAt: articleDefaultProps.publishedAt,
+      brandName: 'The Template',
+      kicker: 'Narrated Reading',
+      // A stock hero + two b-roll images so the Studio preview shows the
+      // documentary cross-dissolve and chapter cards without a real post.
+      mainImageUrl:
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1280&q=80&auto=format&fit=crop',
+      chapters: [
+        {title: 'How it works', chunkIndex: 1},
+        {title: 'Why it matters', chunkIndex: 3},
+      ],
+      images: [
+        {
+          url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&q=80&auto=format&fit=crop',
+          afterChunkIndex: 1,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1280&q=80&auto=format&fit=crop',
+          afterChunkIndex: 3,
+        },
+      ],
       chunks: [
         {
           id: 'demo-1',
-          text: 'A narrated reading of the article would play here.',
+          text: 'A narrated reading of the article plays here — captions live in a real closed-caption track, so the frame stays cinematic.',
           audioUrl: '',
-          durationSeconds: 5,
+          durationSeconds: 6,
+        },
+        {
+          id: 'demo-2',
+          text: 'How it works',
+          audioUrl: '',
+          durationSeconds: 4,
+        },
+        {
+          id: 'demo-3',
+          text: 'Body images cross-dissolve as b-roll while the progress bar and brand lockup stay continuous across the whole reading.',
+          audioUrl: '',
+          durationSeconds: 7,
+        },
+        {
+          id: 'demo-4',
+          text: 'Why it matters',
+          audioUrl: '',
+          durationSeconds: 4,
+        },
+        {
+          id: 'demo-5',
+          text: 'An intro title card opens the video and an outro call-to-action closes it.',
+          audioUrl: '',
+          durationSeconds: 6,
         },
       ],
     } satisfies ArticleNarratedProps,
@@ -339,5 +383,6 @@ export function snapshotVariants(
 // into their bundles. The chunker is pure; the hashing/upload logic lives in
 // the CLI itself (in apps/web) to keep video-core free of Node-only deps.
 
-export {chunkPortableTextForNarration} from './voiceover/chunk'
-export type {Chunk, ResolvedChunk} from './voiceover/types'
+export {chunkPortableTextForNarration, extractNarrationScenes} from './voiceover/chunk'
+export type {NarrationChapter, NarrationImage, NarrationScenes} from './voiceover/chunk'
+export type {Chunk, ResolvedChunk, WordTiming} from './voiceover/types'

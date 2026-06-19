@@ -146,11 +146,11 @@ export const SITEMAP_QUERY = defineQuery(/* groq */ `
 export type SitemapEntry = SITEMAP_QUERY_RESULT[number];
 
 // ── Captions ────────────────────────────────────────────────────────────────
-// Narration chunks for one post — text + per-chunk duration reconstruct the
-// WebVTT cue timings served at /posts/<slug>/captions.vtt.
+// Narration chunks for one post — text + per-chunk duration + (when aligned)
+// per-word timings reconstruct the WebVTT cues served at /posts/<slug>/captions.vtt.
 export const POST_CAPTIONS_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && slug.current == $slug][0]{
-    "chunks": voiceoverChunks[]{text, durationSeconds}
+    "chunks": voiceoverChunks[]{text, durationSeconds, words[]{text, start, end}}
   }
 `);
 

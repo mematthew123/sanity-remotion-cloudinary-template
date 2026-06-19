@@ -52,6 +52,7 @@ The render route (`apps/web/app/api/video/render/route.ts`) is the largest serve
 
 - `apps/web/app/api/newsletter/send/route.ts` writes only to the `newsletter` doc (`status`, `sentAt`, `recipientCount`, `resendBroadcastId`) — never touches video docs. Its sibling `newsletter/preview/route.tsx` is read-only (GET, secret as query param so the Studio iframe can load it).
 - `apps/web/app/api/voiceover/generate/route.ts` writes only `post.voiceoverChunks` — the TTS pre-step for narrated renders (see below).
+- `apps/web/app/api/newsletter/subscribe/route.tsx` + `…/confirm/route.tsx` are the **public** signup pair — they write only to the **Resend audience** (never Sanity) and read the `welcomeEmail` singleton token-free. See "Public newsletter signup" below.
 
 Each mutator owns a non-overlapping slice of the data model, so `SANITY_API_WRITE_TOKEN` still stays out of every client bundle. Studio and the site only trigger these routes or read what they produced.
 
@@ -95,6 +96,19 @@ Inside Studio, the `video` document has two custom view tabs (registered in `app
 ### Adding a newsletter
 
 The `newsletter` doc (`apps/studio/src/schemaTypes/newsletter.ts`) is a Studio surface for sending a Resend email built around one rendered video. Editors pick a `video` (filtered to ready + variants-defined) and optionally a `post` for the CTA link. The schema's `recipientSelection` switches between `test` (typed-in addresses, looped via `resend.emails.send`) and `audience` (one `resend.broadcasts.create` + `send` against `RESEND_AUDIENCE_ID`). The send route guards against double-sends with `ifRevisionID` on the `draft → sending` patch — concurrent clicks 409 instead of double-billing Resend. Studio's send/preview document actions live in `apps/studio/src/plugins/newsletter/`; preview embeds `GET /api/newsletter/preview` (the rendered `@react-email` template) in an iframe.
+
+The three email templates (`apps/web/components/emails/`) stay DRY via `emails/shared.tsx` — one `emailStyles` object, one inline Portable-Text walker (`renderIntro`), one GIF-`Hero` block — reused by `NewsletterTemplate`, `WelcomeEmailTemplate`, and `ConfirmEmailTemplate`. The GIF/poster hero URL resolution likewise lives once in `EMAIL_HERO_VIDEO_PROJECTION` (`sanity.queries.ts`), shared by the newsletter and welcome-email queries.
+
+### Public newsletter signup (double opt-in)
+
+A visitor-facing signup closes the email fan-out loop: site → subscribe → GIF welcome email. The welcome content is **content-modeled** as the `welcomeEmail` **singleton** (`apps/studio/src/schemaTypes/welcomeEmail.ts`, fixed document id `welcomeEmail`) — it carries both the confirmation email (subject/body) and the GIF-hero welcome email (subject/preview/intro/`video`/`post`), plus an `enabled` master switch. It's registered as a singleton in `structure/index.ts`, hidden from the global create menu via `document.newDocumentOptions` in `sanity.config.ts`, and gets a **Preview welcome email** action (no Send — editors just Publish it). Create + publish it once in Studio before the form does anything.
+
+The flow is **double opt-in** and writes nothing to Sanity:
+
+1. `<NewsletterSignup>` (global footer in `layout.tsx`) POSTs to **`/api/newsletter/subscribe`** — public, no secret. It honeypots (`company` field), validates + throttles (`lib/signupThrottle.ts`, best-effort in-memory), and emails a confirm link. **No Resend contact is created yet.**
+2. The link carries an HMAC-signed `{email, exp}` token (`lib/subscribeToken.ts`, signed with `NEWSLETTER_SEND_SECRET` — no new env). **`/api/newsletter/confirm`** verifies it, `resend.contacts.create`s into `RESEND_AUDIENCE_ID` (an existing contact → treated as "already", skips re-send and dedupes link re-clicks), sends the GIF welcome, and redirects to `/newsletter/confirmed?status=…`.
+
+So an unconfirmed or forged address never enters the audience. All graceful: a missing/disabled singleton or unready hero video accepts the signup and skips sending rather than erroring.
 
 ### Auto-generate promo on publish
 

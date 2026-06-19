@@ -1,8 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-
-
+import { useAudioPlayback } from './AudioPlayback';
 
 interface Props {
   /** The `podcast-mp3` variant URL from the narrated render. */
@@ -28,7 +27,11 @@ function formatListenLabel(seconds: number): string {
 const SEEK_STEP_SECONDS = 5;
 
 export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // When wrapped in <AudioPlaybackProvider> (narrated posts with a transcript),
+  // share that single <audio> element so the transcript and this UI stay in
+  // sync. Standalone, fall back to a local ref.
+  const localRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useAudioPlayback()?.audioRef ?? localRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(

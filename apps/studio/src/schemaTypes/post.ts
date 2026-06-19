@@ -124,6 +124,23 @@ export const postType = defineType({
               description:
                 'Captured from Cloudinary at upload. Drives the ArticleNarrated composition\'s calculateMetadata so total length is known synchronously.',
             }),
+            defineField({
+              name: 'words',
+              title: 'Word timings',
+              type: 'array',
+              description:
+                'Per-word start/end (seconds, relative to this chunk) from ElevenLabs forced alignment. Powers word-level closed captions at /posts/<slug>/captions.vtt. Absent until voiceover is (re)generated.',
+              of: [
+                defineArrayMember({
+                  type: 'object',
+                  fields: [
+                    defineField({name: 'text', title: 'Word', type: 'string'}),
+                    defineField({name: 'start', title: 'Start (s)', type: 'number'}),
+                    defineField({name: 'end', title: 'End (s)', type: 'number'}),
+                  ],
+                }),
+              ],
+            }),
           ],
           preview: {
             select: {title: 'text', subtitle: 'id', duration: 'durationSeconds'},

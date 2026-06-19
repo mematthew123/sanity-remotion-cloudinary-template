@@ -7,10 +7,13 @@ import {
   type PortableTextComponents,
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
-import { ALL_POSTS_QUERY, SINGLE_POST_QUERY } from '@/lib/sanity.queries';
+import { ALL_POSTS_QUERY, SINGLE_POST_QUERY, POST_CAPTIONS_QUERY } from '@/lib/sanity.queries';
 import { absoluteUrl } from '@/lib/siteUrl';
+import { buildTranscript } from '@/lib/transcript';
 import NarratedReadingHero from '@/components/NarratedReadingHero';
 import ArticleAudioPlayer from '@/components/ArticleAudioPlayer';
+import { AudioPlaybackProvider } from '@/components/AudioPlayback';
+import InteractiveTranscript from '@/components/InteractiveTranscript';
 import VideoPlayer from '@/components/VideoPlayer';
 import FanoutPanel from '@/components/FanoutPanel';
 import ProvenancePanel from '@/components/ProvenancePanel';
@@ -178,6 +181,13 @@ export default async function PostPage({
   // narration chunks (served by the sibling captions.vtt route).
   const captionsUrl = narratedReading ? `/posts/${slug}/captions.vtt` : null;
 
+  // Interactive read-along transcript: word-timed when alignment has run,
+  // paragraph-level otherwise. Only fetched for narrated posts.
+  const captions = narratedReading
+    ? await client.fetch(POST_CAPTIONS_QUERY, { slug })
+    : null;
+  const transcript = captions ? buildTranscript(captions.chunks ?? []) : [];
+
   return (
     <article className='mx-auto max-w-3xl px-6 py-16'>
       <VideoJsonLd
@@ -220,10 +230,13 @@ export default async function PostPage({
           byline so readers can start listening before scrolling. Decoupled from
           the narrated-video hero below — listen here, watch there. */}
       {narratedReading?.podcastUrl && (
-        <ArticleAudioPlayer
-          src={narratedReading.podcastUrl}
-          durationSeconds={narratedReading.duration}
-        />
+        <AudioPlaybackProvider>
+          <ArticleAudioPlayer
+            src={narratedReading.podcastUrl}
+            durationSeconds={narratedReading.duration}
+          />
+          {transcript.length > 0 && <InteractiveTranscript paragraphs={transcript} />}
+        </AudioPlaybackProvider>
       )}
 
       {/* When a narrated reading exists, surface it instead of (and where) the
