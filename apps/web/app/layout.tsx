@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JetBrains_Mono, Instrument_Serif, Inter } from 'next/font/google';
 import { SITE_URL } from '@/lib/siteUrl';
+import { GITHUB_REPO_URL, FORTIVEX_URL, FORTIVEX_INTAKE_URL } from '@/lib/links';
 import NewsletterSignup from '@/components/NewsletterSignup';
 import './globals.css';
 
@@ -91,6 +92,39 @@ export default function RootLayout({
                             GIF-hero email this template produces, start to finish.
                         </p>
                         <NewsletterSignup />
+                    </div>
+                    <div className='mx-auto mt-14 max-w-2xl border-t border-foreground/10 pt-8 text-center font-mono text-[0.7rem] tracking-[0.15em] text-muted uppercase'>
+                        <Link href='/about' className='transition-colors hover:text-foreground'>
+                            Built by Matthew Rhoads
+                        </Link>
+                        <span className='mx-2 text-foreground/20'>·</span>
+                        in partnership with{' '}
+                        <a
+                            href={FORTIVEX_URL}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='transition-colors hover:text-foreground'
+                        >
+                            Fortivex
+                        </a>
+                        <span className='mx-2 text-foreground/20'>·</span>
+                        <a
+                            href={GITHUB_REPO_URL}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='transition-colors hover:text-foreground'
+                        >
+                            GitHub
+                        </a>
+                        <span className='mx-2 text-foreground/20'>·</span>
+                        <a
+                            href={FORTIVEX_INTAKE_URL}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='transition-colors hover:text-foreground'
+                        >
+                            Contact
+                        </a>
                     </div>
                 </footer>
             </body>

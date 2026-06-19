@@ -1,9 +1,57 @@
 import Link from 'next/link';
+import { GITHUB_REPO_URL } from '@/lib/links';
 import { client, urlFor } from '@/lib/sanity.client';
 import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 import VideoHoverPreview from '@/components/VideoHoverPreview';
 
 export const revalidate = 60;
+
+// One canonical render branching into the four delivery surfaces — the visual
+// shorthand for "render once, derive infinitely". Pure SVG, no deps.
+function FanoutDiagram() {
+  const targets = ['Site', 'Email', 'YouTube', 'Podcast'];
+  const ys = [22, 54, 86, 118];
+  return (
+    <svg
+      viewBox='0 0 220 140'
+      className='mt-6 w-full max-w-[240px] text-accent'
+      role='img'
+      aria-label='One render fans out to the site, email, YouTube, and podcast'
+    >
+      {ys.map((y) => (
+        <path
+          key={y}
+          d={`M40 70 C 90 70, 90 ${y}, 128 ${y}`}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          opacity='0.5'
+        />
+      ))}
+      <circle cx='34' cy='70' r='8' fill='currentColor' />
+      <text
+        x='34'
+        y='94'
+        textAnchor='middle'
+        className='fill-muted font-mono text-[8px] tracking-wide uppercase'
+      >
+        1 render
+      </text>
+      {ys.map((y, i) => (
+        <g key={targets[i]}>
+          <circle cx='132' cy={y} r='4' fill='currentColor' />
+          <text
+            x='144'
+            y={y + 3}
+            className='fill-foreground font-mono text-[9px] tracking-wide'
+          >
+            {targets[i]}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export default async function HomePage() {
   const posts = await client.fetch(ALL_POSTS_QUERY);
@@ -42,15 +90,62 @@ export default async function HomePage() {
           Sanity content becomes Remotion video, delivered through Cloudinary and
           published here — all from a single click in the Studio.
         </p>
-        <Link
-          href='/videos'
-          className='group mt-9 inline-flex items-center gap-2 text-sm font-medium text-foreground'
-        >
-          <span className='border-b border-foreground/30 pb-0.5 transition-colors group-hover:border-foreground'>
-            Browse all videos
-          </span>
-          <span className='transition-transform group-hover:translate-x-1'>→</span>
-        </Link>
+        <div className='mt-9 flex flex-wrap items-center gap-6'>
+          <a
+            href={GITHUB_REPO_URL}
+            target='_blank'
+            rel='noreferrer'
+            className='group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90'
+          >
+            <span>View the source on GitHub</span>
+            <span className='transition-transform group-hover:translate-x-1'>→</span>
+          </a>
+          <Link
+            href='/videos'
+            className='group inline-flex items-center gap-2 text-sm font-medium text-foreground'
+          >
+            <span className='border-b border-foreground/30 pb-0.5 transition-colors group-hover:border-foreground'>
+              Browse all videos
+            </span>
+            <span className='transition-transform group-hover:translate-x-1'>→</span>
+          </Link>
+        </div>
+      </section>
+
+      <section className='mb-20 border-b border-foreground/10 pb-16'>
+        <h2 className='mb-10 font-mono text-xs tracking-[0.2em] text-muted uppercase'>
+          How it works
+        </h2>
+        <ol className='grid grid-cols-1 gap-10 sm:grid-cols-3'>
+          {[
+            {
+              step: '01',
+              name: 'Sanity authors',
+              body: 'Write the post and trigger a render with one click in the Studio. Content is the only source of truth.',
+            },
+            {
+              step: '02',
+              name: 'Remotion renders',
+              body: 'A sandboxed render turns that content into one canonical MP4 — the single expensive step, run exactly once.',
+            },
+            {
+              step: '03',
+              name: 'Cloudinary delivers',
+              body: 'That one render fans out into every surface — site player, email GIF, YouTube, podcast — as cheap derivations.',
+            },
+          ].map((item) => (
+            <li key={item.step}>
+              <div className='font-mono text-xs tracking-[0.2em] text-accent'>
+                {item.step}
+              </div>
+              <h3 className='mt-3 font-serif text-2xl/tight tracking-tight'>
+                {item.name}
+              </h3>
+              <p className='mt-3 leading-relaxed text-muted'>{item.body}</p>
+              {item.step === '03' && <FanoutDiagram />}
+            </li>
+          ))}
+        </ol>
       </section>
 
       <h2 className='mb-10 font-mono text-xs tracking-[0.2em] text-muted uppercase'>
