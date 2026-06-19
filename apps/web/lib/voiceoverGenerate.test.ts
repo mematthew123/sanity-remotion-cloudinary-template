@@ -9,14 +9,17 @@ import {generateVoiceoverForPost} from './voiceoverGenerate'
 // `generateVoiceoverForPost` is the shared TTS generation loop used by both the
 // CLI and the /api/voiceover/generate route. It has real branching worth
 // pinning down: a side-effect-free `dryRun` path, a per-chunk Cloudinary cache
-// that must skip ElevenLabs on a hit, stable `_key`s for identical paragraphs,
-// and several guard clauses that should fail loud.
+// that must skip ElevenLabs on a hit, forced word-alignment (reused when
+// already stored, re-run only for new/changed chunks, non-fatal on failure),
+// stable `_key`s for identical paragraphs, and several guard clauses that
+// should fail loud.
 //
 // The function is written to be testable: external effects (ElevenLabs,
-// Cloudinary) live behind the `./elevenlabs` and `./voiceoverStore` modules
-// (mocked here), and the Sanity client is dependency-injected (faked here). The
-// real Portable Text chunker from `@template/video-core/registry` is left
-// unmocked so the tests exercise the actual paragraph-splitting logic.
+// Cloudinary, the MP3 re-fetch) live behind the `./elevenlabs` / `./voiceoverStore`
+// modules and the global `fetch` (all mocked here), and the Sanity client is
+// dependency-injected (faked here). The real Portable Text chunker from
+// `@template/video-core/registry` is left unmocked so the tests exercise the
+// actual paragraph-splitting logic.
 // ---------------------------------------------------------------------------
 
 // Mock the two effectful modules. Factories must be self-contained — vi.mock is
@@ -25,6 +28,8 @@ vi.mock('./elevenlabs', () => ({
   generateSpeechMp3: vi.fn(async () => Buffer.from('fake-mp3-bytes')),
   // Deterministic stand-in for the real pricing helper ($0.30 / 1000 chars).
   estimateSpeechCostUsd: vi.fn((chars: number) => (chars / 1000) * 0.3),
+  // Forced alignment — returns per-word timings for an MP3 + its text.
+  forceAlignWords: vi.fn(),
 }))
 
 vi.mock('./voiceoverStore', () => ({
@@ -37,19 +42,28 @@ vi.mock('./voiceoverStore', () => ({
   uploadVoiceoverMp3: vi.fn(),
 }))
 
-import {generateSpeechMp3} from './elevenlabs'
-import {existingVoiceoverUrl, uploadVoiceoverMp3} from './voiceoverStore'
+import {generateSpeechMp3, forceAlignWords} from './elevenlabs'
+import {computeChunkId, existingVoiceoverUrl, uploadVoiceoverMp3} from './voiceoverStore'
 
 // Typed handles to the mocks for assertions.
 const mockGenerateSpeech = vi.mocked(generateSpeechMp3)
+const mockForceAlign = vi.mocked(forceAlignWords)
 const mockExisting = vi.mocked(existingVoiceoverUrl)
 const mockUpload = vi.mocked(uploadVoiceoverMp3)
+// Re-exposed so tests can build a `voiceoverChunks` id that matches what the
+// function will compute internally (same mocked impl).
+const mockComputeChunkId = vi.mocked(computeChunkId)
+
+// Global fetch stub — the cache-hit path re-downloads the MP3 to align it.
+const mockFetch = vi.fn(async () => ({arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer}))
 
 // --- Portable Text helpers --------------------------------------------------
 
 function block(text: string) {
   return {_type: 'block', style: 'normal', children: [{_type: 'span', text}]}
 }
+
+const WORDS = [{text: 'hello', start: 0, end: 0.5}]
 
 // --- Fake Sanity client -----------------------------------------------------
 //
@@ -73,10 +87,14 @@ beforeEach(() => {
   // Default: nothing cached, every upload returns a 12s clip.
   mockExisting.mockResolvedValue(null)
   mockUpload.mockResolvedValue({url: 'https://cdn.test/clip.mp3', durationSeconds: 12})
+  // Default: alignment succeeds with one word.
+  mockForceAlign.mockResolvedValue(WORDS)
+  vi.stubGlobal('fetch', mockFetch)
 })
 
 afterEach(() => {
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('generateVoiceoverForPost', () => {
@@ -104,6 +122,7 @@ describe('generateVoiceoverForPost', () => {
     // Dry run must be side-effect free.
     expect(mockGenerateSpeech).not.toHaveBeenCalled()
     expect(mockUpload).not.toHaveBeenCalled()
+    expect(mockForceAlign).not.toHaveBeenCalled()
     expect(sanity.patch).not.toHaveBeenCalled()
   })
 
@@ -142,9 +161,14 @@ describe('generateVoiceoverForPost', () => {
       durationSeconds: 12,
     })
     expect(written[0]).toHaveProperty('_key')
+
+    // Each fresh chunk is word-aligned, and the stored words carry their own
+    // stable `_key`s (Studio array requirement).
+    expect(mockForceAlign).toHaveBeenCalledTimes(3)
+    expect(written[0].words).toEqual([{_key: 'w0', text: 'hello', start: 0, end: 0.5}])
   })
 
-  it('skips ElevenLabs when a chunk is already cached in Cloudinary', async () => {
+  it('skips ElevenLabs but still aligns a Cloudinary-cached chunk (re-fetching its MP3)', async () => {
     mockExisting.mockResolvedValue({url: 'https://cdn.test/cached.mp3', durationSeconds: 8})
     const sanity = makeFakeSanity({
       _id: POST_ID,
@@ -163,8 +187,61 @@ describe('generateVoiceoverForPost', () => {
     expect(result.totalSeconds).toBe(8)
     expect(mockGenerateSpeech).not.toHaveBeenCalled()
     expect(mockUpload).not.toHaveBeenCalled()
+    // No new TTS, but the MP3 is pulled back from Cloudinary and aligned.
+    expect(mockFetch).toHaveBeenCalledWith('https://cdn.test/cached.mp3')
+    expect(mockForceAlign).toHaveBeenCalledOnce()
     const written = sanity.set.mock.calls[0][0].voiceoverChunks
     expect(written[0].audioUrl).toBe('https://cdn.test/cached.mp3')
+    expect(written[0].words).toHaveLength(1)
+  })
+
+  it('reuses stored word alignments and never re-aligns or re-fetches', async () => {
+    mockExisting.mockResolvedValue({url: 'https://cdn.test/cached.mp3', durationSeconds: 8})
+    const text = 'Only paragraph.'
+    // The stored chunk id must match what the (mocked) computeChunkId produces.
+    const storedId = mockComputeChunkId(text, 'voice-a', 'eleven_multilingual_v2')
+    const sanity = makeFakeSanity({
+      _id: POST_ID,
+      _rev: 'rev1',
+      body: [block(text)],
+      voiceoverChunks: [{id: storedId, words: [{text: 'stored', start: 1, end: 2}]}],
+    })
+
+    const result = await generateVoiceoverForPost({
+      postId: POST_ID,
+      voiceId: 'voice-a',
+      sanityClient: sanity.client,
+    })
+
+    expect(result.cacheHits).toBe(1)
+    expect(mockForceAlign).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+    const written = sanity.set.mock.calls[0][0].voiceoverChunks
+    expect(written[0].words).toEqual([{_key: 'w0', text: 'stored', start: 1, end: 2}])
+  })
+
+  it('stores no words and stays non-fatal when forced alignment fails', async () => {
+    mockForceAlign.mockRejectedValue(new Error('alignment 500'))
+    // The function logs a warning on alignment failure by design; keep it out of
+    // the test output.
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const sanity = makeFakeSanity({
+      _id: POST_ID,
+      _rev: 'rev1',
+      body: [block('A paragraph.')],
+    })
+
+    const result = await generateVoiceoverForPost({
+      postId: POST_ID,
+      voiceId: 'voice-a',
+      sanityClient: sanity.client,
+    })
+
+    // Generation still succeeds; the chunk just has no word timings.
+    expect(result.generated).toBe(1)
+    const written = sanity.set.mock.calls[0][0].voiceoverChunks
+    expect(written[0].audioUrl).toBe('https://cdn.test/clip.mp3')
+    expect(written[0].words).toBeUndefined()
   })
 
   it('mixes cache hits and fresh generation in one run', async () => {
