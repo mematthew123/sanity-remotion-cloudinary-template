@@ -1,17 +1,15 @@
 import { SITE_URL } from '@/lib/siteUrl';
 
 /**
- * Shared building blocks for on-brand share images rendered with `next/og`
- * (Satori). Centralized here so every `opengraph-image` / `twitter-image`
- * route renders the same 1200×630 card and the palette stays in sync with
- * globals.css / COLORS in @template/video-core.
+ * Shared building blocks for on-brand share images (`next/og` / Satori), so
+ * every `opengraph-image` / `twitter-image` route renders the same 1200×630
+ * card with a palette in sync with globals.css / COLORS in @template/video-core.
  */
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
 export const OG_CONTENT_TYPE = 'image/png';
 
-// Mirrors globals.css + COLORS. Swap these five to rebrand the card with the
-// rest of the template.
+// Mirrors globals.css + COLORS — swap these five to rebrand the card.
 const BRAND = {
   background: '#F5F4F0',
   foreground: '#141414',
@@ -21,10 +19,9 @@ const BRAND = {
 } as const;
 
 /**
- * Fetch the brand fonts as TTF buffers for Satori. Google's css2 endpoint
- * returns a single truetype `src` when a `text` subset is supplied (and no
- * woff2-capable User-Agent is sent), which is exactly the format ImageResponse
- * needs. Subsetting to the glyphs actually used keeps the payload tiny.
+ * Fetch a brand font as a TTF buffer for Satori. Google's css2 endpoint returns
+ * a truetype `src` when a `text` subset is supplied (and no woff2 User-Agent),
+ * exactly what ImageResponse needs — and subsetting keeps the payload tiny.
  */
 async function loadGoogleFont(family: string, text: string, italic = false) {
   const axis = italic ? ':ital@1' : '';
@@ -49,10 +46,7 @@ export type ShareFont = {
   weight?: 400 | 500 | 600 | 700 | 800;
 };
 
-/**
- * Load the two typefaces the card uses, subset to `text`. Returns the array
- * `ImageResponse` expects under its `fonts` option.
- */
+/** Load the card's two typefaces, subset to `text`, for ImageResponse `fonts`. */
 export async function loadBrandFonts(text: string): Promise<ShareFont[]> {
   const [serif, mono] = await Promise.all([
     loadGoogleFont('Instrument Serif', text, true),
@@ -65,9 +59,8 @@ export async function loadBrandFonts(text: string): Promise<ShareFont[]> {
 }
 
 /**
- * The on-brand share card. `kicker` is the small mono eyebrow, `title` the
- * large serif headline. Used by the site-wide default OG image and reusable
- * for per-page cards (posts, etc.).
+ * The on-brand share card: `kicker` is the mono eyebrow, `title` the serif
+ * headline. Used by the default OG image and reusable for per-page cards.
  */
 export function ShareCard({
   kicker,
@@ -94,7 +87,7 @@ export function ShareCard({
         fontFamily: 'JetBrains Mono',
       }}
     >
-      {/* Soft highlight bloom in the top-right for brand texture. */}
+      {/* Top-right highlight bloom. */}
       <div
         style={{
           position: 'absolute',
@@ -108,7 +101,7 @@ export function ShareCard({
         }}
       />
 
-      {/* Brand lockup — accent dot + name, mirrors the video BrandLockup. */}
+      {/* Brand lockup — accent dot + name. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <div
           style={{
@@ -184,7 +177,7 @@ export function ShareCard({
         </div>
       </div>
 
-      {/* Full-bleed accent bar pinned to the very bottom edge. */}
+      {/* Full-bleed accent bar at the bottom edge. */}
       <div
         style={{
           position: 'absolute',

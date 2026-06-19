@@ -1,19 +1,18 @@
 import {useState} from 'react'
 import {
-  useClient,
   type DocumentActionComponent,
   type DocumentActionDescription,
   type DocumentActionProps,
 } from 'sanity'
-// `useToast` lives in @sanity/ui (it is NOT re-exported from the `sanity`
-// barrel in v5), so import it from there directly.
+// `useToast` is in @sanity/ui — not re-exported from the `sanity` barrel in v5.
 import {useToast} from '@sanity/ui'
 import {PlayIcon, SparklesIcon} from '@sanity/icons'
 import {extractNarrationScenes, type CompositionId} from '@template/video-core/registry'
 import type {ArticleVideoProps} from '@template/video-core/types'
+import {useStudioClient} from '../lib/useStudioClient'
 
-// Fields the render route needs that may not be on the draft/published snapshot
-// (the author name and image URL live behind references/assets).
+// Fields the render route needs that the snapshot lacks (author name and image
+// URL live behind references/assets).
 type ResolvedPostFields = {
   title?: string
   excerpt?: string
@@ -31,9 +30,8 @@ const POST_FIELDS_QUERY = `*[_id == $id][0]{
 }`
 
 /**
- * Builds a "Render" document action for a single Remotion composition. The
- * action snapshots the current post, assembles `ArticleVideoProps`, and POSTs
- * to the web app's render route — the one-click showcase of the template.
+ * Builds a "Render" document action for one Remotion composition: snapshots the
+ * post, assembles `ArticleVideoProps`, and POSTs to the render route.
  */
 function makeRenderAction(
   compositionId: CompositionId,
@@ -41,25 +39,23 @@ function makeRenderAction(
 ): DocumentActionComponent {
   function RenderAction(props: DocumentActionProps): DocumentActionDescription {
     const [isRendering, setIsRendering] = useState(false)
-    const client = useClient({apiVersion: '2024-12-27'})
+    const client = useStudioClient()
     const toast = useToast()
 
     const onHandle = async () => {
       const publishedId = (props.id || '').replace(/^drafts\./, '')
-      // We only need to know a snapshot EXISTS (i.e. the post has been saved);
-      // every field used below is re-fetched via GROQ, so an untyped record is
-      // enough here.
+      // Only need to confirm a snapshot exists (post is saved); all fields are
+      // re-fetched via GROQ below.
       const snapshot = props.draft ?? props.published
 
       if (!snapshot) {
         toast.push({status: 'warning', title: 'Save the post first'})
-        props.onComplete()
         return
       }
 
       try {
-        // Resolve the reference/asset-derived fields the snapshot lacks. Try the
-        // published id first, then fall back to the draft.
+        // Resolve reference/asset fields the snapshot lacks; published id first,
+        // then draft.
         let resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {
           id: publishedId,
         })
@@ -83,7 +79,6 @@ function makeRenderAction(
 
         if (!secret) {
           toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
-          props.onComplete()
           return
         }
 
@@ -128,7 +123,6 @@ function makeRenderAction(
         })
       } finally {
         setIsRendering(false)
-        props.onComplete()
       }
     }
 
@@ -140,7 +134,6 @@ function makeRenderAction(
     }
   }
 
-  // Helps Studio dev-tooling / React devtools identify the action.
   RenderAction.displayName = `Render_${compositionId}`
 
   return RenderAction
@@ -150,10 +143,9 @@ export const RenderArticlePromo = makeRenderAction('article-promo', 'Promo (1:1)
 export const RenderArticleTeaser = makeRenderAction('article-teaser', 'Teaser (9:16)')
 
 // =============================================================================
-// Narrated reading — a separate render action because the props shape diverges
-// from ArticleVideoProps. It reads `post.voiceoverChunks` (populated by the
-// generate-voiceover CLI) instead of `post.videoCopy`, and passes the chunks
-// straight through to the composition.
+// Narrated reading — separate action: props diverge from ArticleVideoProps. It
+// reads `post.voiceoverChunks` (from the generate-voiceover step) instead of
+// `post.videoCopy` and passes the chunks straight to the composition.
 // =============================================================================
 
 const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
@@ -163,9 +155,8 @@ const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
   "mainImageUrl": mainImage.asset->url,
   "kicker": videoCopy.kicker,
   voiceoverChunks,
-  // Project the body in order, resolving image asset URLs inline so
-  // extractNarrationScenes() can pull chapters (H2/H3) + b-roll images without
-  // a second deref. Non-image blocks keep their children/style for chunking.
+  // Body in order with image URLs inlined so extractNarrationScenes() can pull
+  // chapters (H2/H3) + b-roll without a second deref.
   "body": body[]{
     ...,
     "imageUrl": asset->url
@@ -184,7 +175,7 @@ type NarratedFields = {
 
 function RenderArticleNarratedAction(props: DocumentActionProps): DocumentActionDescription {
   const [isRendering, setIsRendering] = useState(false)
-  const client = useClient({apiVersion: '2024-12-27'})
+  const client = useStudioClient()
   const toast = useToast()
 
   const onHandle = async () => {
@@ -192,7 +183,6 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
     const snapshot = props.draft ?? props.published
     if (!snapshot) {
       toast.push({status: 'warning', title: 'Save the post first'})
-      props.onComplete()
       return
     }
 
@@ -214,12 +204,11 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
           description:
             'Run: pnpm --filter @template/web generate-voiceover -- --post-id=' + publishedId,
         })
-        props.onComplete()
         return
       }
 
-      // Defensive: every chunk must have a non-zero duration so calculateMetadata
-      // sums to a useful total. Bail loud rather than render an empty video.
+      // Every chunk needs a non-zero duration so calculateMetadata sums right;
+      // bail loud rather than render an empty video.
       const totalSeconds = chunks.reduce((sum, c) => sum + (c.durationSeconds ?? 0), 0)
       if (totalSeconds <= 0) {
         toast.push({
@@ -227,12 +216,11 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
           title: 'Voiceover chunks have no duration',
           description: 'Re-run generate-voiceover — Cloudinary may not have reported durations.',
         })
-        props.onComplete()
         return
       }
 
-      // Chapter cards (H2/H3) + b-roll images, indexed in lockstep with the
-      // voiceover chunks (both derive from the same body block order).
+      // Chapter cards (H2/H3) + b-roll, in lockstep with the chunks (same body
+      // order).
       const {chapters, images} = extractNarrationScenes(resolved?.body)
 
       const inputProps = {
@@ -252,7 +240,6 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
 
       if (!secret) {
         toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
-        props.onComplete()
         return
       }
 
@@ -304,7 +291,6 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
       })
     } finally {
       setIsRendering(false)
-      props.onComplete()
     }
   }
 
@@ -321,10 +307,9 @@ RenderArticleNarratedAction.displayName = 'Render_article_narrated'
 export const RenderArticleNarrated: DocumentActionComponent = RenderArticleNarratedAction
 
 // =============================================================================
-// Generate voiceover — Studio-side trigger for the same TTS pipeline the CLI
-// runs. Editor-friendly path so non-developers can refresh narration after
-// editing the post body. Cheap re-runs hit the Cloudinary cache; only changed
-// paragraphs re-bill ElevenLabs.
+// Generate voiceover — Studio trigger for the same TTS pipeline the CLI runs,
+// so editors can refresh narration. Re-runs hit the Cloudinary cache; only
+// changed paragraphs re-bill ElevenLabs.
 // =============================================================================
 
 function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDescription {
@@ -346,7 +331,6 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
   const fetchPreview = async (): Promise<void> => {
     if (!secret) {
       toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
-      props.onComplete()
       return
     }
     setBusy(true)
@@ -367,7 +351,6 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
       }
       if (!res.ok) {
         toast.push({status: 'error', title: 'Dry-run failed', description: data.error ?? res.statusText})
-        props.onComplete()
         return
       }
       setDryRunInfo({
@@ -382,7 +365,6 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
         title: 'Could not preview',
         description: err instanceof Error ? err.message : 'Network error',
       })
-      props.onComplete()
     } finally {
       setBusy(false)
     }
@@ -435,7 +417,6 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
       })
     } finally {
       setBusy(false)
-      props.onComplete()
     }
   }
 
@@ -451,10 +432,7 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
             tone: dryRunInfo.estCostUsd > 5 ? 'caution' : 'default',
             message: `${dryRunInfo.chunks} chunks · ${dryRunInfo.chars} chars · est. cost up to $${dryRunInfo.estCostUsd.toFixed(2)} (cached chunks are free). Continue?`,
             onConfirm,
-            onCancel: () => {
-              setConfirmOpen(false)
-              props.onComplete()
-            },
+            onCancel: () => setConfirmOpen(false),
           }
         : false,
   }
