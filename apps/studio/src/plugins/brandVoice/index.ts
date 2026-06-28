@@ -1,8 +1,41 @@
 import {definePlugin, useClient, pathToString} from 'sanity'
+import {useToast} from '@sanity/ui'
 import {useMemo} from 'react'
 import {agentContextPlugin} from '@sanity/agent-context/studio'
 import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {preferredVoiceId, sortVoices, useVoices, type VoiceDoc} from './voices'
+
+// Agent Actions (Transform/Generate) are a paid Sanity feature — available on
+// the Growth plan and up. On Free, the calls below 402/403. The plugin stays
+// loaded so the partner feature is always on display; this turns that
+// plan-gated failure into an explained toast instead of a raw API error.
+// Non-plan errors (schema not deployed, network) rethrow so they stay visible.
+function isPlanGatedError(err: unknown): boolean {
+  const status =
+    (err as {statusCode?: number})?.statusCode ??
+    (err as {response?: {statusCode?: number}})?.response?.statusCode
+  return status === 402 || status === 403
+}
+
+async function runAssistAction(
+  toast: ReturnType<typeof useToast>,
+  action: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await action()
+  } catch (err) {
+    if (isPlanGatedError(err)) {
+      toast.push({
+        status: 'warning',
+        title: 'Brand AI needs a Sanity Growth plan',
+        description:
+          'Sanity Assist (Agent Actions) is a paid feature on the Growth plan and up. See docs/assist.md.',
+      })
+      return
+    }
+    throw err
+  }
+}
 
 // Brand-voice AI feature, bundled as one plugin so the root sanity.config.ts
 // stays focused on the video-render wiring. Composes two upstream plugins:
@@ -37,6 +70,7 @@ export const brandVoicePlugin = definePlugin({
           const client = useClient({apiVersion: 'vX'})
           // Read-only client for listing voices (no special API version needed).
           const voices = useVoices(useClient({apiVersion: '2024-01-01'}))
+          const toast = useToast()
 
           return useMemo(() => {
             if (actionType !== 'field') return []
@@ -58,20 +92,21 @@ export const brandVoicePlugin = definePlugin({
                 actions.push(
                   defineAssistFieldAction({
                     title: `Rewrite as ${voiceLabel(v)}`,
-                    onAction: async () => {
-                      await client.agent.action.transform({
-                        schemaId,
-                        documentId: documentIdForAction,
-                        instruction:
-                          'Rewrite $field to follow the brand voice and tone rules in $voice. Preserve meaning; change tone only. Do not add or remove facts.',
-                        instructionParams: {
-                          field: {type: 'field', path},
-                          voice: {type: 'document', documentId: v._id},
-                        },
-                        target: path.length ? {path} : undefined,
-                        conditionalPaths: {paths: getConditionalPaths()},
-                      })
-                    },
+                    onAction: () =>
+                      runAssistAction(toast, () =>
+                        client.agent.action.transform({
+                          schemaId,
+                          documentId: documentIdForAction,
+                          instruction:
+                            'Rewrite $field to follow the brand voice and tone rules in $voice. Preserve meaning; change tone only. Do not add or remove facts.',
+                          instructionParams: {
+                            field: {type: 'field', path},
+                            voice: {type: 'document', documentId: v._id},
+                          },
+                          target: path.length ? {path} : undefined,
+                          conditionalPaths: {paths: getConditionalPaths()},
+                        }),
+                      ),
                   }),
                 )
               }
@@ -83,44 +118,45 @@ export const brandVoicePlugin = definePlugin({
                 actions.push(
                   defineAssistFieldAction({
                     title: `Generate video copy as ${voiceLabel(v)}`,
-                    onAction: async () => {
-                      await client.agent.action.generate({
-                        schemaId,
-                        // createIfNotExists so this also works on a brand-new,
-                        // unsaved post: it drafts the doc with the current form
-                        // values first, which feed the $title/$excerpt/$body params.
-                        targetDocument: {
-                          operation: 'createIfNotExists',
-                          _id: documentIdForAction,
-                          _type: documentSchemaType.name,
-                          initialValues: getDocumentValue(),
-                        },
-                        instruction: [
-                          'Fill every slot of $field with short copy for a promo video about this article.',
-                          'Follow the brand voice and tone rules in $voice EXACTLY.',
-                          "Base the copy on the article's $title, $excerpt, and $body.",
-                          '',
-                          'Per-slot guidance:',
-                          '- kicker: a short label, max 3 words.',
-                          '- headline: punchy, max 8 words. It may differ from the article title.',
-                          '- subhead: one supporting line, max 12 words.',
-                          '- pullQuote: a short standout line drawn from the article, max 16 words.',
-                          '- ctaPrimary: max 4 words (e.g. "Read more").',
-                          '- ctaSecondary: optional, max 6 words.',
-                          '',
-                          'Output only the structured object — no commentary.',
-                        ].join('\n'),
-                        instructionParams: {
-                          field: {type: 'field', path},
-                          voice: {type: 'document', documentId: v._id},
-                          title: {type: 'field', path: ['title']},
-                          excerpt: {type: 'field', path: ['excerpt']},
-                          body: {type: 'field', path: ['body']},
-                        },
-                        target: path.length ? {path} : undefined,
-                        conditionalPaths: {paths: getConditionalPaths()},
-                      })
-                    },
+                    onAction: () =>
+                      runAssistAction(toast, () =>
+                        client.agent.action.generate({
+                          schemaId,
+                          // createIfNotExists so this also works on a brand-new,
+                          // unsaved post: it drafts the doc with the current form
+                          // values first, which feed the $title/$excerpt/$body params.
+                          targetDocument: {
+                            operation: 'createIfNotExists',
+                            _id: documentIdForAction,
+                            _type: documentSchemaType.name,
+                            initialValues: getDocumentValue(),
+                          },
+                          instruction: [
+                            'Fill every slot of $field with short copy for a promo video about this article.',
+                            'Follow the brand voice and tone rules in $voice EXACTLY.',
+                            "Base the copy on the article's $title, $excerpt, and $body.",
+                            '',
+                            'Per-slot guidance:',
+                            '- kicker: a short label, max 3 words.',
+                            '- headline: punchy, max 8 words. It may differ from the article title.',
+                            '- subhead: one supporting line, max 12 words.',
+                            '- pullQuote: a short standout line drawn from the article, max 16 words.',
+                            '- ctaPrimary: max 4 words (e.g. "Read more").',
+                            '- ctaSecondary: optional, max 6 words.',
+                            '',
+                            'Output only the structured object — no commentary.',
+                          ].join('\n'),
+                          instructionParams: {
+                            field: {type: 'field', path},
+                            voice: {type: 'document', documentId: v._id},
+                            title: {type: 'field', path: ['title']},
+                            excerpt: {type: 'field', path: ['excerpt']},
+                            body: {type: 'field', path: ['body']},
+                          },
+                          target: path.length ? {path} : undefined,
+                          conditionalPaths: {paths: getConditionalPaths()},
+                        }),
+                      ),
                   }),
                 )
               }
@@ -138,6 +174,7 @@ export const brandVoicePlugin = definePlugin({
             getDocumentValue,
             client,
             voices,
+            toast,
           ])
         },
       },

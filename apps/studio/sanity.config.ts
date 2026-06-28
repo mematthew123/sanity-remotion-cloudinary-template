@@ -13,6 +13,12 @@ import {withAutoPromoOnPublish} from './src/actions/autoPromoOnPublish'
 import {newsletterPlugin} from './src/plugins/newsletter'
 import {brandVoicePlugin} from './src/plugins/brandVoice'
 
+// The `article-narrated` composition needs ElevenLabs (a paid third party) set
+// up on the web app before it can render. It's off by default so a first-run
+// Studio never surfaces a voiceover/narrated action that would fail — flip
+// SANITY_STUDIO_ENABLE_NARRATED=true once ElevenLabs env is configured.
+const narratedEnabled = import.meta.env.SANITY_STUDIO_ENABLE_NARRATED === 'true'
+
 export default defineConfig({
   name: 'default',
   title: 'Video Template Studio',
@@ -44,10 +50,12 @@ export default defineConfig({
             ...prev.map((action) =>
               action.action === 'publish' ? withAutoPromoOnPublish(action) : action,
             ),
-            GenerateVoiceover,
+            // GenerateVoiceover + RenderArticleNarrated depend on ElevenLabs;
+            // only surface them when the narrated feature is enabled.
+            ...(narratedEnabled ? [GenerateVoiceover] : []),
             RenderArticlePromo,
             RenderArticleTeaser,
-            RenderArticleNarrated,
+            ...(narratedEnabled ? [RenderArticleNarrated] : []),
           ]
         : prev,
     // welcomeEmail is a singleton — reachable only via its fixed structure item,
