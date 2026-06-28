@@ -13,7 +13,9 @@ import {v2 as cloudinary} from 'cloudinary'
 // ("Remotion requires React.createContext"). /registry is React-free metadata.
 import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
 
-import {bundleRemotionProject} from './helpers'
+import {unlink} from 'node:fs/promises'
+
+import {bundleRemotionProject, renderLocally} from './helpers'
 import {restoreSnapshot} from './restore-snapshot'
 
 export const maxDuration = 800 // Vercel Pro ceiling. Narrated renders take ~5-7 min; promo/teaser <60s.
@@ -44,11 +46,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (!BLOB_TOKEN) {
+  // Local render fallback: when not deployed on Vercel and either LOCAL_RENDER
+  // is set or there's no Blob token, render with headless Chromium on this
+  // machine and upload straight to Cloudinary — no Vercel Sandbox / Blob store
+  // needed. This is what lets the template run with only Sanity + Cloudinary
+  // configured. The hosted/sandbox path still requires BLOB_READ_WRITE_TOKEN.
+  const useLocalRender =
+    !process.env.VERCEL && (process.env.LOCAL_RENDER === 'true' || !BLOB_TOKEN)
+
+  if (!useLocalRender && !BLOB_TOKEN) {
     return NextResponse.json(
       {
         error:
-          'Vercel Sandbox not configured (set BLOB_READ_WRITE_TOKEN — connect a Vercel Blob store, see docs/vercel-sandbox.md)',
+          'Vercel Sandbox not configured (set BLOB_READ_WRITE_TOKEN — connect a Vercel Blob store, see docs/vercel-sandbox.md — or set LOCAL_RENDER=true to render locally)',
       },
       {status: 500, headers: corsHeaders},
     )
@@ -85,6 +95,8 @@ export async function POST(req: NextRequest) {
   // Sandbox / Blob handles, tracked for cleanup on success and error paths.
   let sandbox: Awaited<ReturnType<typeof createSandbox>> | null = null
   let blobUrl: string | null = null
+  // Local-render temp file, tracked for cleanup on success and error paths.
+  let localFilePath: string | null = null
 
   try {
     const body = await req.json()
@@ -152,53 +164,19 @@ export async function POST(req: NextRequest) {
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
 
-    // Spin up a Vercel Sandbox. On Vercel resume from the build-time snapshot
-    // (fast, includes the bundle); locally create a fresh one and add the
-    // bundle per request. Narrated renders are CPU-bound, so give them 8 vCPU
-    // to render frames in parallel; promo/teaser stay on the default.
+    // Narrated renders are CPU-bound, so give them 8 vCPU on the sandbox to
+    // render frames in parallel; promo/teaser stay on the default.
     const isLongForm = compositionId === 'article-narrated'
     const sandboxVcpus = isLongForm ? 8 : undefined
 
-    sandbox = process.env.VERCEL
-      ? await restoreSnapshot({vcpus: sandboxVcpus})
-      : await createSandbox()
-
-    // Default sandbox timeout is 5 min; narrated renders take 5–7 min of work,
-    // so extend it (bounded by the route's maxDuration).
-    if (isLongForm) {
-      await sandbox.extendTimeout(25 * 60 * 1000)
-    }
-
-    if (!process.env.VERCEL) {
-      bundleRemotionProject('.remotion-bundle')
-      await addBundleToSandbox({sandbox, bundleDir: '.remotion-bundle'})
-    }
-
-    // Render inside the sandbox (output written to a path in the VM). Wrapped
-    // in a soft timeout firing ~80s before `maxDuration` so the catch block can
-    // mark the doc `failed` and clean up before the platform hard-kills us —
-    // otherwise the doc stays stuck in `rendering` forever.
+    // Soft timeout firing ~80s before `maxDuration` so the catch block can mark
+    // the doc `failed` and clean up before the platform hard-kills us —
+    // otherwise the doc stays stuck in `rendering` forever. Shared by both the
+    // sandbox and local render paths.
     const RENDER_SOFT_TIMEOUT_MS = (maxDuration - 80) * 1000
     let lastStage = 'starting'
     let lastRenderedFrames = 0
     let lastEncodedFrames = 0
-
-    const renderPromise = renderMediaOnVercel({
-      sandbox,
-      compositionId,
-      inputProps: validatedProps,
-      codec: 'h264',
-      // Match concurrency to vCPU count; the default auto-detect often
-      // resolves to 1 in the sandbox and serializes frames.
-      ...(sandboxVcpus ? {concurrency: sandboxVcpus} : {}),
-      onProgress: (progress) => {
-        lastStage = progress.stage
-        if (progress.stage === 'render-progress') {
-          lastRenderedFrames = progress.progress.renderedFrames
-          lastEncodedFrames = progress.progress.encodedFrames
-        }
-      },
-    })
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
@@ -212,29 +190,96 @@ export async function POST(req: NextRequest) {
       }, RENDER_SOFT_TIMEOUT_MS)
     })
 
-    const {sandboxFilePath, contentType} = await Promise.race([renderPromise, timeoutPromise])
+    // Produce the canonical MP4, then expose it to Cloudinary as `uploadSource`:
+    // a local file path (local render) or a public Blob URL (sandbox render).
+    // cloudinary.uploader.upload() accepts either.
+    let uploadSource: string
 
-    // Stage the MP4 on Vercel Blob with a public URL so Cloudinary can fetch
-    // it directly.
-    const {url: stagedBlobUrl} = await uploadToVercelBlob({
-      sandbox,
-      sandboxFilePath,
-      contentType,
-      blobToken: BLOB_TOKEN,
-      access: 'public',
-    })
-    blobUrl = stagedBlobUrl
+    if (useLocalRender) {
+      // Local fallback: render with headless Chromium on this machine. No
+      // Vercel Sandbox, no Blob staging.
+      lastStage = 'local-render'
+      const renderPromise = renderLocally({
+        bundleDir: '.remotion-bundle',
+        compositionId,
+        inputProps: validatedProps,
+        onProgress: ({renderedFrames, encodedFrames}) => {
+          lastRenderedFrames = renderedFrames
+          lastEncodedFrames = encodedFrames
+        },
+      })
+
+      const {filePath} = await Promise.race([renderPromise, timeoutPromise])
+      localFilePath = filePath
+      uploadSource = filePath
+    } else {
+      // Unreachable — the guard above returns when the sandbox path lacks a
+      // Blob token — but it narrows BLOB_TOKEN to a string for the upload below.
+      if (!BLOB_TOKEN) {
+        throw new Error('BLOB_READ_WRITE_TOKEN required for the Vercel Sandbox render path')
+      }
+
+      // Spin up a Vercel Sandbox. On Vercel resume from the build-time snapshot
+      // (fast, includes the bundle); locally create a fresh one and add the
+      // bundle per request.
+      sandbox = process.env.VERCEL
+        ? await restoreSnapshot({vcpus: sandboxVcpus})
+        : await createSandbox()
+
+      // Default sandbox timeout is 5 min; narrated renders take 5–7 min of
+      // work, so extend it (bounded by the route's maxDuration).
+      if (isLongForm) {
+        await sandbox.extendTimeout(25 * 60 * 1000)
+      }
+
+      if (!process.env.VERCEL) {
+        bundleRemotionProject('.remotion-bundle')
+        await addBundleToSandbox({sandbox, bundleDir: '.remotion-bundle'})
+      }
+
+      // Render inside the sandbox (output written to a path in the VM).
+      const renderPromise = renderMediaOnVercel({
+        sandbox,
+        compositionId,
+        inputProps: validatedProps,
+        codec: 'h264',
+        // Match concurrency to vCPU count; the default auto-detect often
+        // resolves to 1 in the sandbox and serializes frames.
+        ...(sandboxVcpus ? {concurrency: sandboxVcpus} : {}),
+        onProgress: (progress) => {
+          lastStage = progress.stage
+          if (progress.stage === 'render-progress') {
+            lastRenderedFrames = progress.progress.renderedFrames
+            lastEncodedFrames = progress.progress.encodedFrames
+          }
+        },
+      })
+
+      const {sandboxFilePath, contentType} = await Promise.race([renderPromise, timeoutPromise])
+
+      // Stage the MP4 on Vercel Blob with a public URL so Cloudinary can fetch
+      // it directly.
+      const {url: stagedBlobUrl} = await uploadToVercelBlob({
+        sandbox,
+        sandboxFilePath,
+        contentType,
+        blobToken: BLOB_TOKEN,
+        access: 'public',
+      })
+      blobUrl = stagedBlobUrl
+      uploadSource = stagedBlobUrl
+    }
 
     const durationSeconds =
       (durationInFrames ?? meta.defaultDurationFrames) / (fps ?? meta.fps)
 
-    // Upload to Cloudinary directly from the Blob URL — no buffering.
+    // Upload to Cloudinary directly from the file path / Blob URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
     // Long-form eagers (youtube-1080p-mp4, podcast-mp3) take minutes; running
     // them sync would blow past `maxDuration`. Async eagers return immediately
     // and the deterministic variant URLs resolve lazily on first request.
-    const uploadResult = (await cloudinary.uploader.upload(stagedBlobUrl, {
+    const uploadResult = (await cloudinary.uploader.upload(uploadSource, {
       resource_type: 'video',
       folder: 'template/videos',
       public_id: filename,
@@ -243,13 +288,18 @@ export async function POST(req: NextRequest) {
       eager_async: isLongForm,
     })) as {public_id: string; secure_url: string}
 
-    // Canonical MP4 is in Cloudinary now; drop the Blob staging copy
-    // (best-effort).
+    // Canonical MP4 is in Cloudinary now; drop the staging copy (best-effort) —
+    // the local temp file or the Blob staging object, whichever produced it.
     try {
-      await deleteBlob(stagedBlobUrl, {token: BLOB_TOKEN})
-      blobUrl = null
+      if (localFilePath) {
+        await unlink(localFilePath)
+        localFilePath = null
+      } else if (blobUrl) {
+        await deleteBlob(blobUrl, {token: BLOB_TOKEN})
+        blobUrl = null
+      }
     } catch (cleanupError) {
-      console.warn('Failed to delete Vercel Blob staging file:', cleanupError)
+      console.warn('Failed to delete render staging file:', cleanupError)
     }
 
     // Snapshot every variant URL onto the doc. cloudName is required for the
@@ -304,7 +354,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Clean up an orphaned Blob staging file if a step after upload threw.
+    // Clean up an orphaned staging file if a step after render threw.
+    if (localFilePath) {
+      try {
+        await unlink(localFilePath)
+      } catch {
+        // ignore
+      }
+    }
     if (blobUrl) {
       try {
         await deleteBlob(blobUrl, {token: BLOB_TOKEN})

@@ -62,7 +62,11 @@ Deeper guides live in [`docs/`](./docs/):
 - A [Cloudinary](https://cloudinary.com/) account (cloud name + API key/secret)
 - A [Vercel](https://vercel.com/) account — deploy `apps/web` and connect a [Blob store](https://vercel.com/docs/storage/vercel-blob) for the sandbox renderer. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)
 
-## Setup
+## Getting Started
+
+Follow these steps to get the template running locally. (See [Prerequisites](#prerequisites) above for the accounts and tooling you'll need first.)
+
+**1. Install dependencies and create your env files**
 
 ```bash
 pnpm install
@@ -71,7 +75,7 @@ cp apps/web/.env.local.example apps/web/.env.local
 cp apps/studio/.env.example apps/studio/.env
 ```
 
-Fill in the env files:
+**2. Fill in the env files**
 
 **`apps/web/.env.local`**
 
@@ -100,7 +104,7 @@ Fill in the env files:
 
 > **Two features lean on paid third-party plans** — Sanity Assist (Growth plan, for the Brand AI menu) and narrated video (ElevenLabs). Both are handled so a free-tier clone never hits a confusing failure: Assist stays visible but fails with an explanatory toast, and narrated video is hidden until you set `SANITY_STUDIO_ENABLE_NARRATED=true`. See [docs/configuration.md → Optional / paid features](./docs/configuration.md#optional--paid-features). For what *every* service costs — including the Vercel Pro requirement — see [docs/plans-and-costs.md](./docs/plans-and-costs.md).
 
-## Run
+**3. Run the apps**
 
 ```bash
 pnpm dev:web        # http://localhost:3000

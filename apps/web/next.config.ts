@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
     serverExternalPackages: [
         '@vercel/sandbox',
         '@remotion/vercel',
+        // Local render fallback (no Vercel Sandbox) renders with headless
+        // Chromium via @remotion/renderer. It ships native binaries and must
+        // not be Turbopack-bundled into the function — same reasoning as
+        // @remotion/vercel above.
+        '@remotion/renderer',
         // React-Email components call hooks at render time. Without externalizing
         // them, Next.js bundles them against its compiled `react`, then the
         // hooks read the dispatcher from a different React instance (null) and
