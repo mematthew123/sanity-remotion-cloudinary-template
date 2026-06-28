@@ -4,18 +4,18 @@
   "private": true,
   "packageManager": "pnpm@10.26.2",
   "scripts": {
-    "dev": "pnpm --filter @template/web dev",
-    "dev:web": "pnpm --filter @template/web dev",
-    "dev:studio": "pnpm --filter @template/studio dev",
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@template/web",
+    "dev:studio": "turbo run dev --filter=@template/studio",
     "dev:remotion": "pnpm --filter @template/web dev:remotion",
-    "build": "pnpm --filter @template/web build",
-    "build:web": "pnpm --filter @template/web build",
-    "build:studio": "pnpm --filter @template/studio build",
+    "build": "turbo run build --filter=@template/web",
+    "build:web": "turbo run build --filter=@template/web",
+    "build:studio": "turbo run build --filter=@template/studio",
     "start": "pnpm --filter @template/web start",
-    "lint": "pnpm --filter @template/web lint",
+    "lint": "turbo run lint",
     "deploy:studio": "pnpm --filter @template/studio deploy",
     "bundle:remotion": "pnpm --filter @template/web bundle:remotion",
-    "typegen": "pnpm --filter @template/studio typegen"
+    "typegen": "turbo run typegen"
   },
   "pnpm": {
     "overrides": {
@@ -25,5 +25,8 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "devDependencies": {
+    "turbo": "^2.10.0"
   }
 }

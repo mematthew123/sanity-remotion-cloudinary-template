@@ -7,6 +7,9 @@ node_modules/
 out/
 dist/
 
+# turborepo
+.turbo/
+
 # sanity
 apps/studio/dist/
 .sanity/
