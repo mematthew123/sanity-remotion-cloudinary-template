@@ -32,7 +32,7 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `RESEND_API_KEY` / `RESEND_AUDIENCE_ID` | Resend send + broadcast; server-only |
 | `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | sender identity, e.g. `hello@renderonce.dev` / `Render Once`. **The from-domain must be verified in Resend** or sends bounce / spam-folder. |
 | `NEWSLETTER_SEND_SECRET` | bearer the "Send newsletter" action must send; mirror into Studio's `SANITY_STUDIO_NEWSLETTER_SECRET` |
-| `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step; leave blank otherwise |
+| `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step (paid — see [Optional / paid features](#optional--paid-features)); leave blank otherwise. Also flip `SANITY_STUDIO_ENABLE_NARRATED=true` to surface it in the Studio. |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel when a Blob store is connected; for local dev, `vercel link` + `vercel env pull apps/web/.env.local`. See [vercel-sandbox.md](./vercel-sandbox.md). |
 
 ### `apps/studio/.env`
@@ -42,6 +42,16 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_STUDIO_RENDER_API_URL` | full render URL — `http://localhost:3000/api/video/render` locally, `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
 | `SANITY_STUDIO_NEWSLETTER_SECRET` | == web `NEWSLETTER_SEND_SECRET` |
+| `SANITY_STUDIO_ENABLE_NARRATED` | set to `true` to enable the ElevenLabs-backed `article-narrated` composition; **default off**. See [Optional / paid features](#optional--paid-features). |
+
+## Optional / paid features
+
+Two features ship enabled in the codebase but lean on **paid third-party plans**. They're handled so a first-run clone on free tiers never hits a confusing failure — but you'll want to know what they cost before relying on them. For the full cost picture across *every* service (including Vercel Pro and Resend), see [Plans & costs](./plans-and-costs.md).
+
+| Feature | What it needs | First-run behaviour |
+| --- | --- | --- |
+| **Sanity Assist** (the "Brand AI" field menu — *Rewrite as voice*, *Generate video copy*) | Agent Actions are a **paid feature on the Sanity Growth plan and up** (~$15/seat/mo) and consume AI credits — unavailable on Free. See [assist.md](./assist.md). | **Stays visible** (it showcases Sanity). On a Free plan the action fails gracefully with a *"Brand AI needs a Sanity Growth plan"* toast instead of a raw API error. |
+| **Narrated video** (`article-narrated`, the TTS reading of the post body) | **ElevenLabs** — `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` on the web app. The free API tier has **no commercial licence and forces attribution**; real use needs at least the ~$6/mo Starter plan. | **Hidden by default.** Set `SANITY_STUDIO_ENABLE_NARRATED=true` in `apps/studio/.env` to surface the *Generate voiceover* + *Render narrated reading* actions and add "Article Narrated" to the video template picker. The promo/teaser render loop needs none of this. |
 
 ## The shared render secret
 

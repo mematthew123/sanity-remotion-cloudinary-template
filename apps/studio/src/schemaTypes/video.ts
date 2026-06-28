@@ -2,6 +2,13 @@ import {defineArrayMember, defineField, defineType} from 'sanity'
 import {PlayIcon} from '@sanity/icons'
 import {COMPOSITIONS} from '@template/video-core/registry'
 
+// `article-narrated` is gated on ElevenLabs being set up — keep it out of the
+// template picker unless the narrated feature is enabled (see sanity.config.ts).
+const narratedEnabled = import.meta.env.SANITY_STUDIO_ENABLE_NARRATED === 'true'
+const selectableCompositions = COMPOSITIONS.filter(
+  (c) => narratedEnabled || c.id !== 'article-narrated',
+)
+
 export const videoType = defineType({
   name: 'video',
   title: 'Video',
@@ -89,7 +96,7 @@ export const videoType = defineType({
       description: 'Composition the renderer will use.',
       options: {
         // Show duration in the option label so editors can pick by length.
-        list: COMPOSITIONS.map((c) => {
+        list: selectableCompositions.map((c) => {
           const seconds = Math.round(c.defaultDurationFrames / c.fps)
           return {title: `${c.label} — ${seconds}s`, value: c.id}
         }),
