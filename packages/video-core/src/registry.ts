@@ -344,6 +344,8 @@ export function variantsForComposition(
 }
 
 export type VariantSnapshot = {
+  /** Stable array key for Sanity — unique per array, derived from the variant id. */
+  _key: string
   variantId: VariantId
   surface: VariantSurface
   format: VariantFormat
@@ -364,6 +366,7 @@ export function snapshotVariants(
   return variantIds.map((id) => {
     const variant = VARIANTS[id]
     return {
+      _key: id,
       variantId: id,
       surface: variant.surface,
       format: variant.format,
