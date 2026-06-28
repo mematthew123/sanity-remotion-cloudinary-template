@@ -36,6 +36,9 @@ The render runs inside the sandbox synchronously, so the route returns the finis
 
 ## Monorepo layout
 
+pnpm workspaces, orchestrated with [Turborepo](https://turbo.build/) (`turbo.json`) —
+`pnpm dev` runs both apps at once, and `build`/`lint`/`typegen` are cached.
+
 ```
 apps/web/            @template/web        — Next.js 16 site + /api/video/render (spawns a Vercel Sandbox) + Remotion site entry
 apps/studio/         @template/studio     — Sanity Studio v5: schemas, "Render" actions, Assist + brand voice
@@ -103,9 +106,11 @@ Fill in the env files:
 ## Run
 
 ```bash
-pnpm dev:web        # http://localhost:3000
-pnpm dev:studio     # http://localhost:3333
+pnpm dev            # both apps at once (Turborepo) — site :3000 + studio :3333
 ```
+
+Or run them individually: `pnpm dev:web` (http://localhost:3000) and
+`pnpm dev:studio` (http://localhost:3333).
 
 Rendering runs in a Vercel Sandbox. The one-time setup is just *connect a Vercel Blob store to the deployed project*; the build-time snapshot is created automatically by `vercel-build`. Full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). For local dev, pull the same `BLOB_READ_WRITE_TOKEN`:
 
