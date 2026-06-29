@@ -1,8 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { draftMode } from 'next/headers';
 import { JetBrains_Mono, Instrument_Serif, Inter } from 'next/font/google';
+import { VisualEditing } from 'next-sanity/visual-editing';
 import { SITE_URL } from '@/lib/siteUrl';
+import { SanityLive } from '@/lib/sanity.live';
 import NewsletterSignup from '@/components/NewsletterSignup';
+import DisableDraftMode from '@/components/DisableDraftMode';
 import './globals.css';
 
 const jetbrainsMono = JetBrains_Mono({
@@ -41,11 +45,12 @@ export const metadata: Metadata = {
     },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const { isEnabled: isDraftMode } = await draftMode();
     return (
         <html
             lang='en'
@@ -93,6 +98,14 @@ export default function RootLayout({
                         <NewsletterSignup />
                     </div>
                 </footer>
+                {/* Live Content API: streams updates and powers draft preview. */}
+                <SanityLive />
+                {isDraftMode && (
+                    <>
+                        <VisualEditing />
+                        <DisableDraftMode />
+                    </>
+                )}
             </body>
         </html>
     );
