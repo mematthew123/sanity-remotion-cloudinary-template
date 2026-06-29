@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CldVideoPlayer } from 'next-cloudinary'
 import 'next-cloudinary/dist/cld-video-player.css'
+import { stegaClean } from 'next-sanity'
 // Safe to import from /registry in a client component: it is React-free
 // metadata (labels + dimensions), no Remotion hooks evaluate here.
 import { findComposition } from '@template/video-core/registry'
@@ -28,7 +29,10 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
   const active = playable.find((v) => v._id === activeId) ?? playable[0]
   if (!active?.cloudinaryUrl) return null
 
-  const meta = active.template ? findComposition(active.template) : undefined
+  // stegaClean before the registry key lookup — stega chars (present in draft
+  // mode) would miss the COMPOSITIONS_BY_ID key and drop the label/dimensions.
+  const activeTemplate = stegaClean(active.template)
+  const meta = activeTemplate ? findComposition(activeTemplate) : undefined
   const width = active.width ?? meta?.width ?? 1080
   const height = active.height ?? meta?.height ?? 1080
   const isPortrait = height > width
@@ -47,7 +51,8 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
         {playable.length > 1 && (
           <div className='mb-6 flex flex-wrap gap-2'>
             {playable.map((video) => {
-              const m = video.template ? findComposition(video.template) : undefined
+              const t = stegaClean(video.template)
+              const m = t ? findComposition(t) : undefined
               const tabLabel = m?.label ?? video.template ?? 'Video'
               const isActive = video._id === active._id
               return (
