@@ -1,17 +1,41 @@
 # Setup — next steps
 
 A checklist for taking this template from a fresh clone to a working render →
-publish loop. Rendering runs on **Vercel Sandbox** (see
-[`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md)).
+publish loop.
 
-Work top to bottom — each section depends on the ones above it.
+There are **two render backends**, and you pick one without changing code:
+
+- **Local render (default for a fresh clone)** — headless Chromium on your
+  machine, uploading straight to Cloudinary. Needs only **Sanity + Cloudinary**.
+  This is what runs whenever you're not on Vercel and no Blob token is present.
+- **Vercel Sandbox (production)** — renders in a Vercel Sandbox and stages the
+  MP4 in Vercel Blob. This is what runs on a Vercel deployment. See
+  [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md).
+
+The switch is `useLocalRender = !VERCEL && (LOCAL_RENDER === 'true' || !BLOB_READ_WRITE_TOKEN)`
+— so locally you get the local path for free, and a Vercel deploy with a Blob
+store connected gets the sandbox path. See
+[`docs/plans-and-costs.md`](./docs/plans-and-costs.md) for what each backend
+costs.
+
+Work top to bottom — each section depends on the ones above it. **Sections 1–5
+plus "Run it" are all you need to render locally.** Sections 6–8 (Vercel Sandbox,
+Newsletter, Brand voice) are optional / deploy-only.
 
 ## 0. Prerequisites
 
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token
 - A **Cloudinary** account (cloud name + API key + secret)
-- A **Vercel** account — **only needed to deploy the hosted app**, and **Pro is required to deploy** (the render route runs up to 800 s; Hobby's 300 s cap makes renders fail — see [`docs/plans-and-costs.md`](./docs/plans-and-costs.md#vercel--only-for-the-hosted-deployment)). **Local rendering needs no Vercel account at all** — renders fall back to headless Chromium on your machine.
+- A **Vercel** account — **only** to deploy the hosted app, and **Pro is
+  required** (the render route runs up to 800 s; Hobby's 300 s cap makes renders
+  fail — see [`docs/plans-and-costs.md`](./docs/plans-and-costs.md#vercel--only-for-the-hosted-deployment)).
+  **Local rendering needs no Vercel account at all** — it falls back to headless
+  Chromium on your machine.
+
+> The first local render downloads a headless Chromium for Remotion (one-time,
+> a few hundred MB). Long-form narrated renders are CPU-bound and slow on a
+> laptop — see [`docs/plans-and-costs.md`](./docs/plans-and-costs.md).
 
 ## 1. Install & scaffold env files
 
@@ -57,9 +81,17 @@ Invent one random string and mirror the **same** value into two places:
 Add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` to
 `apps/web/.env.local`.
 
-## 5. Vercel Sandbox (optional — skip for local-only rendering)
+## 5. Render backend
 
-> **Skip this entire section if you only render locally.** With `BLOB_READ_WRITE_TOKEN` left empty, the render route renders with headless Chromium on your machine and uploads straight to Cloudinary — no Vercel account needed. This section is only for deploying the hosted app or exercising the Vercel Sandbox path locally.
+**To render locally (default):** do nothing — with no `BLOB_READ_WRITE_TOKEN`
+set, the render route uses the local Chromium backend automatically. You can
+also force it explicitly by setting `LOCAL_RENDER=true` in `apps/web/.env.local`
+(useful if you've pulled a Blob token but still want to render locally).
+
+That's enough to run the loop. Skip to "Run it" (section 9). Set up the Vercel
+Sandbox (section 6) when you're ready to deploy.
+
+## 6. (Deploy only) Vercel Sandbox
 
 Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short version:
 
@@ -69,8 +101,9 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
 2. In the Vercel dashboard, **Storage → Create → Blob**, name it (e.g.
    `remotion-renders`), and **attach it to the project**. Vercel auto-injects
    `BLOB_READ_WRITE_TOKEN` at runtime; redeploy once for it to take effect.
-3. For local dev, install the Vercel CLI and pull the env (one command writes
-   both `BLOB_READ_WRITE_TOKEN` and the OIDC token the Sandbox SDK uses).
+3. To run the sandbox path in local dev (instead of the local-Chromium backend),
+   install the Vercel CLI and pull the env (one command writes both
+   `BLOB_READ_WRITE_TOKEN` and the OIDC token the Sandbox SDK uses).
    ⚠️ Run `vercel link` from `apps/web/`, **not** the repo root — that's where
    the Next.js dev server reads `.env.local` from:
    ```bash
@@ -88,7 +121,11 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
 > via `apps/web/vercel.json`'s `buildCommand`. Bumping Remotion or changing
 > compositions is just a redeploy.
 
-## 6. (Optional) Newsletter / Resend
+> ⚠️ Deploying the Vercel Sandbox backend requires a **Vercel Pro** plan (the
+> render route's `maxDuration = 800` exceeds Hobby's limit). See
+> [`docs/plans-and-costs.md`](./docs/plans-and-costs.md).
+
+## 7. (Optional) Newsletter / Resend
 
 The newsletter fan-out (Resend send + broadcast) is off the critical path — skip
 it for the core render loop. To enable it, add the Resend vars to
@@ -98,7 +135,7 @@ it for the core render loop. To enable it, add the Resend vars to
 **verified in Resend** or sends bounce / land in spam. Full walkthrough:
 [`docs/configuration.md`](./docs/configuration.md#custom-domain--resend-sender).
 
-## 7. (Optional) Brand voice for Sanity Assist
+## 8. (Optional) Brand voice for Sanity Assist
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
@@ -108,7 +145,7 @@ Then edit the **Brand Voices** docs in Studio (the source of truth). Assist's AI
 field actions also need the schema deployed (`npx sanity schema deploy`) and are
 a paid Growth-plan feature. See [`docs/assist.md`](./docs/assist.md).
 
-## 8. Run it
+## 9. Run it
 
 ```bash
 pnpm dev          # both apps at once (Turborepo) — site :3000 + studio :3333
@@ -125,11 +162,11 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
 **Render Promo (1:1)** or **Render Teaser (9:16)**. Watch the **Videos** list move
 `rendering → uploading → ready`, then open `/posts/<slug>` or `/videos` on the site.
 
-## 9. Deploy
+## 10. Deploy
 
 1. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
    to **800s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The
-   Blob store you connected in step 5 auto-injects `BLOB_READ_WRITE_TOKEN`; no
+   Blob store you connected in section 6 auto-injects `BLOB_READ_WRITE_TOKEN`; no
    AWS keys needed.
 2. Point `SANITY_STUDIO_RENDER_API_URL` at the deployed web URL.
 3. **Studio** → `pnpm deploy:studio`.

@@ -130,16 +130,40 @@ export async function POST(req: NextRequest) {
     // Idempotency: short-circuit if a ready/in-flight video already exists for
     // this post + template.
     if (postId) {
-      const existing = await sanityClient.fetch<{_id: string; status: string} | null>(
-        `*[_type == "video" && post._ref == $postId && template == $template && status in ["ready", "rendering", "uploading"]][0]{ _id, status }`,
+      const existing = await sanityClient.fetch<{
+        _id: string
+        status: string
+        renderStartedAt: string | null
+      } | null>(
+        `*[_type == "video" && post._ref == $postId && template == $template && status in ["ready", "rendering", "uploading"]][0]{ _id, status, renderStartedAt }`,
         {postId, template: compositionId},
       )
 
       if (existing) {
-        return NextResponse.json(
-          {success: true, documentId: existing._id, status: existing.status, idempotent: true},
-          {status: 200, headers: corsHeaders},
-        )
+        // `ready` is always a valid idempotent hit. A `rendering`/`uploading`
+        // doc still in-flight past the render ceiling means its function was
+        // killed (no render outlives the soft timeout) — reclaim it as `failed`
+        // and fall through, else it blocks this post + template forever.
+        const startedAt = existing.renderStartedAt ? Date.parse(existing.renderStartedAt) : NaN
+        const ageMs = Number.isNaN(startedAt) ? Infinity : Date.now() - startedAt
+        const isStale = existing.status !== 'ready' && ageMs > (maxDuration + 60) * 1000
+
+        if (!isStale) {
+          return NextResponse.json(
+            {success: true, documentId: existing._id, status: existing.status, idempotent: true},
+            {status: 200, headers: corsHeaders},
+          )
+        }
+
+        await sanityClient
+          .patch(existing._id)
+          .set({
+            status: 'failed',
+            errorMessage:
+              'Render did not finish and was reclaimed (the function was likely killed mid-render). A new render was started.',
+          })
+          .commit()
+          .catch(() => undefined)
       }
     }
 
@@ -161,7 +185,12 @@ export async function POST(req: NextRequest) {
     sanityDocId = sanityDoc._id
     console.log('Video document created with status: rendering', sanityDocId)
 
-    const filename = `${validatedProps.title}-${compositionId}`
+    // Fold the post id (or doc id) into the public_id so two different posts
+    // sharing a title + composition don't collide on one asset — `overwrite:
+    // true` below would let the second clobber the first. Keying on postId
+    // keeps a re-render of the same post idempotent (overwrites its own asset).
+    const idSuffix = (postId ?? sanityDocId).replace(/[^a-z0-9]/gi, '').slice(-8)
+    const filename = `${validatedProps.title}-${compositionId}-${idSuffix}`
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
 

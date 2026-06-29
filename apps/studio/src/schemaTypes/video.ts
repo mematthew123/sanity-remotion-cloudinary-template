@@ -156,7 +156,7 @@ export const videoType = defineType({
       group: 'technical',
       readOnly: true,
       description:
-        'Set when the doc enters status "rendering". Lets a sweeper detect docs whose function was killed by the platform mid-render and never reached "failed".',
+        'Set when the doc enters status "rendering". The render route reclaims docs still "rendering"/"uploading" past the render ceiling — i.e. whose function was killed mid-render and never reached "failed" — marking them failed on the next render request for this post + template.',
     }),
     defineField({
       name: 'renderedAt',
