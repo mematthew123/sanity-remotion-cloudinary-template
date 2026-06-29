@@ -12,6 +12,7 @@ import {v2 as cloudinary} from 'cloudinary'
 // components that evaluate hooks at module load, which breaks server routes
 // ("Remotion requires React.createContext"). /registry is React-free metadata.
 import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
+import {withCloudinaryAnalytics} from '@/lib/cloudinaryDelivery'
 
 import {unlink} from 'node:fs/promises'
 
@@ -305,8 +306,17 @@ export async function POST(req: NextRequest) {
     // Snapshot every variant URL onto the doc. cloudName is required for the
     // upload above, but guard anyway and skip variants if absent.
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+
+    // Stamp the Cloudinary SDK analytics signature onto every delivery URL we
+    // persist, so Cloudinary attributes delivery to this integration (a
+    // Partner-Built requirement). Transforms still come from VARIANTS.
+    const cloudinaryUrl = cloudName
+      ? withCloudinaryAnalytics(cloudName, uploadResult.secure_url)
+      : uploadResult.secure_url
     const variants = cloudName
-      ? snapshotVariants(cloudName, uploadResult.public_id, meta.variantIds)
+      ? snapshotVariants(cloudName, uploadResult.public_id, meta.variantIds).map(
+          (v) => ({...v, url: withCloudinaryAnalytics(cloudName, v.url)}),
+        )
       : undefined
 
     // Cloudinary videos are immediately available — no webhook.
@@ -315,7 +325,7 @@ export async function POST(req: NextRequest) {
       .set({
         status: 'ready',
         cloudinaryPublicId: uploadResult.public_id,
-        cloudinaryUrl: uploadResult.secure_url,
+        cloudinaryUrl,
         duration: Math.round(durationSeconds * 10) / 10,
         renderedAt: new Date().toISOString(),
         ...(variants ? {variants} : {}),
@@ -332,7 +342,7 @@ export async function POST(req: NextRequest) {
         success: true,
         documentId: sanityDocId,
         status: 'ready',
-        cloudinaryUrl: uploadResult.secure_url,
+        cloudinaryUrl,
       },
       {status: 200, headers: corsHeaders},
     )

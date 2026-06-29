@@ -7,6 +7,12 @@ export const client = createClient({
   apiVersion: '2024-12-27',
   useCdn: true,
   perspective: 'published',
+  // Where stega click-to-edit overlays link. Encoding is only turned on per-fetch
+  // by `sanityFetch` in draft mode (sanity.live.ts), so this is inert for published reads.
+  stega: {
+    studioUrl:
+      process.env.NEXT_PUBLIC_SANITY_STUDIO_URL ?? 'http://localhost:3333',
+  },
 });
 
 const builder = imageUrlBuilder(client);
