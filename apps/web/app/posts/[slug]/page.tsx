@@ -7,6 +7,7 @@ import {
   type PortableTextComponents,
 } from '@portabletext/react';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
+import { sanityFetch } from '@/lib/sanity.live';
 import { ALL_POSTS_QUERY, SINGLE_POST_QUERY, POST_CAPTIONS_QUERY } from '@/lib/sanity.queries';
 import { absoluteUrl } from '@/lib/siteUrl';
 import { buildTranscript } from '@/lib/transcript';
@@ -154,7 +155,12 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await client.fetch(SINGLE_POST_QUERY, { slug });
+  // sanityFetch is live + draft-aware; metadata/generateStaticParams keep the
+  // plain client so OG tags never carry stega-encoded strings.
+  const { data: post } = await sanityFetch({
+    query: SINGLE_POST_QUERY,
+    params: { slug },
+  });
 
   if (!post) notFound();
 
@@ -184,7 +190,7 @@ export default async function PostPage({
   // Interactive read-along transcript: word-timed when alignment has run,
   // paragraph-level otherwise. Only fetched for narrated posts.
   const captions = narratedReading
-    ? await client.fetch(POST_CAPTIONS_QUERY, { slug })
+    ? (await sanityFetch({ query: POST_CAPTIONS_QUERY, params: { slug } })).data
     : null;
   const transcript = captions ? buildTranscript(captions.chunks ?? []) : [];
 

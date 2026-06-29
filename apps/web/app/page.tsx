@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { client, urlFor } from '@/lib/sanity.client';
+import { urlFor } from '@/lib/sanity.client';
+import { sanityFetch } from '@/lib/sanity.live';
 import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 import VideoHoverPreview from '@/components/VideoHoverPreview';
 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const posts = await client.fetch(ALL_POSTS_QUERY);
+  const { data: posts } = await sanityFetch({ query: ALL_POSTS_QUERY });
 
   const cards = posts.map((post) => ({
     id: post._id,

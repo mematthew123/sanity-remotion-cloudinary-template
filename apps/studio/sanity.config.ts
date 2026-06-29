@@ -1,5 +1,6 @@
 import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
+import {presentationTool, defineLocations} from 'sanity/presentation'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './src/schemaTypes'
 import {getDefaultDocumentNode, structure} from './src/structure'
@@ -29,6 +30,27 @@ export default defineConfig({
 
   plugins: [
     structureTool({structure, defaultDocumentNode: getDefaultDocumentNode}),
+    // Live click-to-edit preview of the Next.js site (needs SANITY_API_READ_TOKEN on the web app).
+    presentationTool({
+      previewUrl: {
+        origin: import.meta.env.SANITY_STUDIO_PREVIEW_URL ?? 'http://localhost:3000',
+        previewMode: {enable: '/api/draft-mode/enable'},
+      },
+      resolve: {
+        // Map a `post` to the site URLs where it appears.
+        locations: {
+          post: defineLocations({
+            select: {title: 'title', slug: 'slug.current'},
+            resolve: (doc) => ({
+              locations: [
+                {title: doc?.title || 'Untitled', href: `/posts/${doc?.slug}`},
+                {title: 'Home', href: '/'},
+              ],
+            }),
+          }),
+        },
+      },
+    }),
     visionTool(),
     newsletterPlugin(),
     // Brand-voice AI menu (Agent Context + Assist field actions). Extracted to
