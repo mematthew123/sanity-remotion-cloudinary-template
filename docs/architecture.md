@@ -9,17 +9,21 @@ Sanity (post)
 POST /api/video/render            (Next.js route, bearer-authed)
    │  1. validate inputProps (Zod) + idempotency check
    │  2. create a `video` doc            → status: rendering
-   │  3. spawn a Vercel Sandbox (restore from build-time snapshot on Vercel;
-   │     fresh + addBundleToSandbox locally) and renderMediaOnVercel inside it
-   │  4. uploadToVercelBlob → public Blob URL → Cloudinary upload with eager
-   │     variants → delete Blob staging copy → sandbox.stop()    → status: uploading
+   │  3. render the MP4 — two backends (see below):
+   │       • Vercel Sandbox: restore build-time snapshot (Vercel) / fresh +
+   │         addBundleToSandbox (local) → renderMediaOnVercel → uploadToVercelBlob
+   │       • local fallback: renderLocally() with headless Chromium on this machine
+   │  4. Cloudinary upload with eager variants → delete the staging copy
+   │     (Blob object or local temp file) → sandbox.stop()       → status: uploading
    │  5. patch the doc: cloudinaryUrl + variants[]          → status: ready
    ▼
 Next.js site
    reads `video` docs where status == "ready" and plays from Cloudinary
 ```
 
-The route renders inside the sandbox synchronously (bounded by `maxDuration = 300`), so the Studio action reads `status: ready` + `cloudinaryUrl` straight from the response; the finished render previews in a "Preview" view tab on the `video` document, with a "Variants" tab for the Cloudinary derivations.
+The route renders synchronously (bounded by `maxDuration = 800`), so the Studio action reads `status: ready` + `cloudinaryUrl` straight from the response; the finished render previews in a "Preview" view tab on the `video` document, with a "Variants" tab for the Cloudinary derivations.
+
+**Two render backends.** By default rendering runs in a **Vercel Sandbox** (the only path on a Vercel deployment). When the route runs *outside* Vercel and has no `BLOB_READ_WRITE_TOKEN` — or you set `LOCAL_RENDER=true` — it falls back to **rendering with headless Chromium on the local machine** (`renderLocally()` in `app/api/video/render/helpers.ts`) and uploads the MP4 straight to Cloudinary, no Sandbox or Blob store needed. That fallback is what lets the template run with only Sanity + Cloudinary configured. See [vercel-sandbox.md](./vercel-sandbox.md) and [plans-and-costs.md → Vercel](./plans-and-costs.md#vercel--only-for-the-hosted-deployment).
 
 The **render route is the only server-side mutator.** Everything else (the Studio action, the site) either triggers it or reads what it produced. That keeps the Sanity write token on the server and out of any browser bundle.
 
@@ -27,7 +31,7 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 
 | Path | Package | Role |
 | --- | --- | --- |
-| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render` (spawns a Vercel Sandbox), the Remotion site entry (`remotion/`) bundled into the sandbox |
+| `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render` (renders via a Vercel Sandbox or local headless Chromium), the Remotion site entry (`remotion/`) bundled for both paths |
 | `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, the "Render" document action, the Preview + Variants views, Assist + brand voice |
 | `packages/video-core` | `@template/video-core` | Remotion compositions, the registry, the Cloudinary variant catalog |
 
@@ -54,8 +58,10 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 3. `findComposition(id)` → Zod `safeParse(inputProps)`.
 4. Idempotency: skip if a `video` for this `(post, template)` is already ready/in-flight.
 5. Create the `video` doc (`status: rendering`), back-referencing its `post`.
-6. Spawn a Vercel Sandbox: `restoreSnapshot()` on Vercel (resumes a build-time snapshot that already contains the bundle), `createSandbox()` + `addBundleToSandbox()` locally. `renderMediaOnVercel({sandbox, compositionId, inputProps, codec: 'h264'})` renders inside the sandbox. See [`vercel-sandbox.md`](./vercel-sandbox.md).
-7. `uploadToVercelBlob({access: 'public'})` stages the MP4 in Vercel Blob with a public URL. Upload to Cloudinary from that URL (`folder: template/videos`) with `eager: eagerTransformsFor(meta.variantIds)`, then `del()` the Blob staging copy (best-effort).
+6. Render the MP4. `useLocalRender = !process.env.VERCEL && (LOCAL_RENDER === 'true' || !BLOB_READ_WRITE_TOKEN)` picks the backend:
+   - **Vercel Sandbox** (default / always on Vercel): `restoreSnapshot()` on Vercel (resumes a build-time snapshot that already contains the bundle), `createSandbox()` + `addBundleToSandbox()` locally; `renderMediaOnVercel({sandbox, compositionId, inputProps, codec: 'h264'})` renders inside it, then `uploadToVercelBlob({access: 'public'})` stages the MP4 at a public URL. See [`vercel-sandbox.md`](./vercel-sandbox.md).
+   - **Local fallback** (no Blob token / `LOCAL_RENDER=true`, off-Vercel only): `renderLocally()` (`helpers.ts`) renders with headless Chromium on the machine and returns a local file path — no Sandbox, no Blob.
+7. Upload to Cloudinary from the staging source — the Blob URL or the local file path, whichever the backend produced — (`folder: template/videos`) with `eager: eagerTransformsFor(meta.variantIds)`, then drop the staging copy (best-effort): `del()` the Blob object or `unlink()` the temp file.
 8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, variantIds)`.
 9. On any error: patch `status: failed` + `errorMessage`. The `finally` block stops the sandbox so the slot is released immediately.
 

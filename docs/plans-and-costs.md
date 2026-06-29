@@ -8,29 +8,33 @@ Every external service this template touches, what it's for, and what it costs. 
 
 | Service | Role in the template | Free tier enough for a demo? | When you must pay | Paid entry point |
 | --- | --- | --- | --- | --- |
-| **Vercel** | Hosts the web app + runs the render route / sandbox | ⚠️ Only with caveats | Narrated renders, or shipping the default `maxDuration = 800` | **Pro — $20/seat/mo** + usage |
-| **Cloudinary** | Canonical video host + variant derivations (partner) | ✅ Yes | At real video volume / bandwidth | Plus — $89/mo |
 | **Sanity** | CMS: content, schema, render/newsletter triggers | ✅ Yes (core) | Only for the **Assist** "Brand AI" menu | **Growth — $15/seat/mo** |
+| **Cloudinary** | Canonical video host + variant derivations (partner) | ✅ Yes | At real video volume / bandwidth | Plus — $89/mo |
+| **Vercel** | *Hosting only* — runs the render route / sandbox **when deployed** | ✅ Not needed locally (renders run on your machine) | Deploying the hosted app | **Pro — $20/seat/mo** + usage |
 | **Resend** | Newsletter sends, broadcasts, signup audience | ✅ Yes | At list size / send volume | Pro — $20/mo |
 | **ElevenLabs** | TTS for the `article-narrated` composition (optional) | ❌ No (no free commercial use) | Any real/commercial use | Starter — ~$5/mo |
 
-**The one hard requirement:** to deploy and render as shipped, you need **Vercel Pro**. Everything else has a genuinely usable free tier for a demo. The two *content features* that need paid plans — Sanity Assist and ElevenLabs — are documented in [configuration.md → Optional / paid features](./configuration.md#optional--paid-features) and degrade gracefully when absent.
+**You can run the whole core loop free.** With only **Sanity** and **Cloudinary** configured — both have genuinely usable free tiers — the render route renders with headless Chromium **on your own machine** and uploads straight to Cloudinary, so you can clone, render a video, and see it play on the site **without a Vercel account at all** (see [Vercel](#vercel--only-for-the-hosted-deployment) below). **Vercel Pro becomes the floor only when you deploy the hosted app**, where renders move into a Vercel Sandbox. The two *content features* that need paid plans — Sanity Assist and ElevenLabs — are documented in [configuration.md → Optional / paid features](./configuration.md#optional--paid-features) and degrade gracefully when absent.
 
 ---
 
-## Vercel — the hard requirement
+## Vercel — only for the hosted deployment
 
-The web app deploys to Vercel, and `/api/video/render` orchestrates the render inside an ephemeral **Vercel Sandbox**, staging the output on **Vercel Blob** before handing it to Cloudinary.
+Vercel does **two** jobs here: it hosts the deployed web app, and `/api/video/render` orchestrates the render inside an ephemeral **Vercel Sandbox**, staging the output on **Vercel Blob** before handing it to Cloudinary. Neither is required to run the template locally.
 
-**Why Pro is effectively required:**
+**Free local path (no Vercel account):** when the route runs outside Vercel and has no `BLOB_READ_WRITE_TOKEN` (or you set `LOCAL_RENDER=true`), it renders the composition with **headless Chromium on your machine** via `@remotion/renderer` and uploads the MP4 straight to Cloudinary — no Sandbox, no Blob store. So `pnpm dev:web` + Sanity + Cloudinary is a complete, $0 render loop. Chromium downloads once on the first render (~1 min, one-time). This path is local-only; a Vercel deployment always uses the Sandbox. See [vercel-sandbox.md](./vercel-sandbox.md) and the `useLocalRender` branch in `apps/web/app/api/video/render/route.ts`.
 
-- The render route declares `export const maxDuration = 800` (`apps/web/app/api/video/render/route.ts:19`). **800s is a Pro/Enterprise ceiling.** Hobby caps a function at 10s by default, and even with Fluid Compute (on by default) tops out at **300s** — so the shipped value won't deploy on Hobby.
-- The `article-narrated` render takes **5–7 minutes** (300–420s). That exceeds Hobby's 300s Fluid Compute cap no matter how you configure it — narrated **cannot** run on Hobby.
-- Promo/teaser renders finish in **<60s**. Those alone *could* fit Hobby if you lower `maxDuration` to ≤300 and never enable narrated — see the escape hatch below.
+> Caveat: local renders use *your* machine's CPU. Promo/teaser are fine (<a minute or two); the long-form `article-narrated` composition is CPU-bound and slow off the sandbox's 8 vCPUs — keep that one on a Vercel deploy.
 
-**Costs on Pro:** $20/seat/mo, plus usage-based **Active CPU + memory time** for the function and the sandbox (renders are CPU-bound; narrated uses 8 vCPUs), plus **Vercel Blob** storage. Blob cost here is minimal: render output is staged then immediately `del()`'d (`route.ts:219`), and only the small build-time sandbox snapshot is retained.
+**Why Pro is the floor once you deploy:**
 
-**Escape hatch for a free Hobby demo:** ship promo/teaser only — lower `maxDuration` to `300`, leave `SANITY_STUDIO_ENABLE_NARRATED` off (it already is), and accept the 300s Fluid cap. This is not the default; the template assumes Pro.
+- The render route declares `export const maxDuration = 800` (`apps/web/app/api/video/render/route.ts`). **800s is a Pro/Enterprise ceiling.** Hobby caps a function at 10s by default, and even with Fluid Compute (on by default) tops out at **300s** — so the shipped value won't deploy on Hobby.
+- The `article-narrated` render takes **5–7 minutes** (300–420s). That exceeds Hobby's 300s Fluid Compute cap no matter how you configure it — narrated **cannot** run on a Hobby deploy.
+- Promo/teaser renders finish in **<60s**. Those alone *could* fit a Hobby deploy if you lower `maxDuration` to ≤300 and never enable narrated — see the escape hatch below.
+
+**Costs on Pro:** $20/seat/mo, plus usage-based **Active CPU + memory time** for the function and the sandbox (renders are CPU-bound; narrated uses 8 vCPUs), plus **Vercel Blob** storage. Blob cost here is minimal: render output is staged then immediately `del()`'d, and only the small build-time sandbox snapshot is retained.
+
+**Escape hatch for a free Hobby deploy:** ship promo/teaser only — lower `maxDuration` to `300`, leave `SANITY_STUDIO_ENABLE_NARRATED` off (it already is), and accept the 300s Fluid cap. This is not the default; the deployed template assumes Pro.
 
 Pricing: [vercel.com/pricing](https://vercel.com/pricing) · [Function limits](https://vercel.com/docs/functions/limitations) · setup in [vercel-sandbox.md](./vercel-sandbox.md).
 
@@ -85,6 +89,7 @@ Pricing: [elevenlabs.io/pricing/api](https://elevenlabs.io/pricing/api). Setup i
 
 ## Bottom line
 
-- **Cheapest real deployment:** Vercel Pro ($20/seat/mo) is the floor. Sanity, Cloudinary, and Resend free tiers cover a demo; you pay them only at volume.
+- **$0 to run locally:** Sanity + Cloudinary free tiers only. Renders run on your machine (headless Chromium) and upload to Cloudinary — no Vercel account. This is the fastest way to clone and see the whole loop work.
+- **Cheapest real deployment:** Vercel Pro ($20/seat/mo) is the floor once you host the app. Sanity, Cloudinary, and Resend free tiers still cover a demo deploy; you pay them only at volume.
 - **Full showcase** (Assist + narrated): add **Sanity Growth** ($15/seat/mo) and an **ElevenLabs** paid plan (~$5/mo+) on top.
-- **Free-est possible** (Hobby): promo/teaser only, `maxDuration ≤ 300`, no narrated, no Assist — see the Vercel escape hatch above.
+- **Free-est possible deploy** (Hobby): promo/teaser only, `maxDuration ≤ 300`, no narrated, no Assist — see the Vercel escape hatch above.

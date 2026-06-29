@@ -33,7 +33,9 @@ Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-o
 
 ## Render returns `Vercel Sandbox not configured`
 
-The route renders inside a Vercel Sandbox and stages the output in Vercel Blob, so it needs `BLOB_READ_WRITE_TOKEN` in `apps/web/.env.local` (or in the Vercel runtime). On Vercel: connect a Blob store to the project (**Storage → Create → Blob**) — the var is auto-injected. Locally: `vercel link && vercel env pull apps/web/.env.local`. Full walkthrough in [vercel-sandbox.md](./vercel-sandbox.md).
+You only hit this on a **Vercel deployment** that has no Blob store: the deployed app always uses the Vercel Sandbox, which needs `BLOB_READ_WRITE_TOKEN`. Fix: connect a Blob store to the project (**Storage → Create → Blob**) — the var is auto-injected. Full walkthrough in [vercel-sandbox.md](./vercel-sandbox.md).
+
+**Locally you won't see this error** — with no `BLOB_READ_WRITE_TOKEN`, the route falls back to rendering with headless Chromium on your machine (set `LOCAL_RENDER=true` to force that path even when a Blob token is present). To use the Sandbox locally instead, pull a Blob token: `vercel link && vercel env pull apps/web/.env.local`.
 
 ## `Remotion requires React.createContext` / Turbopack export errors
 
