@@ -35,7 +35,11 @@ Video crops using `g_auto` (content-aware gravity) require Cloudinary's AI add-o
 
 You only hit this on a **Vercel deployment** that has no Blob store: the deployed app always uses the Vercel Sandbox, which needs `BLOB_READ_WRITE_TOKEN`. Fix: connect a Blob store to the project (**Storage → Create → Blob**) — the var is auto-injected. Full walkthrough in [vercel-sandbox.md](./vercel-sandbox.md).
 
-**Locally you won't see this error** — with no `BLOB_READ_WRITE_TOKEN`, the route falls back to rendering with headless Chromium on your machine (set `LOCAL_RENDER=true` to force that path even when a Blob token is present). To use the Sandbox locally instead, pull a Blob token: `vercel link && vercel env pull apps/web/.env.local`.
+**Locally you won't see this error** — with no `BLOB_READ_WRITE_TOKEN`, the route falls back to rendering with headless Chromium on your machine (set `LOCAL_RENDER=true` to force that path even when a Blob token is present). To use the Sandbox locally instead, pull a Blob token: `cd apps/web && vercel link && vercel env pull`.
+
+## Render shows `failed` with no obvious error
+
+The render route arms a **soft timeout** at `maxDuration - 80` seconds (~720 s) in `apps/web/app/api/video/render/route.ts`. If a render runs past it, the route stops waiting, patches the `video` doc to `status: failed` with an `errorMessage` noting the timeout, and releases the sandbox. A render that silently lands on `failed` has most likely hit this — narrated renders (the longest) are the usual culprits. Fix: shorten the post body, switch to a faster ElevenLabs voice (Flash/Turbo), or render the narrated composition on a Vercel deploy rather than a slower local machine.
 
 ## `Remotion requires React.createContext` / Turbopack export errors
 
@@ -47,7 +51,7 @@ Pinned to a single version via `pnpm.overrides` in the root `package.json`. If w
 
 ## Render fails with `No sandbox snapshot found`
 
-The render route resumes a sandbox from a snapshot id stored in Vercel Blob during the build. If it's missing, the build step didn't run — confirm `apps/web/vercel.json`'s `buildCommand` is `pnpm --filter @template/web vercel-build`, and that the Vercel build log shows a line like `[snapshot] saved: <id>`. If that line is missing, the snapshot script errored — scroll up in the build log for the cause (most often a missing `BLOB_READ_WRITE_TOKEN` at build time, meaning the Blob store isn't connected yet).
+The render route resumes a sandbox from a snapshot id stored in Vercel Blob during the build. If it's missing, the build step didn't run — confirm `apps/web/vercel.json`'s `buildCommand` is `cd ../.. && pnpm --filter @template/web vercel-build`, and that the Vercel build log shows a line like `[snapshot] saved: <id>`. If that line is missing, the snapshot script errored — scroll up in the build log for the cause (most often a missing `BLOB_READ_WRITE_TOKEN` at build time, meaning the Blob store isn't connected yet).
 
 ## First render after a deploy is slow
 

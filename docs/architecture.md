@@ -65,6 +65,8 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, variantIds)`.
 9. On any error: patch `status: failed` + `errorMessage`. The `finally` block stops the sandbox so the slot is released immediately.
 
+A **soft timeout** armed at `(maxDuration - 80)` s (~720 s) races the render: if it fires first, the render is abandoned and the doc lands on `status: failed` with a timeout message rather than letting the platform kill the function mid-flight. Narrated renders are the most likely to approach it — see [troubleshooting.md](./troubleshooting.md#render-shows-failed-with-no-obvious-error).
+
 ## The Cloudinary variant system
 
 A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a re-render. Defined in `video-core/src/registry.ts`:
@@ -78,8 +80,8 @@ A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a 
 ## Where rendered video surfaces
 
 - GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-reference** subquery (`*[_type=="video" && post._ref==^._id && status=="ready" ...]`) — the render route never writes a `videos[]` array back onto the post.
-- `components/VideoPlayer.tsx` plays `cloudinaryUrl` (or a variant URL).
-- `app/posts/[slug]/page.tsx` embeds a post's videos; `app/videos/page.tsx` is the gallery.
+- `apps/web/components/VideoPlayer.tsx` plays `cloudinaryUrl` (or a variant URL).
+- `apps/web/app/posts/[slug]/page.tsx` embeds a post's videos; `apps/web/app/videos/page.tsx` is the gallery.
 
 ## Composition → render data flow
 
