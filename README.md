@@ -57,6 +57,7 @@ Deeper guides live in [`docs/`](./docs/):
 - [Configuration](./docs/configuration.md) — env prefixes, full env reference, the Sanity token
 - [Vercel Sandbox](./docs/vercel-sandbox.md) — connecting a Blob store, the build-time snapshot, local dev
 - [Assist + brand voice](./docs/assist.md) — AI field actions and the brand-voice doc
+- [Plans & costs](./docs/plans-and-costs.md) — what every service costs, and the Vercel Pro requirement
 - [Troubleshooting](./docs/troubleshooting.md) — the common gotchas, with fixes
 
 ## Prerequisites
@@ -92,7 +93,7 @@ cp apps/studio/.env.example apps/studio/.env
 | `VIDEO_RENDER_SECRET` | any random string; the Studio must send this as a bearer token |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
 | `NEXT_PUBLIC_SITE_URL` | public origin, e.g. `https://renderonce.dev` (falls back to `http://localhost:3000`) — drives OG tags, sitemap, RSS |
-| `BLOB_READ_WRITE_TOKEN` | *Optional locally.* Leave empty to render with headless Chromium on your machine (uploads straight to Cloudinary — no Vercel needed). Set it to use the Vercel Sandbox instead: auto-injected on Vercel, or `vercel link && vercel env pull apps/web/.env.local` for local dev. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
+| `BLOB_READ_WRITE_TOKEN` | *Optional locally.* Leave empty to render with headless Chromium on your machine (uploads straight to Cloudinary — no Vercel needed). Set it to use the Vercel Sandbox instead: auto-injected on Vercel, or `cd apps/web && vercel link && vercel env pull` for local dev. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
 
 > Newsletter (Resend) and narrated-video (ElevenLabs) features need a few more vars — and the custom-domain / verified-sender setup — see [docs/configuration.md](./docs/configuration.md#custom-domain--resend-sender).
 
@@ -120,11 +121,12 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 
 **Rendering works locally with no Vercel account.** With `BLOB_READ_WRITE_TOKEN` left empty, the render route renders each composition with headless Chromium on your machine and uploads straight to Cloudinary — Chromium downloads once on the first render (~1 min, one-time). That's everything you need for the steps below. (Set `LOCAL_RENDER=true` to force this path even when a Blob token is present.)
 
-To render in a **Vercel Sandbox** instead — the path the deployed app always uses — connect a Vercel Blob store to the project (the build-time snapshot is created automatically by `vercel-build`; full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)) and pull the token locally:
+To render in a **Vercel Sandbox** instead — the path the deployed app always uses — connect a Vercel Blob store to the project (the build-time snapshot is created automatically by `vercel-build`; full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)) and pull the token locally. Run these from `apps/web/` (the Vercel project root) so the env lands in `apps/web/.env.local`:
 
 ```bash
+cd apps/web
 vercel link
-vercel env pull apps/web/.env.local
+vercel env pull
 ```
 
 Then:
@@ -140,13 +142,13 @@ Then:
 
 **Cloudinary in the Studio.** Each `video` document gains a **Preview** view (a plain player of the canonical `cloudinaryUrl`) and a **Variants** view: a gallery of the Cloudinary derivatives generated at render time, plus an interactive transform preview — all from public delivery URLs, no secret in the Studio.
 
-**Sanity Assist + brand voice.** The Studio adds two AI field actions — **Rewrite in brand voice** (on text fields) and **Generate video copy in brand voice** (on a post's `videoCopy` object). Both reference a `sanity.agentContext` doc surfaced in the Studio as **Brand Voice**. Bootstrap it once:
+**Sanity Assist + brand voice.** The Studio adds two AI field actions — **Rewrite in brand voice** (on text fields) and **Generate video copy in brand voice** (on a post's `videoCopy` object). Both reference a `sanity.agentContext` doc surfaced in the Studio as **Brand Voices**. Bootstrap it once:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-Then tune the voice by editing the **Brand Voice** doc in the Studio — that's the source of truth (the AI reads it live). The markdown + seed are only the initial bootstrap (`createIfNotExists`, won't overwrite Studio edits). No external API key is needed (Sanity-hosted AI), but the AI field actions call **Agent Actions** (Transform/Generate) — a **paid Growth-plan feature** that consumes usage — and require the schema to be deployed (`npx sanity schema deploy`). See [docs/assist.md](docs/assist.md).
+Then tune the voice by editing the **Brand Voices** docs in the Studio — that's the source of truth (the AI reads it live). The markdown + seed are only the initial bootstrap (`createIfNotExists`, won't overwrite Studio edits). No external API key is needed (Sanity-hosted AI), but the AI field actions call **Agent Actions** (Transform/Generate) — a **paid Growth-plan feature** that consumes usage — and require the schema to be deployed (`npx sanity schema deploy`). See [docs/assist.md](docs/assist.md).
 
 **Cloudinary variants.** Each composition opts into a set of variants (site MP4/poster/preview-GIF, plus the long-form family — YouTube 1080p and podcast MP3 — for the narrated composition) in `packages/video-core/src/registry.ts`. At render time the route eager-generates them on Cloudinary and stores their URLs on `video.variants[]` — no extra Remotion renders. `variantUrl(cloudName, …)` takes the cloud name as a parameter, so `video-core` stays free of Cloudinary config.
 
@@ -161,5 +163,5 @@ The render secret (`SANITY_STUDIO_RENDER_SECRET` in the Studio) is bundled into 
 ## Customizing
 
 - **Add a composition:** create `packages/video-core/src/compositions/Foo.tsx`, register it in `COMPOSITIONS` (`registry.ts`) and `COMPOSITION_COMPONENTS` (`registry-components.ts`), export it from `index.ts`, then add a render action (or extend the existing ones) in `apps/studio/src/actions/renderVideo.tsx`. Locally, restart `pnpm dev:web` so the next render rebundles. On Vercel, redeploy — the build-time snapshot refreshes automatically.
-- **Change the look:** edit the palette in `packages/video-core/src/types.ts` (`COLORS`) and the style helpers in `styles.ts`.
+- **Change the look:** edit the palette in `packages/video-core/src/types.ts` (`COLORS`). Per-composition style constants (shadows, sizing) live inline in each composition file (e.g. `SHADOW` in `compositions/ArticlePromo.tsx`).
 - **Change the source content:** the compositions render from `ArticleVideoProps` (`types.ts`). Adjust that schema, the `post` schema, and the field mapping in the Studio render action together.

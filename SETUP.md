@@ -11,7 +11,7 @@ Work top to bottom — each section depends on the ones above it.
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token
 - A **Cloudinary** account (cloud name + API key + secret)
-- A **Vercel** account (free tier works) — used for hosting and for the sandbox renderer
+- A **Vercel** account — **only needed to deploy the hosted app**, and **Pro is required to deploy** (the render route runs up to 800 s; Hobby's 300 s cap makes renders fail — see [`docs/plans-and-costs.md`](./docs/plans-and-costs.md#vercel--only-for-the-hosted-deployment)). **Local rendering needs no Vercel account at all** — renders fall back to headless Chromium on your machine.
 
 ## 1. Install & scaffold env files
 
@@ -57,7 +57,9 @@ Invent one random string and mirror the **same** value into two places:
 Add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` to
 `apps/web/.env.local`.
 
-## 5. Vercel Sandbox (the rendering backend)
+## 5. Vercel Sandbox (optional — skip for local-only rendering)
+
+> **Skip this entire section if you only render locally.** With `BLOB_READ_WRITE_TOKEN` left empty, the render route renders with headless Chromium on your machine and uploads straight to Cloudinary — no Vercel account needed. This section is only for deploying the hosted app or exercising the Vercel Sandbox path locally.
 
 Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short version:
 
@@ -86,7 +88,17 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
 > via `apps/web/vercel.json`'s `buildCommand`. Bumping Remotion or changing
 > compositions is just a redeploy.
 
-## 6. (Optional) Brand voice for Sanity Assist
+## 6. (Optional) Newsletter / Resend
+
+The newsletter fan-out (Resend send + broadcast) is off the critical path — skip
+it for the core render loop. To enable it, add the Resend vars to
+`apps/web/.env.local` (`RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`,
+`RESEND_FROM_NAME`, `NEWSLETTER_SEND_SECRET`) and mirror the send secret into
+`apps/studio/.env` as `SANITY_STUDIO_NEWSLETTER_SECRET`. The sender domain must be
+**verified in Resend** or sends bounce / land in spam. Full walkthrough:
+[`docs/configuration.md`](./docs/configuration.md#custom-domain--resend-sender).
+
+## 7. (Optional) Brand voice for Sanity Assist
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
@@ -96,7 +108,13 @@ Then edit the **Brand Voices** docs in Studio (the source of truth). Assist's AI
 field actions also need the schema deployed (`npx sanity schema deploy`) and are
 a paid Growth-plan feature. See [`docs/assist.md`](./docs/assist.md).
 
-## 7. Run it
+## 8. Run it
+
+```bash
+pnpm dev          # both apps at once (Turborepo) — site :3000 + studio :3333
+```
+
+Or run them individually:
 
 ```bash
 pnpm dev:web      # http://localhost:3000
@@ -107,7 +125,7 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
 **Render Promo (1:1)** or **Render Teaser (9:16)**. Watch the **Videos** list move
 `rendering → uploading → ready`, then open `/posts/<slug>` or `/videos` on the site.
 
-## 8. Deploy
+## 9. Deploy
 
 1. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
    to **800s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The

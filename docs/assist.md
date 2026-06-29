@@ -37,7 +37,7 @@ The `voices/*.md` files + the seed script are only the **initial bootstrap** (`c
 ## Requirements
 
 - A Sanity project on the **Growth plan** (or higher) — custom field actions run **Agent Actions** (Transform/Generate), a paid feature that consumes usage.
-- `@sanity/assist` **v4.3.0+** for custom field actions (this template pins `^6`).
+- `@sanity/assist` **v6+** for custom field actions (this template uses `^6.0.4`).
 - The **schema must be deployed** so Agent Actions have a `schemaId`: `cd apps/studio && npx sanity schema deploy` (or `npx sanity deploy`). Re-deploy after schema changes.
 - Agent Action **Generate is experimental** — its API may change.
 - The seed script needs CLI auth: `sanity login`, then run with `--with-user-token`.

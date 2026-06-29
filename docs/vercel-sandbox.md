@@ -60,10 +60,10 @@ After that, `pnpm dev:web` (from the repo root) can spawn sandboxes and stage re
 `apps/web/vercel.json` overrides the build command to:
 
 ```
-pnpm --filter @template/web vercel-build
+cd ../.. && pnpm --filter @template/web vercel-build
 ```
 
-which runs `next build && tsx scripts/create-snapshot.mts`. The snapshot script:
+The `cd ../..` is required: Vercel runs the build from `apps/web/` (the project root), but the pnpm workspace filter must run from the monorepo root. The command then runs `next build && tsx scripts/create-snapshot.mts`. The snapshot script:
 
 1. Spawns a fresh Vercel Sandbox.
 2. Bundles the Remotion entry (`apps/web/remotion/index.ts`) with `remotion bundle`.
