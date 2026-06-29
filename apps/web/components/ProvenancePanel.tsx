@@ -3,6 +3,7 @@
 // should explain its own magic; this is the one-glance version.
 //
 // Server component. Imports only the React-free registry metadata.
+import { stegaClean } from 'next-sanity';
 import { findComposition } from '@template/video-core/registry';
 import type { PostVideo } from '@/lib/sanity.queries';
 
@@ -16,7 +17,10 @@ function formatElapsed(startedAt?: string | null, endedAt?: string | null): stri
 }
 
 export default function ProvenancePanel({ video }: { video: PostVideo }) {
-  const meta = video.template ? findComposition(video.template) : undefined;
+  // stegaClean before the registry key lookup — stega chars (present in draft
+  // mode) would miss the COMPOSITIONS_BY_ID key and drop all the derived metadata.
+  const template = stegaClean(video.template);
+  const meta = template ? findComposition(template) : undefined;
   const fps = meta?.fps ?? 30;
   const frames = video.duration
     ? Math.round(video.duration * fps)

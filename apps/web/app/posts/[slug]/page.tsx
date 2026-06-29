@@ -6,6 +6,7 @@ import {
   PortableText,
   type PortableTextComponents,
 } from '@portabletext/react';
+import { stegaClean } from 'next-sanity';
 import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
 import { sanityFetch } from '@/lib/sanity.live';
 import { ALL_POSTS_QUERY, SINGLE_POST_QUERY, POST_CAPTIONS_QUERY } from '@/lib/sanity.queries';
@@ -172,11 +173,16 @@ export default async function PostPage({
   // long-form with audio, deserves prominence). Teaser videos stay in the grid
   // below the body. Promo videos are intentionally not surfaced on the post page
   // (they're for newsletter/social fanout, not on-page playback).
+  // stegaClean the `template` strings before comparing: in draft/Presentation
+  // mode sanityFetch encodes invisible stega chars into them, which would break
+  // these equality checks (and the hero/grid split) inside the Studio iframe.
   const allVideos = post.videos ?? [];
-  const narratedReading = allVideos.find((v) => v.template === 'article-narrated') ?? null;
-  const shortFormVideos = allVideos.filter(
-    (v) => v.template !== 'article-narrated' && v.template !== 'article-promo',
-  );
+  const narratedReading =
+    allVideos.find((v) => stegaClean(v.template) === 'article-narrated') ?? null;
+  const shortFormVideos = allVideos.filter((v) => {
+    const template = stegaClean(v.template);
+    return template !== 'article-narrated' && template !== 'article-promo';
+  });
 
   // The fan-out panel showcases one render's full Cloudinary variant set.
   // Prefer the narrated reading (richest — 5 derivations); otherwise fall back
