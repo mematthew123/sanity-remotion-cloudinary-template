@@ -2,7 +2,7 @@
 
 Render videos from your **Sanity** content with **Remotion**, then publish them to a **Next.js** site through **Cloudinary** — triggered with one click from the CMS.
 
-Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is rendered in a **Vercel Sandbox**, uploaded to Cloudinary, and playing on your site.
+Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is rendered — **locally with headless Chromium, or in a Vercel Sandbox once deployed** — uploaded to Cloudinary, and playing on your site. The local path means you can clone, configure only **Sanity + Cloudinary**, and render a video with **no Vercel account at all**.
 
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
@@ -32,7 +32,9 @@ Next.js site
    reads `video` docs where status == "ready" and plays them from the Cloudinary URL
 ```
 
-The render runs inside the sandbox synchronously, so the route returns the finished `cloudinaryUrl` in its response — the Studio action keeps reading `status: ready` straight from it. The finished render is previewed in a **Preview** view tab on the `video` document (a plain player of the canonical `cloudinaryUrl`); a **Variants** tab shows the Cloudinary derivations.
+The render runs synchronously, so the route returns the finished `cloudinaryUrl` in its response — the Studio action keeps reading `status: ready` straight from it. The finished render is previewed in a **Preview** view tab on the `video` document (a plain player of the canonical `cloudinaryUrl`); a **Variants** tab shows the Cloudinary derivations.
+
+> **Local render fallback.** Step 2 above describes the Vercel Sandbox, which the deployed app always uses. Run locally with no `BLOB_READ_WRITE_TOKEN` (or with `LOCAL_RENDER=true`) and the route instead renders with **headless Chromium on your machine** and uploads straight to Cloudinary — same `video` doc lifecycle, no Vercel needed. See [docs/plans-and-costs.md → Vercel](./docs/plans-and-costs.md#vercel--only-for-the-hosted-deployment).
 
 ## Monorepo layout
 
@@ -63,7 +65,7 @@ Deeper guides live in [`docs/`](./docs/):
 - pnpm 10+
 - A [Sanity](https://www.sanity.io/) project + dataset, and an **Editor** API token (write access)
 - A [Cloudinary](https://cloudinary.com/) account (cloud name + API key/secret)
-- A [Vercel](https://vercel.com/) account — deploy `apps/web` and connect a [Blob store](https://vercel.com/docs/storage/vercel-blob) for the sandbox renderer. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)
+- **(Only to deploy the hosted app)** A [Vercel](https://vercel.com/) account — host `apps/web` and connect a [Blob store](https://vercel.com/docs/storage/vercel-blob) for the sandbox renderer. **Not needed to run locally**, where renders fall back to headless Chromium on your machine. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)
 
 ## Getting Started
 
@@ -90,7 +92,7 @@ cp apps/studio/.env.example apps/studio/.env
 | `VIDEO_RENDER_SECRET` | any random string; the Studio must send this as a bearer token |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
 | `NEXT_PUBLIC_SITE_URL` | public origin, e.g. `https://renderonce.dev` (falls back to `http://localhost:3000`) — drives OG tags, sitemap, RSS |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel; for local dev, `vercel link && vercel env pull apps/web/.env.local`. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
+| `BLOB_READ_WRITE_TOKEN` | *Optional locally.* Leave empty to render with headless Chromium on your machine (uploads straight to Cloudinary — no Vercel needed). Set it to use the Vercel Sandbox instead: auto-injected on Vercel, or `vercel link && vercel env pull apps/web/.env.local` for local dev. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
 
 > Newsletter (Resend) and narrated-video (ElevenLabs) features need a few more vars — and the custom-domain / verified-sender setup — see [docs/configuration.md](./docs/configuration.md#custom-domain--resend-sender).
 
@@ -116,7 +118,9 @@ pnpm dev            # both apps at once (Turborepo) — site :3000 + studio :333
 Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 `pnpm dev:studio` (http://localhost:3333).
 
-Rendering runs in a Vercel Sandbox. The one-time setup is just *connect a Vercel Blob store to the deployed project*; the build-time snapshot is created automatically by `vercel-build`. Full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). For local dev, pull the same `BLOB_READ_WRITE_TOKEN`:
+**Rendering works locally with no Vercel account.** With `BLOB_READ_WRITE_TOKEN` left empty, the render route renders each composition with headless Chromium on your machine and uploads straight to Cloudinary — Chromium downloads once on the first render (~1 min, one-time). That's everything you need for the steps below. (Set `LOCAL_RENDER=true` to force this path even when a Blob token is present.)
+
+To render in a **Vercel Sandbox** instead — the path the deployed app always uses — connect a Vercel Blob store to the project (the build-time snapshot is created automatically by `vercel-build`; full walkthrough in [docs/vercel-sandbox.md](./docs/vercel-sandbox.md)) and pull the token locally:
 
 ```bash
 vercel link

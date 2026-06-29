@@ -5,7 +5,7 @@
 - **Node 20+** and **pnpm 10+**
 - A **Sanity** project + dataset, and an **Editor** API token (see [Sanity token](#sanity-token) — this is the #1 setup pitfall)
 - A **Cloudinary** account (cloud name + API key + API secret)
-- A **Vercel** account with a [Blob store](https://vercel.com/docs/storage/vercel-blob) connected to the deployed project — that's the entire setup; see [vercel-sandbox.md](./vercel-sandbox.md)
+- A **Vercel** account — **only for the hosted deployment** (and for exercising the Vercel Sandbox render path locally). Connect a [Blob store](https://vercel.com/docs/storage/vercel-blob) to the project; see [vercel-sandbox.md](./vercel-sandbox.md). **Not required to run locally** — with no `BLOB_READ_WRITE_TOKEN` set, the render route falls back to headless Chromium on your machine, so Sanity + Cloudinary alone is a complete local render loop.
 
 ## Two env prefixes (don't mix them)
 
@@ -33,7 +33,8 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | sender identity, e.g. `hello@renderonce.dev` / `Render Once`. **The from-domain must be verified in Resend** or sends bounce / spam-folder. |
 | `NEWSLETTER_SEND_SECRET` | bearer the "Send newsletter" action must send; mirror into Studio's `SANITY_STUDIO_NEWSLETTER_SECRET` |
 | `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step (paid — see [Optional / paid features](#optional--paid-features)); leave blank otherwise. Also flip `SANITY_STUDIO_ENABLE_NARRATED=true` to surface it in the Studio. |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token — auto-injected on Vercel when a Blob store is connected; for local dev, `vercel link` + `vercel env pull apps/web/.env.local`. See [vercel-sandbox.md](./vercel-sandbox.md). |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for the **Sandbox** render path — auto-injected on Vercel when a Blob store is connected; for local Sandbox renders, `vercel link` + `vercel env pull apps/web/.env.local`. **Optional locally:** leave blank to render with headless Chromium on your machine (uploads straight to Cloudinary, no Vercel needed). See [vercel-sandbox.md](./vercel-sandbox.md). |
+| `LOCAL_RENDER` | Optional. Set to `true` to force the local headless-Chromium render path even when `BLOB_READ_WRITE_TOKEN` is present. Otherwise the route auto-selects local rendering only when no Blob token is set. **Ignored on Vercel deployments** (those always use the Sandbox). |
 
 ### `apps/studio/.env`
 | Var | Notes |

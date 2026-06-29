@@ -7,7 +7,7 @@ The workspace has two apps plus one shared package:
 
 ## `apps/web` — the site + render route
 
-The Next.js site reads `video` docs where `status == "ready"` and plays them from Cloudinary (`components/VideoPlayer.tsx`). It also hosts `/api/video/render` — the only server-side mutator — which renders a composition inside a Vercel Sandbox, uploads to Cloudinary, and patches the `video` doc. See [architecture.md](./architecture.md) and [vercel-sandbox.md](./vercel-sandbox.md).
+The Next.js site reads `video` docs where `status == "ready"` and plays them from Cloudinary (`components/VideoPlayer.tsx`). It also hosts `/api/video/render` — the only server-side mutator — which renders a composition (in a **Vercel Sandbox**, or with **headless Chromium on the local machine** when no Blob store is configured), uploads to Cloudinary, and patches the `video` doc. See [architecture.md](./architecture.md) and [vercel-sandbox.md](./vercel-sandbox.md).
 
 Run it locally with `pnpm dev:web` (http://localhost:3000).
 

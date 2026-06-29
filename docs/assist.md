@@ -4,30 +4,31 @@ The Studio adds AI copy generation grounded in an editable **brand-voice** docum
 
 ## What it adds
 
-Two field actions (wired in `apps/studio/sanity.config.ts` under `assist({ fieldActions })`):
+The **Brand AI** field menu is **data-driven**: it lists one action *per voice doc* in the dataset. Wired in the `brandVoice` plugin (`apps/studio/src/plugins/brandVoice/index.ts`, composed into `apps/studio/sanity.config.ts`) under `assist({ fieldActions })`:
 
-- **Rewrite in brand voice** — on text-like fields (`string`, `text`, `blockContent`). Uses `client.agent.action.transform` to rewrite the field's content in the brand voice, preserving meaning.
-- **Generate video copy in brand voice** — on a post's `videoCopy` object. Uses `client.agent.action.generate` to fill every caption slot from the post's `title`, `excerpt`, and `body`.
+- **Rewrite as `<voice>`** — on text-like fields (`string`, `text`, `blockContent`). Uses `client.agent.action.transform` to rewrite the field's content in that voice, preserving meaning.
+- **Generate video copy as `<voice>`** — on a post's `videoCopy` object. Uses `client.agent.action.generate` to fill every caption slot from the post's `title`, `excerpt`, and `body`.
 
-Both reference the brand-voice doc via `instructionParams` (`{type: 'document', documentId: 'brand-voice'}`).
+Each action references *its* voice doc via `instructionParams` (`voice: {type: 'document', documentId: v._id}`). The post's preferred `voice` reference (or the default `brand-voice`) is sorted to the top of the menu by `preferredVoiceId()`; all voices stay selectable.
 
-## The brand-voice document
+## The voice documents
 
-- Type: `sanity.agentContext` (provided by `@sanity/agent-context`), id **`brand-voice`**, surfaced in the Studio structure as **Brand Voice**.
-- That Studio document is the **source of truth** — the AI actions read it live. `apps/studio/brand-voice-instructions.md` is the initial template used to bootstrap it.
-- Bootstrap it once with:
+- Type: `sanity.agentContext` (provided by `@sanity/agent-context`), surfaced in the Studio structure as **Brand Voices**. The default voice has id **`brand-voice`**.
+- Each markdown file in **`apps/studio/voices/`** seeds one voice doc whose id is the filename stem — e.g. `brand-voice.md` → `brand-voice`, `dead-head.md` → `dead-head`. The doc's `name` comes from the file's first `# Heading`.
+- The Studio documents are the **source of truth** — the AI actions read them live. The markdown files are only the initial template used to bootstrap them.
+- Bootstrap them once with:
 
 ```bash
 cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
 ```
 
-The script `createIfNotExists` the `brand-voice` doc from the markdown (with a `groqFilter` scoping it to `post` / `author`) — a one-time bootstrap that **won't overwrite** later Studio edits.
+The script `createIfNotExists` one doc per `voices/*.md` file (with a `groqFilter` scoping each to `post` / `author`) — a one-time bootstrap that **won't overwrite** later Studio edits.
 
-## Customizing the voice
+## Customizing the voices
 
-Edit the **Brand Voice** document directly in the Studio (surfaced in the structure). It's the source of truth — the AI actions read it live, so changes take effect on the next action.
+Edit the voice documents directly in the Studio under **Brand Voices**. They're the source of truth — the AI actions read them live, so changes take effect on the next action. To add a new voice, drop another `<slug>.md` into `apps/studio/voices/` and re-run the seed (or create the doc in the Studio).
 
-`apps/studio/brand-voice-instructions.md` + the seed script are only the **initial bootstrap** (`createIfNotExists`); re-running the seed won't overwrite your Studio edits. To re-bootstrap from the markdown, delete the `brand-voice` document first, then re-run the seed.
+The `voices/*.md` files + the seed script are only the **initial bootstrap** (`createIfNotExists`); re-running the seed won't overwrite your Studio edits. To re-bootstrap a voice from its markdown, delete that voice document in the Studio first, then re-run the seed.
 
 ## `videoCopy` and the compositions
 
