@@ -2,12 +2,14 @@ import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
 import {Resend} from 'resend';
-import {secureCompare} from '@/lib/secureCompare';
+import {authorizeStudioRequest} from '@/lib/validateStudioUser';
 import {NEWSLETTER_BY_EITHER_ID_QUERY, type NewsletterForSend} from '@/lib/sanity.queries';
 import {NewsletterTemplate} from '@/components/emails/NewsletterTemplate';
 
-// Auth follows the render route's `Authorization: Bearer ${SECRET}` pattern so
-// the same bundled-secret caveat applies (see CLAUDE.md "Env: three prefixes").
+// Auth mirrors the render route (see lib/validateStudioUser): the Studio sends
+// the logged-in editor's Sanity token, validated server-side as a write-capable
+// project member. NEWSLETTER_SEND_SECRET stays as an OPTIONAL server-side
+// fallback for CI/automation — it is no longer bundled into the Studio's JS.
 const NEWSLETTER_SEND_SECRET = process.env.NEWSLETTER_SEND_SECRET;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -46,16 +48,12 @@ function fromAddress(): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!NEWSLETTER_SEND_SECRET) {
-    return jsonResponse({error: 'NEWSLETTER_SEND_SECRET not configured'}, {status: 500});
-  }
   if (!RESEND_API_KEY) {
     return jsonResponse({error: 'RESEND_API_KEY not configured'}, {status: 500});
   }
 
   const authHeader = req.headers.get('authorization');
-  const expected = `Bearer ${NEWSLETTER_SEND_SECRET}`;
-  if (!authHeader || !secureCompare(authHeader, expected)) {
+  if (!(await authorizeStudioRequest(authHeader, NEWSLETTER_SEND_SECRET))) {
     return jsonResponse({error: 'Unauthorized'}, {status: 401});
   }
 

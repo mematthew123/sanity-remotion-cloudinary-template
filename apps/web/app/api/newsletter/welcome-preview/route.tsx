@@ -1,20 +1,21 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
-import {secureCompare} from '@/lib/secureCompare';
+import {authorizeStudioRequest} from '@/lib/validateStudioUser';
 import {WELCOME_EMAIL_QUERY, type WelcomeEmail} from '@/lib/sanity.queries';
 import {WelcomeEmailTemplate} from '@/components/emails/WelcomeEmailTemplate';
 
 // Read-only preview of the welcome-email singleton for the Studio "Preview
-// welcome email" action. GET + secret-as-query-param so it loads inside the
-// Studio iframe, exactly like /api/newsletter/preview. No writes, no Resend.
+// welcome email" action. Mirrors /api/newsletter/preview: the Studio fetch()es
+// with the editor's Sanity token in an Authorization header and injects the HTML
+// via iframe `srcDoc`, so the token never lands in a URL. No writes, no Resend.
 const NEWSLETTER_SEND_SECRET = process.env.NEWSLETTER_SEND_SECRET;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 export async function OPTIONS() {
@@ -29,12 +30,7 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!NEWSLETTER_SEND_SECRET) {
-    return jsonResponse({error: 'NEWSLETTER_SEND_SECRET not configured'}, {status: 500});
-  }
-
-  const secret = new URL(req.url).searchParams.get('secret');
-  if (!secret || !secureCompare(secret, NEWSLETTER_SEND_SECRET)) {
+  if (!(await authorizeStudioRequest(req.headers.get('authorization'), NEWSLETTER_SEND_SECRET))) {
     return jsonResponse({error: 'Unauthorized'}, {status: 401});
   }
 

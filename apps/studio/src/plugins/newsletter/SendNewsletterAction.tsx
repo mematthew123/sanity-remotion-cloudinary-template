@@ -2,6 +2,7 @@ import {useState} from 'react'
 import type {DocumentActionComponent, DocumentActionDescription, DocumentActionProps} from 'sanity'
 import {useToast} from '@sanity/ui'
 import {LaunchIcon} from '@sanity/icons'
+import {useStudioUserToken} from '../../lib/useStudioClient'
 
 type NewsletterSnapshot = {
   status?: 'draft' | 'sending' | 'sent' | 'failed'
@@ -16,6 +17,7 @@ export const SendNewsletterAction: DocumentActionComponent = (
   props: DocumentActionProps,
 ): DocumentActionDescription => {
   const toast = useToast()
+  const userToken = useStudioUserToken()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
@@ -39,13 +41,15 @@ export const SendNewsletterAction: DocumentActionComponent = (
   const baseId = (props.id || '').replace(/^drafts\./, '')
   const apiUrl =
     import.meta.env.SANITY_STUDIO_NEWSLETTER_API_URL || 'http://localhost:3000'
-  const secret = import.meta.env.SANITY_STUDIO_NEWSLETTER_SECRET
 
   const onConfirm = async () => {
     setConfirmOpen(false)
 
-    if (!secret) {
-      toast.push({status: 'error', title: 'SANITY_STUDIO_NEWSLETTER_SECRET not set'})
+    if (!userToken) {
+      toast.push({
+        status: 'error',
+        title: 'No Sanity session token available — sign in again.',
+      })
       props.onComplete()
       return
     }
@@ -56,7 +60,7 @@ export const SendNewsletterAction: DocumentActionComponent = (
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${secret}`,
+          Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify({
           documentId: baseId,

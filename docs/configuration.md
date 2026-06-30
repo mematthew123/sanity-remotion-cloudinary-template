@@ -33,7 +33,7 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `NEXT_PUBLIC_SITE_URL` | canonical public origin (e.g. `https://renderonce.dev`), no trailing slash — drives OG tags, sitemap, RSS, and newsletter CTA links. Falls back to `http://localhost:3000`. |
 | `RESEND_API_KEY` / `RESEND_AUDIENCE_ID` | Resend send + broadcast; server-only |
 | `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | sender identity, e.g. `hello@renderonce.dev` / `Render Once`. **The from-domain must be verified in Resend** or sends bounce / spam-folder. |
-| `NEWSLETTER_SEND_SECRET` | bearer the "Send newsletter" action must send; mirror into Studio's `SANITY_STUDIO_NEWSLETTER_SECRET` |
+| `NEWSLETTER_SEND_SECRET` | **Optional.** Server-side fallback bearer for CI/automation, like `VIDEO_RENDER_SECRET`. The newsletter actions (preview / welcome / send) authenticate with the editor's Sanity session instead — see [The render trigger's auth](#the-render-triggers-auth). Not mirrored into the Studio. |
 | `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step (paid — see [Optional / paid features](#optional--paid-features)); leave blank otherwise. Also flip `SANITY_STUDIO_ENABLE_NARRATED=true` to surface it in the Studio. |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for the **Sandbox** render path — auto-injected on Vercel when a Blob store is connected; for local Sandbox renders, run `cd apps/web && vercel link && vercel env pull` (from the Vercel project root). **Optional locally:** leave blank to render with headless Chromium on your machine (uploads straight to Cloudinary, no Vercel needed). See [vercel-sandbox.md](./vercel-sandbox.md). |
 | `LOCAL_RENDER` | Optional. Set to `true` to force the local headless-Chromium render path even when `BLOB_READ_WRITE_TOKEN` is present. Otherwise the route auto-selects local rendering only when no Blob token is set. **Ignored on Vercel deployments** (those always use the Sandbox). |
@@ -45,7 +45,6 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_STUDIO_RENDER_API_URL` | full render URL — `http://localhost:3000/api/video/render` locally, `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_NEWSLETTER_API_URL` | base origin the newsletter actions (preview / welcome-email / send) POST to — e.g. `https://renderonce.dev` in production. Falls back to `http://localhost:3000`; set it when the web app isn't on localhost. |
 | `SANITY_STUDIO_PREVIEW_URL` | web app origin for the Presentation tool's live preview — e.g. your deployed site URL. Falls back to `http://localhost:3000`. |
-| `SANITY_STUDIO_NEWSLETTER_SECRET` | == web `NEWSLETTER_SEND_SECRET` |
 | `SANITY_STUDIO_ENABLE_NARRATED` | set to `true` to enable the ElevenLabs-backed `article-narrated` composition; **default off**. See [Optional / paid features](#optional--paid-features). |
 
 ## Optional / paid features
@@ -61,7 +60,9 @@ Two features ship enabled in the codebase but lean on **paid third-party plans**
 
 The Studio's "Render" action authenticates with the **logged-in editor's own Sanity session token** — read off the authenticated Studio client and sent as a bearer to `/api/video/render`. The route validates it server-side (`apps/web/lib/validateStudioUser.ts`) as a **member of this project with a write-granting role**; non-members and read-only tokens get a 401. Nothing render-related is bundled into the Studio's client JS, and the write-capable `SANITY_API_WRITE_TOKEN` stays on the server.
 
-`VIDEO_RENDER_SECRET` (web app) is **optional** and accepted **server-side only** as a static fallback for CI/automation that POSTs without a Sanity session. Invent any long random string if you need it; leave it unset otherwise. It is never shipped to the browser.
+The **newsletter actions** (preview / welcome-email / send) use the exact same model — the editor's session token, validated by `authorizeStudioRequest`. The two read-only preview routes are `fetch()`ed with the token in an `Authorization` header and rendered into the dialog iframe via `srcDoc`, so the token never travels in a URL query string. `SANITY_STUDIO_NEWSLETTER_SECRET` is gone; nothing newsletter-related ships in the client JS.
+
+`VIDEO_RENDER_SECRET` and `NEWSLETTER_SEND_SECRET` (web app) are **optional** and accepted **server-side only** as static fallbacks for CI/automation that POSTs without a Sanity session. Invent any long random string if you need them; leave them unset otherwise. They are never shipped to the browser.
 
 The Studio config sets `auth: {loginMethod: 'token'}` so the session token is stored in `localStorage` where the action can read it — the default `dual` mode may keep it in an httpOnly cookie that JS can't read and that never reaches the cross-origin route. **Editors must be signed in to the Studio to render.** Point `SANITY_STUDIO_RENDER_API_URL` at `http://localhost:3000/api/video/render` for local testing — if it targets a deployed URL, renders hit that (old) backend instead.
 

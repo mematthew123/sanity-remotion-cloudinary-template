@@ -1,23 +1,25 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
-import {secureCompare} from '@/lib/secureCompare';
+import {authorizeStudioRequest} from '@/lib/validateStudioUser';
 import {NEWSLETTER_BY_ID_QUERY, type NewsletterForSend} from '@/lib/sanity.queries';
 import {NewsletterTemplate} from '@/components/emails/NewsletterTemplate';
 
-// Preview is a GET because the Studio plugin embeds it in an iframe; iframes
-// can't set Authorization headers easily, so the secret travels as a query
-// param. The route only reads — no Sanity writes, no Resend calls.
+// Read-only preview consumed by the Studio "Preview email" action. The Studio
+// fetch()es this route with the editor's Sanity token in an Authorization header
+// and injects the returned HTML into an iframe via `srcDoc` — so the token never
+// travels in a URL query string. Auth mirrors the render route (see
+// lib/validateStudioUser): NEWSLETTER_SEND_SECRET stays as an OPTIONAL
+// server-side fallback. The route only reads — no Sanity writes, no Resend.
 const NEWSLETTER_SEND_SECRET = process.env.NEWSLETTER_SEND_SECRET;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
-// Iframes (the primary consumer) don't preflight, but adding CORS headers
-// here means Studio code can also fetch() this route directly if it ever
-// wants to (e.g., to inject the HTML into a Studio component).
+// The Studio fetch()es this cross-origin with a custom Authorization header, so
+// the browser preflights with OPTIONS — allow Authorization here.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 export async function OPTIONS() {
@@ -32,16 +34,10 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!NEWSLETTER_SEND_SECRET) {
-    return jsonResponse({error: 'NEWSLETTER_SEND_SECRET not configured'}, {status: 500});
-  }
-
-  const {searchParams} = new URL(req.url);
-  const id = searchParams.get('id');
-  const secret = searchParams.get('secret');
-
+  const id = new URL(req.url).searchParams.get('id');
   if (!id) return jsonResponse({error: 'Missing id'}, {status: 400});
-  if (!secret || !secureCompare(secret, NEWSLETTER_SEND_SECRET)) {
+
+  if (!(await authorizeStudioRequest(req.headers.get('authorization'), NEWSLETTER_SEND_SECRET))) {
     return jsonResponse({error: 'Unauthorized'}, {status: 401});
   }
 

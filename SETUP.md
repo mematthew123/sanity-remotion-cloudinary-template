@@ -128,8 +128,9 @@ Full walkthrough: [`docs/vercel-sandbox.md`](./docs/vercel-sandbox.md). Short ve
 The newsletter fan-out (Resend send + broadcast) is off the critical path — skip
 it for the core render loop. To enable it, add the Resend vars to
 `apps/web/.env.local` (`RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`,
-`RESEND_FROM_NAME`, `NEWSLETTER_SEND_SECRET`) and mirror the send secret into
-`apps/studio/.env` as `SANITY_STUDIO_NEWSLETTER_SECRET`. The sender domain must be
+`RESEND_FROM_NAME`). The newsletter actions authenticate with the editor's Sanity
+session token (no Studio-side secret to mirror); `NEWSLETTER_SEND_SECRET` is an
+optional server-side fallback for CI/automation only. The sender domain must be
 **verified in Resend** or sends bounce / land in spam. Full walkthrough:
 [`docs/configuration.md`](./docs/configuration.md#custom-domain--resend-sender).
 
