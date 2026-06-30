@@ -7,7 +7,7 @@ Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
 > [!IMPORTANT]
-> **This is a template/demo, not a hardened production app.** The render trigger authenticates with a shared secret bundled into the Studio's client JS — fine for local dev or an auth-gated Studio, but a **public production Studio leaks a write-capable token**. Read the [Security note](#security-note) before deploying a Studio that anyone can reach.
+> **This is a template/demo.** The render trigger authenticates with the logged-in editor's own Sanity session token — validated server-side as a write-capable project member — so no render credential is bundled into the Studio's client JS. The write-capable `SANITY_API_WRITE_TOKEN` always stays on the server. See the [Security note](#security-note) for the threat model and the optional server-side fallback secret.
 
 ## What's included
 
@@ -93,7 +93,7 @@ cp apps/studio/.env.example apps/studio/.env
 | `NEXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project id |
 | `NEXT_PUBLIC_SANITY_DATASET` | dataset (e.g. `production`) |
 | `SANITY_API_WRITE_TOKEN` | Editor+ token — the render route creates/updates `video` docs |
-| `VIDEO_RENDER_SECRET` | any random string; the Studio must send this as a bearer token |
+| `VIDEO_RENDER_SECRET` | *Optional.* Server-side fallback bearer for CI/automation. The Studio's "Render" action does **not** use it — it authenticates with the editor's own Sanity session (see [Security note](#security-note)) |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
 | `NEXT_PUBLIC_SITE_URL` | public origin, e.g. `https://renderonce.dev` (falls back to `http://localhost:3000`) — drives OG tags, sitemap, RSS |
 | `BLOB_READ_WRITE_TOKEN` | *Optional locally.* Leave empty to render with headless Chromium on your machine (uploads straight to Cloudinary — no Vercel needed). Set it to use the Vercel Sandbox instead: auto-injected on Vercel, or `cd apps/web && vercel link && vercel env pull` for local dev. See [docs/vercel-sandbox.md](./docs/vercel-sandbox.md). |
@@ -106,10 +106,9 @@ cp apps/studio/.env.example apps/studio/.env
 | --- | --- |
 | `SANITY_STUDIO_PROJECT_ID` / `SANITY_STUDIO_DATASET` | same project/dataset as the web app |
 | `SANITY_STUDIO_RENDER_API_URL` | `http://localhost:3000/api/video/render` locally; `https://renderonce.dev/api/video/render` in production |
-| `SANITY_STUDIO_RENDER_SECRET` | **must equal** the web app's `VIDEO_RENDER_SECRET` |
 | `SANITY_STUDIO_ENABLE_NARRATED` | optional; `true` enables the paid ElevenLabs-backed narrated composition (default off) |
 
-> The render secret is one value you invent; mirror the **same** string into `VIDEO_RENDER_SECRET` (web) and `SANITY_STUDIO_RENDER_SECRET` (studio).
+> No render secret lives in the Studio anymore. The "Render" action authenticates with the logged-in editor's own Sanity session token, which the render route validates server-side — nothing render-related is bundled into the browser. See the [Security note](#security-note).
 
 > **Two features lean on paid third-party plans** — Sanity Assist (Growth plan, for the Brand AI menu) and narrated video (ElevenLabs). Both are handled so a free-tier clone never hits a confusing failure: Assist stays visible but fails with an explanatory toast, and narrated video is hidden until you set `SANITY_STUDIO_ENABLE_NARRATED=true`. See [docs/configuration.md → Optional / paid features](./docs/configuration.md#optional--paid-features). For what *every* service costs — including the Vercel Pro requirement — see [docs/plans-and-costs.md](./docs/plans-and-costs.md).
 
@@ -157,14 +156,17 @@ Then tune the voice by editing the **Brand Voices** docs in the Studio — that'
 
 ## Deploy
 
-Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **800s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary, render secret). Point `SANITY_STUDIO_RENDER_API_URL` at the deployed URL. Deploy the Studio with `pnpm deploy:studio`.
-
-> [!WARNING]
-> Before you deploy a **publicly reachable Studio**, read the [Security note](#security-note) below — the render secret is bundled into the Studio's client JS, so an unauthenticated public Studio exposes a write-capable token. Keep the Studio behind auth, or harden the trigger as described.
+Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **800s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary). Point `SANITY_STUDIO_RENDER_API_URL` at the deployed URL. Deploy the Studio with `pnpm deploy:studio`.
 
 ## Security note
 
-The render secret (`SANITY_STUDIO_RENDER_SECRET` in the Studio) is bundled into client-side JavaScript — that's how the browser-side render trigger authenticates to the route. This is fine for local development or behind authentication, but **for a public production Studio it leaks the secret**. To harden: instead of a shared bearer token, proxy the render call through a route that authenticates the user's Sanity session, or move the trigger server-side (e.g. a Sanity webhook / scheduled function).
+The render trigger authenticates with the **logged-in editor's own Sanity session token**. The Studio's "Render" action reads that token off its authenticated client and sends it as a bearer to `/api/video/render`; the route validates it server-side (via the Sanity API) as a **member of this project with a write-granting role** before doing any work. A non-member or read-only token is rejected with a 401. No render credential is bundled into the Studio's client JS, and the write-capable `SANITY_API_WRITE_TOKEN` never leaves the server — so a publicly reachable Studio exposes nothing render-related.
+
+For this to work the Studio must store the editor's token where the action can read it, so `sanity.config.ts` sets `auth: {loginMethod: 'token'}` — without it the default `dual` mode may keep the session in an httpOnly cookie the browser JS can't read (and that never reaches the cross-origin route), leaving no credential to forward. The tradeoff is that the token lives in `localStorage` (XSS-readable) rather than a cookie; deployed Studios on a custom domain typically fall back to token mode anyway, since browsers block the third-party cookie to `api.sanity.io`. **You must be signed in to the Studio to render** — if a session ever exposes no token, the action shows a clear toast instead of failing silently, and you can use the server-side secret for automation.
+
+`VIDEO_RENDER_SECRET` (web app, optional) remains accepted **server-side only** as a static fallback for CI/automation that POSTs without a Sanity session. It is never shipped to the browser. If you don't need automation, you can leave it unset.
+
+> CORS on the route stays open (`*`) — the gate is the validated Sanity token, not the origin. Tighten it to your Studio origin if you want defense-in-depth.
 
 ## Customizing
 

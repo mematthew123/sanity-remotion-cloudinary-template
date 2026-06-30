@@ -6,7 +6,7 @@ import {
 // `useToast` is exported from @sanity/ui, not the `sanity` barrel.
 import {useToast} from '@sanity/ui'
 import type {ArticleVideoProps} from '@template/video-core/types'
-import {useStudioClient} from '../lib/useStudioClient'
+import {useStudioClient, useStudioUserToken} from '../lib/useStudioClient'
 
 // The plain document snapshot carries the editable fields directly; only the
 // author name and main-image URL live behind a reference/asset and need a deref.
@@ -35,15 +35,18 @@ const DERIVED_QUERY = `*[_id == $id][0]{
 async function firePromoRender(
   postId: string,
   inputProps: ArticleVideoProps,
+  userToken: string | undefined,
 ): Promise<{idempotent?: boolean}> {
   const url =
     import.meta.env.SANITY_STUDIO_RENDER_API_URL || 'http://localhost:3000/api/video/render'
-  const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
-  if (!secret) throw new Error('SANITY_STUDIO_RENDER_SECRET not set')
+  // The publishing editor's Sanity token; the render route validates it as a
+  // write-capable project member. Absent under cookie-based auth — surfaced as
+  // a soft "skipped" toast via the caller's catch, never blocking the publish.
+  if (!userToken) throw new Error('No Sanity session token available for auto-promo render')
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', Authorization: `Bearer ${secret}`},
+    headers: {'Content-Type': 'application/json', Authorization: `Bearer ${userToken}`},
     body: JSON.stringify({compositionId: 'article-promo', inputProps, postId}),
   })
   const data = (await res.json().catch(() => ({}))) as {error?: string; idempotent?: boolean}
@@ -65,6 +68,7 @@ export function withAutoPromoOnPublish(
   function PublishWithAutoPromo(props: DocumentActionProps): DocumentActionDescription | null {
     const original = originalPublishAction(props)
     const client = useStudioClient()
+    const userToken = useStudioUserToken()
     const toast = useToast()
 
     if (!original) return original
@@ -103,13 +107,17 @@ export function withAutoPromoOnPublish(
         // a render hiccup can't disrupt the publish it rode in on.
         derivedPromise
           .then((derived) =>
-            firePromoRender(postId, {
-              title: snapshot.title ?? 'Untitled',
-              authorName: derived?.authorName ?? 'Unknown',
-              publishedAt: snapshot.publishedAt ?? new Date().toISOString(),
-              excerpt: snapshot.excerpt ?? '',
-              mainImageUrl: derived?.mainImageUrl || undefined,
-            }),
+            firePromoRender(
+              postId,
+              {
+                title: snapshot.title ?? 'Untitled',
+                authorName: derived?.authorName ?? 'Unknown',
+                publishedAt: snapshot.publishedAt ?? new Date().toISOString(),
+                excerpt: snapshot.excerpt ?? '',
+                mainImageUrl: derived?.mainImageUrl || undefined,
+              },
+              userToken,
+            ),
           )
           .then((r) =>
             toast.push({

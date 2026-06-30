@@ -28,7 +28,7 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_API_WRITE_TOKEN` | **Editor** token — the render route creates `video` docs. Server-only. |
 | `SANITY_API_READ_TOKEN` | **Viewer** (read) token — only needed for draft-mode visual editing (the `/api/draft-mode/enable` route and `lib/sanity.live.ts`). Server-only. Leave blank if you don't use Presentation/visual editing. |
 | `NEXT_PUBLIC_SANITY_STUDIO_URL` | Studio origin for stega click-to-edit overlays — e.g. your deployed Studio URL. Public. Falls back to `http://localhost:3333`. |
-| `VIDEO_RENDER_SECRET` | bearer the render trigger must send |
+| `VIDEO_RENDER_SECRET` | **Optional.** Server-side fallback bearer for CI/automation. The Studio's "Render" action authenticates with the editor's Sanity session instead — see [The render trigger's auth](#the-render-triggers-auth). |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | server-only |
 | `NEXT_PUBLIC_SITE_URL` | canonical public origin (e.g. `https://renderonce.dev`), no trailing slash — drives OG tags, sitemap, RSS, and newsletter CTA links. Falls back to `http://localhost:3000`. |
 | `RESEND_API_KEY` / `RESEND_AUDIENCE_ID` | Resend send + broadcast; server-only |
@@ -45,7 +45,6 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `SANITY_STUDIO_RENDER_API_URL` | full render URL — `http://localhost:3000/api/video/render` locally, `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_NEWSLETTER_API_URL` | base origin the newsletter actions (preview / welcome-email / send) POST to — e.g. `https://renderonce.dev` in production. Falls back to `http://localhost:3000`; set it when the web app isn't on localhost. |
 | `SANITY_STUDIO_PREVIEW_URL` | web app origin for the Presentation tool's live preview — e.g. your deployed site URL. Falls back to `http://localhost:3000`. |
-| `SANITY_STUDIO_RENDER_SECRET` | == web `VIDEO_RENDER_SECRET` |
 | `SANITY_STUDIO_NEWSLETTER_SECRET` | == web `NEWSLETTER_SEND_SECRET` |
 | `SANITY_STUDIO_ENABLE_NARRATED` | set to `true` to enable the ElevenLabs-backed `article-narrated` composition; **default off**. See [Optional / paid features](#optional--paid-features). |
 
@@ -58,12 +57,13 @@ Two features ship enabled in the codebase but lean on **paid third-party plans**
 | **Sanity Assist** (the "Brand AI" field menu — *Rewrite as voice*, *Generate video copy*) | Agent Actions are a **paid feature on the Sanity Growth plan and up** (~$15/seat/mo) and consume AI credits — unavailable on Free. See [assist.md](./assist.md). | **Stays visible** (it showcases Sanity). On a Free plan the action fails gracefully with a *"Brand AI needs a Sanity Growth plan"* toast instead of a raw API error. |
 | **Narrated video** (`article-narrated`, the TTS reading of the post body) | **ElevenLabs** — `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` on the web app. The free API tier has **no commercial licence and forces attribution**; real use needs at least the ~$5/mo Starter plan (verify at [elevenlabs.io/pricing](https://elevenlabs.io/pricing/api)). | **Hidden by default.** Set `SANITY_STUDIO_ENABLE_NARRATED=true` in `apps/studio/.env` to surface the *Generate voiceover* + *Render narrated reading* actions and add "Article Narrated" to the video template picker. The promo/teaser render loop needs none of this. |
 
-## The shared render secret
+## The render trigger's auth
 
-`VIDEO_RENDER_SECRET` is a value **you invent** (any long random string). Mirror the **same** value into:
-`apps/web` `VIDEO_RENDER_SECRET` · `apps/studio` `SANITY_STUDIO_RENDER_SECRET`.
+The Studio's "Render" action authenticates with the **logged-in editor's own Sanity session token** — read off the authenticated Studio client and sent as a bearer to `/api/video/render`. The route validates it server-side (`apps/web/lib/validateStudioUser.ts`) as a **member of this project with a write-granting role**; non-members and read-only tokens get a 401. Nothing render-related is bundled into the Studio's client JS, and the write-capable `SANITY_API_WRITE_TOKEN` stays on the server.
 
-> ⚠️ It is bundled into the Studio client JS. Fine for local/demo or auth-gated use; for a public production Studio, proxy the render call through a route that authenticates the Sanity session instead.
+`VIDEO_RENDER_SECRET` (web app) is **optional** and accepted **server-side only** as a static fallback for CI/automation that POSTs without a Sanity session. Invent any long random string if you need it; leave it unset otherwise. It is never shipped to the browser.
+
+The Studio config sets `auth: {loginMethod: 'token'}` so the session token is stored in `localStorage` where the action can read it — the default `dual` mode may keep it in an httpOnly cookie that JS can't read and that never reaches the cross-origin route. **Editors must be signed in to the Studio to render.** Point `SANITY_STUDIO_RENDER_API_URL` at `http://localhost:3000/api/video/render` for local testing — if it targets a deployed URL, renders hit that (old) backend instead.
 
 ## Sanity token
 

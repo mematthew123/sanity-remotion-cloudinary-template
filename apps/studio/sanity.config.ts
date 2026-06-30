@@ -28,6 +28,17 @@ export default defineConfig({
   projectId: import.meta.env.SANITY_STUDIO_PROJECT_ID,
   dataset: import.meta.env.SANITY_STUDIO_DATASET,
 
+  // Force token-based login so the editor's session token is stored in
+  // localStorage, where the "Render" action reads it (see useStudioUserToken)
+  // to authenticate to the render route. The default `dual` may use an httpOnly
+  // cookie that JS can't read and that never reaches our cross-origin route —
+  // leaving no credential to forward. Deployed Studios on a custom domain
+  // typically fall back to token mode anyway (third-party cookies are blocked),
+  // so this just makes local dev match production.
+  auth: {
+    loginMethod: 'token',
+  },
+
   plugins: [
     structureTool({structure, defaultDocumentNode: getDefaultDocumentNode}),
     // Live click-to-edit preview of the Next.js site (needs SANITY_API_READ_TOKEN on the web app).
