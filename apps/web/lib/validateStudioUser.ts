@@ -10,61 +10,72 @@ import {secureCompare} from './secureCompare'
 // Everything fails closed: any network error, non-2xx, or unexpected shape
 // results in a rejected request.
 
-const SANITY_API = 'https://api.sanity.io/v2021-06-07'
+const API_VERSION = 'v2021-06-07'
 
 // Default Sanity roles that grant no write access. Add custom read-only role
 // names here if your project defines them.
 const READ_ONLY_ROLES = new Set(['viewer'])
 
-async function sanityGet<T>(path: string, token: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${SANITY_API}${path}`, {
-      headers: {Authorization: `Bearer ${token}`},
-    })
-    if (!res.ok) return null
-    return (await res.json()) as T
-  } catch {
-    return null
-  }
+// Opt-in diagnostics for debugging a 401 (set DEBUG_RENDER_AUTH=true). Silent
+// otherwise. Never logs the token itself.
+const DEBUG = process.env.DEBUG_RENDER_AUTH === 'true'
+function debug(...args: unknown[]) {
+  if (DEBUG) console.warn('[render-auth]', ...args)
 }
 
-type Me = {id?: string}
-type ProjectMember = {
+// The current user as returned by the project-scoped `/users/me`: the caller's
+// own roles in THIS project. `roles` is current; `role` is the legacy field.
+type CurrentUser = {
   id?: string
-  isRobot?: boolean
   role?: string
   roles?: {name?: string}[]
 }
-type Project = {members?: ProjectMember[]}
 
-function roleNamesOf(member: ProjectMember): string[] {
-  if (Array.isArray(member.roles) && member.roles.length > 0) {
-    return member.roles.map((r) => r.name).filter((n): n is string => Boolean(n))
+function roleNamesOf(user: CurrentUser): string[] {
+  if (Array.isArray(user.roles) && user.roles.length > 0) {
+    return user.roles.map((r) => r.name).filter((n): n is string => Boolean(n))
   }
-  return member.role ? [member.role] : []
+  return user.role ? [user.role] : []
 }
 
 /**
  * True iff `userToken` belongs to a member of this project who holds at least
- * one write-granting role. A Sanity personal token is user-global, so this is
- * scoped to the project: a non-member's token yields 401/403 (→ null → false).
+ * one write-granting role.
+ *
+ * Validates against the PROJECT-scoped `/users/me` (`<projectId>.api.sanity.io`),
+ * which returns the caller's own roles in this project and is callable by any
+ * member about themselves. We deliberately avoid listing `/projects/<id>`
+ * members — that needs the admin-only `sanity-project-members.read` permission,
+ * so it would wrongly reject a plain Editor. A non-member's token yields 401
+ * here (→ null → false). No separate/org token is required: we use the caller's
+ * own token.
  */
 async function isWriteCapableMember(userToken: string): Promise<boolean> {
   const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
-  if (!projectId || !userToken) return false
+  if (!projectId || !userToken) {
+    debug('reject: missing', {hasProjectId: Boolean(projectId), hasToken: Boolean(userToken)})
+    return false
+  }
 
-  // 1. Resolve the caller's user id from their token. Non-2xx → not a real token.
-  const me = await sanityGet<Me>('/users/me', userToken)
-  if (!me?.id) return false
+  let user: CurrentUser | null = null
+  try {
+    const res = await fetch(`https://${projectId}.api.sanity.io/${API_VERSION}/users/me`, {
+      headers: {Authorization: `Bearer ${userToken}`},
+    })
+    if (!res.ok) {
+      debug(`users/me → ${res.status} ${res.statusText}`, (await res.text()).slice(0, 300))
+      return false
+    }
+    user = (await res.json()) as CurrentUser
+  } catch (err) {
+    debug('users/me threw', err instanceof Error ? err.message : err)
+    return false
+  }
 
-  // 2. Read the project with the SAME token. A non-member gets 401/403 → null.
-  const project = await sanityGet<Project>(`/projects/${projectId}`, userToken)
-  const member = project?.members?.find((m) => m.id === me.id)
-  if (!member || member.isRobot) return false
-
-  // 3. Require a non-empty role set with at least one write-granting role.
-  const roles = roleNamesOf(member)
-  return roles.length > 0 && roles.some((name) => !READ_ONLY_ROLES.has(name))
+  const roles = roleNamesOf(user)
+  const ok = roles.length > 0 && roles.some((name) => !READ_ONLY_ROLES.has(name))
+  debug('role check', {roles, ok})
+  return ok
 }
 
 /**
