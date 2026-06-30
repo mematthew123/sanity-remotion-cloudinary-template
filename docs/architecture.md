@@ -53,7 +53,7 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 
 `apps/web/app/api/video/render/route.ts`:
 
-1. Bearer auth against `VIDEO_RENDER_SECRET`.
+1. Bearer auth via `authorizeStudioRequest` (`lib/validateStudioUser.ts`): accepts the editor's Sanity session token (validated as a write-capable project member) or, as a server-side fallback, the optional `VIDEO_RENDER_SECRET`.
 2. Lazily builds the Sanity write client (so a not-yet-configured clone returns a clean error instead of crashing at import).
 3. `findComposition(id)` → Zod `safeParse(inputProps)`.
 4. Idempotency: skip if a `video` for this `(post, template)` is already ready/in-flight.

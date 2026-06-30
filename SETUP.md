@@ -64,17 +64,15 @@ cp apps/studio/.env.example     apps/studio/.env
 See [`docs/configuration.md`](./docs/configuration.md) for the env reference and
 the two common token errors.
 
-## 3. The shared render secret
+## 3. Render trigger auth
 
-Invent one random string and mirror the **same** value into two places:
+Nothing to configure. The Studio's "Render" action authenticates with your
+logged-in Sanity session token, which the render route validates server-side as
+a write-capable project member — no secret is bundled into the Studio.
 
-| File | Var |
-| --- | --- |
-| `apps/web/.env.local` | `VIDEO_RENDER_SECRET` |
-| `apps/studio/.env` | `SANITY_STUDIO_RENDER_SECRET` |
-
-> ⚠️ It's bundled into client JS — fine for local/demo, but proxy the render call
-> behind session auth for a public production Studio.
+> `VIDEO_RENDER_SECRET` in `apps/web/.env.local` is **optional**: a server-side
+> fallback bearer for CI/automation that POSTs without a Sanity session. Leave it
+> unset unless you need that. See [`docs/configuration.md`](./docs/configuration.md#the-render-triggers-auth).
 
 ## 4. Cloudinary
 

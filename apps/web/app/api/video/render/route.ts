@@ -13,6 +13,7 @@ import {v2 as cloudinary} from 'cloudinary'
 // ("Remotion requires React.createContext"). /registry is React-free metadata.
 import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/video-core/registry'
 import {withCloudinaryAnalytics} from '@/lib/cloudinaryDelivery'
+import {authorizeStudioRequest} from '@/lib/validateStudioUser'
 
 import {unlink} from 'node:fs/promises'
 
@@ -40,13 +41,6 @@ const corsHeaders = {
 }
 
 export async function POST(req: NextRequest) {
-  if (!RENDER_SECRET) {
-    return NextResponse.json(
-      {error: 'VIDEO_RENDER_SECRET not configured'},
-      {status: 500, headers: corsHeaders},
-    )
-  }
-
   // Local render fallback: when not deployed on Vercel and either LOCAL_RENDER
   // is set or there's no Blob token, render with headless Chromium on this
   // machine and upload straight to Cloudinary — no Vercel Sandbox / Blob store
@@ -66,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${RENDER_SECRET}`) {
+  if (!(await authorizeStudioRequest(authHeader, RENDER_SECRET))) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401, headers: corsHeaders})
   }
 

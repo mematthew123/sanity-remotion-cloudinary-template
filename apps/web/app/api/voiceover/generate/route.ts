@@ -1,14 +1,15 @@
 import {NextRequest, NextResponse} from 'next/server'
-import {timingSafeEqual} from 'node:crypto'
 import {generateVoiceoverForPost} from '@/lib/voiceoverGenerate'
+import {authorizeStudioRequest} from '@/lib/validateStudioUser'
 
 // Editor-triggered voiceover generation. The Studio action POSTs here with
 // `{postId, dryRun?}`; this route runs the same shared logic as the CLI
 // (apps/web/scripts/generate-voiceover.ts) and patches `post.voiceoverChunks`.
 //
-// Reuses VIDEO_RENDER_SECRET intentionally — voiceover generation is the
-// preparatory step of a video render, so it shares the render's threat model
-// and the same bundled-in-Studio secret. One fewer env var to manage.
+// Shares the render route's auth (see lib/validateStudioUser): the Studio sends
+// the logged-in editor's Sanity token, validated as a write-capable project
+// member; VIDEO_RENDER_SECRET remains an optional server-side fallback.
+// Voiceover is the preparatory step of a render, so it reuses the same model.
 
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
 
@@ -33,24 +34,13 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
   })
 }
 
-function secureCompare(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a)
-  const bBuf = Buffer.from(b)
-  if (aBuf.length !== bBuf.length) return false
-  return timingSafeEqual(aBuf, bBuf)
-}
-
 export async function POST(req: NextRequest) {
-  if (!RENDER_SECRET) {
-    return jsonResponse({error: 'VIDEO_RENDER_SECRET not configured'}, {status: 500})
-  }
   if (!process.env.ELEVENLABS_API_KEY) {
     return jsonResponse({error: 'ELEVENLABS_API_KEY not configured'}, {status: 500})
   }
 
   const authHeader = req.headers.get('authorization')
-  const expected = `Bearer ${RENDER_SECRET}`
-  if (!authHeader || !secureCompare(authHeader, expected)) {
+  if (!(await authorizeStudioRequest(authHeader, RENDER_SECRET))) {
     return jsonResponse({error: 'Unauthorized'}, {status: 401})
   }
 

@@ -1,7 +1,7 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@sanity/client';
 import {render} from '@react-email/render';
-import {timingSafeEqual} from 'node:crypto';
+import {secureCompare} from '@/lib/secureCompare';
 import {NEWSLETTER_BY_ID_QUERY, type NewsletterForSend} from '@/lib/sanity.queries';
 import {NewsletterTemplate} from '@/components/emails/NewsletterTemplate';
 
@@ -29,14 +29,6 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
     ...init,
     headers: {...corsHeaders, ...(init?.headers ?? {})},
   });
-}
-
-function secureCompare(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  // Pad the shorter one so timingSafeEqual doesn't short-circuit on length.
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
 }
 
 export async function GET(req: NextRequest) {

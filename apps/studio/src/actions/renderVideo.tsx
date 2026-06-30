@@ -9,7 +9,13 @@ import {useToast} from '@sanity/ui'
 import {PlayIcon, SparklesIcon} from '@sanity/icons'
 import {extractNarrationScenes, type CompositionId} from '@template/video-core/registry'
 import type {ArticleVideoProps} from '@template/video-core/types'
-import {useStudioClient} from '../lib/useStudioClient'
+import {useStudioClient, useStudioUserToken} from '../lib/useStudioClient'
+
+// Shown when the editor's Sanity session exposes no token (e.g. cookie-based
+// auth). The render routes still accept the server-side VIDEO_RENDER_SECRET for
+// automation, but the interactive trigger relies on the editor's own token.
+const NO_TOKEN_MESSAGE =
+  'No Sanity session token available — sign in again, or use the server-side render secret for automation.'
 
 // Fields the render route needs that the snapshot lacks (author name and image
 // URL live behind references/assets).
@@ -40,6 +46,7 @@ function makeRenderAction(
   function RenderAction(props: DocumentActionProps): DocumentActionDescription {
     const [isRendering, setIsRendering] = useState(false)
     const client = useStudioClient()
+    const userToken = useStudioUserToken()
     const toast = useToast()
 
     const onHandle = async () => {
@@ -75,10 +82,9 @@ function makeRenderAction(
 
         const url =
           import.meta.env.SANITY_STUDIO_RENDER_API_URL || 'http://localhost:3000/api/video/render'
-        const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
 
-        if (!secret) {
-          toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
+        if (!userToken) {
+          toast.push({status: 'error', title: NO_TOKEN_MESSAGE})
           return
         }
 
@@ -92,7 +98,7 @@ function makeRenderAction(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${secret}`,
+            Authorization: `Bearer ${userToken}`,
           },
           body: JSON.stringify({compositionId, inputProps, postId: publishedId}),
         })
@@ -176,6 +182,7 @@ type NarratedFields = {
 function RenderArticleNarratedAction(props: DocumentActionProps): DocumentActionDescription {
   const [isRendering, setIsRendering] = useState(false)
   const client = useStudioClient()
+  const userToken = useStudioUserToken()
   const toast = useToast()
 
   const onHandle = async () => {
@@ -236,10 +243,9 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
 
       const url =
         import.meta.env.SANITY_STUDIO_RENDER_API_URL || 'http://localhost:3000/api/video/render'
-      const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
 
-      if (!secret) {
-        toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
+      if (!userToken) {
+        toast.push({status: 'error', title: NO_TOKEN_MESSAGE})
         return
       }
 
@@ -254,7 +260,7 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${secret}`,
+          Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify({
           compositionId: 'article-narrated',
@@ -326,11 +332,11 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
   const apiUrl =
     import.meta.env.SANITY_STUDIO_RENDER_API_URL?.replace(/\/api\/video\/render$/, '') ||
     'http://localhost:3000'
-  const secret = import.meta.env.SANITY_STUDIO_RENDER_SECRET
+  const userToken = useStudioUserToken()
 
   const fetchPreview = async (): Promise<void> => {
-    if (!secret) {
-      toast.push({status: 'error', title: 'SANITY_STUDIO_RENDER_SECRET not set'})
+    if (!userToken) {
+      toast.push({status: 'error', title: NO_TOKEN_MESSAGE})
       return
     }
     setBusy(true)
@@ -339,7 +345,7 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${secret}`,
+          Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify({postId: baseId, dryRun: true}),
       })
@@ -383,7 +389,7 @@ function GenerateVoiceoverAction(props: DocumentActionProps): DocumentActionDesc
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${secret}`,
+          Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify({postId: baseId}),
       })
