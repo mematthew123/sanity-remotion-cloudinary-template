@@ -7,7 +7,7 @@ Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
 > [!IMPORTANT]
-> **This is a template/demo.** The render trigger authenticates with the logged-in editor's own Sanity session token — validated server-side as a write-capable project member — so no render credential is bundled into the Studio's client JS. The write-capable `SANITY_API_WRITE_TOKEN` always stays on the server. See the [Security note](#security-note) for the threat model and the optional server-side fallback secret.
+> **This is a template/demo.** The render trigger authenticates with the logged-in editor's own Sanity session token — validated server-side as a write-capable project member — so no render credential is bundled into the Studio's client JS. The newsletter actions use the exact same model — nothing newsletter-related is bundled either. The write-capable `SANITY_API_WRITE_TOKEN` always stays on the server. See the [Security note](#security-note) for the threat model and the optional server-side fallback secrets.
 
 ## What's included
 
@@ -108,7 +108,7 @@ cp apps/studio/.env.example apps/studio/.env
 | `SANITY_STUDIO_RENDER_API_URL` | `http://localhost:3000/api/video/render` locally; `https://renderonce.dev/api/video/render` in production |
 | `SANITY_STUDIO_ENABLE_NARRATED` | optional; `true` enables the paid ElevenLabs-backed narrated composition (default off) |
 
-> No render secret lives in the Studio anymore. The "Render" action authenticates with the logged-in editor's own Sanity session token, which the render route validates server-side — nothing render-related is bundled into the browser. See the [Security note](#security-note).
+> No render or newsletter secrets live in the Studio anymore. The "Render" and newsletter actions authenticate with the logged-in editor's own Sanity session token, validated server-side — nothing render- or newsletter-related is bundled into the browser. See the [Security note](#security-note).
 
 > **Two features lean on paid third-party plans** — Sanity Assist (Growth plan, for the Brand AI menu) and narrated video (ElevenLabs). Both are handled so a free-tier clone never hits a confusing failure: Assist stays visible but fails with an explanatory toast, and narrated video is hidden until you set `SANITY_STUDIO_ENABLE_NARRATED=true`. See [docs/configuration.md → Optional / paid features](./docs/configuration.md#optional--paid-features). For what *every* service costs — including the Vercel Pro requirement — see [docs/plans-and-costs.md](./docs/plans-and-costs.md).
 
@@ -165,6 +165,8 @@ The render trigger authenticates with the **logged-in editor's own Sanity sessio
 For this to work the Studio must store the editor's token where the action can read it, so `sanity.config.ts` sets `auth: {loginMethod: 'token'}` — without it the default `dual` mode may keep the session in an httpOnly cookie the browser JS can't read (and that never reaches the cross-origin route), leaving no credential to forward. The tradeoff is that the token lives in `localStorage` (XSS-readable) rather than a cookie; deployed Studios on a custom domain typically fall back to token mode anyway, since browsers block the third-party cookie to `api.sanity.io`. **You must be signed in to the Studio to render** — if a session ever exposes no token, the action shows a clear toast instead of failing silently, and you can use the server-side secret for automation.
 
 `VIDEO_RENDER_SECRET` (web app, optional) remains accepted **server-side only** as a static fallback for CI/automation that POSTs without a Sanity session. It is never shipped to the browser. If you don't need automation, you can leave it unset.
+
+The **newsletter actions** (preview / welcome-email / send) use the same session-token model — the editor's token in an `Authorization` header, validated by `authorizeStudioRequest`. `NEWSLETTER_SEND_SECRET` (web app, optional) is the equivalent server-side fallback for newsletter automation. `SANITY_STUDIO_NEWSLETTER_SECRET` no longer exists — nothing newsletter-related is in the Studio bundle.
 
 > CORS on the route stays open (`*`) — the gate is the validated Sanity token, not the origin. Tighten it to your Studio origin if you want defense-in-depth.
 
