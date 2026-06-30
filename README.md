@@ -6,6 +6,9 @@ Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is
 
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
+> [!IMPORTANT]
+> **This is a template/demo, not a hardened production app.** The render trigger authenticates with a shared secret bundled into the Studio's client JS — fine for local dev or an auth-gated Studio, but a **public production Studio leaks a write-capable token**. Read the [Security note](#security-note) before deploying a Studio that anyone can reach.
+
 ## What's included
 
 On top of the core render loop, the template ships three fanout surfaces, all driven by the one canonical render:
@@ -156,7 +159,10 @@ Then tune the voice by editing the **Brand Voices** docs in the Studio — that'
 
 Deploy `apps/web` to Vercel with the project root set to `apps/web` (the included `vercel.json` installs and builds from the monorepo root, including the build-time sandbox snapshot). In the Vercel dashboard, **Storage → Create → Blob** and attach the store to the project — `BLOB_READ_WRITE_TOKEN` is then auto-injected at runtime. Set the Function max duration to **800s** for `/api/video/render`, and add all `apps/web` env vars (Sanity, Cloudinary, render secret). Point `SANITY_STUDIO_RENDER_API_URL` at the deployed URL. Deploy the Studio with `pnpm deploy:studio`.
 
-## ⚠️ Security note
+> [!WARNING]
+> Before you deploy a **publicly reachable Studio**, read the [Security note](#security-note) below — the render secret is bundled into the Studio's client JS, so an unauthenticated public Studio exposes a write-capable token. Keep the Studio behind auth, or harden the trigger as described.
+
+## Security note
 
 The render secret (`SANITY_STUDIO_RENDER_SECRET` in the Studio) is bundled into client-side JavaScript — that's how the browser-side render trigger authenticates to the route. This is fine for local development or behind authentication, but **for a public production Studio it leaks the secret**. To harden: instead of a shared bearer token, proxy the render call through a route that authenticates the user's Sanity session, or move the trigger server-side (e.g. a Sanity webhook / scheduled function).
 
