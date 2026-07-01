@@ -18,7 +18,16 @@ type VideoDoc = {
   errorMessage?: string
 }
 
-const previewStyle = {width: '100%', display: 'block', background: '#0b0b0b'} as const
+
+const previewStyle = {
+  display: 'block',
+  background: '#0b0b0b',
+  width: 'auto',
+  height: 'auto',
+  maxWidth: '100%',
+  maxHeight: '70vh',
+  margin: '0 auto',
+} as const
 
 export const VideoPreview: UserViewComponent = ({document}) => {
   const doc = document.displayed as unknown as VideoDoc
