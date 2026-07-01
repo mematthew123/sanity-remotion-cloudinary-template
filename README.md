@@ -2,6 +2,18 @@
 
 Render videos from your **Sanity** content with **Remotion**, then publish them to a **Next.js** site through **Cloudinary** — triggered with one click from the CMS.
 
+<!--
+  Demo video. GitHub only plays a `<video>` tag with an EXTERNAL url, not a committed file path.
+  To get the url: open any issue on this repo → drag renderonce.mp4 into the comment box →
+  GitHub uploads it and inserts a https://github.com/.../assets/... url → paste that below.
+  (You can close the issue without submitting; the upload persists.)
+-->
+<div align="center">
+  <video src="REPLACE_WITH_GITHUB_ATTACHMENT_URL.mp4" controls muted loop width="100%">
+    <a href="https://renderonce.dev">▶ Watch the demo — render once, fan out everywhere</a>
+  </video>
+</div>
+
 Write a post in Sanity Studio, hit **Render**, and a few moments later an MP4 is rendered — **locally with headless Chromium, or in a Vercel Sandbox once deployed** — uploaded to Cloudinary, and playing on your site. The local path means you can clone, configure only **Sanity + Cloudinary**, and render a video with **no Vercel account at all**.
 
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** (site derivatives) generated at render time. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
