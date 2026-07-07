@@ -6,7 +6,7 @@ Write a post in Sanity Studio, hit **Publish**, and a few moments later an MP4 i
 
 On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** — five derivatives of the one canonical render (site MP4, poster JPG, preview GIF, YouTube 1080p, podcast MP3) generated at render time, never re-rendered. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
-![The Variants view on a video document in Sanity Studio — one render fanned out to five Cloudinary derivations](./docs/images/studio-variants.png)
+![The post's document action menu in Sanity Studio — Render Promo, Render Teaser, Render narrated reading, and Generate voiceover](./docs/images/studio-render-actions.png)
 
 > [!IMPORTANT]
 > **How auth is handled:** the Studio's render and newsletter actions send the logged-in editor's own Sanity session token, which the API routes validate server-side as a write-capable project member. No secrets are bundled into the Studio, and the write-capable `SANITY_API_WRITE_TOKEN` never leaves the server.
@@ -129,8 +129,6 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 
 1. In Studio, create an **Author**, then a **Post** (title, slug, author, excerpt, main image, body). In the post's **Video** group, enable **Auto-generate promo on publish**.
 2. Hit **Publish** — a promo (1:1) render fires automatically in the background. (You can also trigger renders anytime from the document action menu → **Render Promo (1:1)** or **Render Teaser (9:16)**.)
-
-   ![The post's document action menu in Sanity Studio — Render Promo, Render Teaser, Render narrated reading, and Generate voiceover](./docs/images/studio-render-actions.png)
 3. Watch the **Videos** list: the new doc moves `rendering → uploading → ready`.
 4. Visit `http://localhost:3000/posts/<slug>` — the video plays from Cloudinary. `/videos` lists every rendered video.
 
@@ -141,6 +139,8 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
   ![The Preview view on a video document — the finished render playing right in Sanity Studio](./docs/images/studio-preview.png)
 - **Sanity Assist + brand voice.** "Brand AI" field actions — rewrite text or generate video copy in an editable brand voice — backed by **Brand Voices** docs in the Studio. Needs a Growth plan (Agent Actions); seeding and customization in [docs/assist.md](./docs/assist.md).
 - **Cloudinary variants.** Each composition opts into a variant set (site MP4/poster/preview-GIF, plus YouTube 1080p and podcast MP3 for the narrated composition) in `packages/video-core/src/registry.ts` — eager-generated at render time and stored on `video.variants[]`, never re-rendered. See [docs/architecture.md → variant system](./docs/architecture.md#the-cloudinary-variant-system).
+
+  ![The Variants view on a video document in Sanity Studio — one render fanned out to five Cloudinary derivations](./docs/images/studio-variants.png)
 - **Transform playground.** The site ships a `/playground` page — an interactive Cloudinary transform explorer that demonstrates the same variant system live, independent of any rendered video. Tweak transforms and watch the delivery URL change.
 
 ## Deploy
