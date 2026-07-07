@@ -17,7 +17,8 @@ Run it locally with `pnpm dev:web` (http://localhost:3000).
 
 The Sanity Studio is where editors trigger and review renders:
 
-- **Render** — a "Render" document action on a published `post` POSTs `{compositionId, inputProps, postId}` to the render route with the bearer secret, and shows rendering/ready/error state.
+- **Publish (auto-promo)** — the built-in Publish action is wrapped (`apps/studio/src/actions/autoPromoOnPublish.tsx`): when a post has **Auto-generate promo on publish** enabled, publishing fires a promo (1:1) render in the background. Render failures surface as a toast and never block the publish.
+- **Render** — "Render" document actions on a published `post` POST `{compositionId, inputProps, postId}` to the render route, authenticated with the logged-in editor's Sanity session token (see [configuration.md → The render trigger's auth](./configuration.md#the-render-triggers-auth)), and show rendering/ready/error state.
 - **Preview** — a "Preview" view tab on the `video` document plays the finished render.
 - **Variants** — a "Variants" view tab on the `video` document shows the Cloudinary derivatives (a gallery of the generated variants plus a live transform preview, built entirely from public Cloudinary delivery URLs — no secret in the Studio). See [architecture.md](./architecture.md#the-cloudinary-variant-system).
 

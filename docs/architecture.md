@@ -4,7 +4,7 @@
 
 ```
 Sanity (post)
-   │  trigger: Studio "Render" document action
+   │  trigger: publish (auto-promo) — or a Studio "Render" document action
    ▼
 POST /api/video/render            (Next.js route, bearer-authed)
    │  1. validate inputProps (Zod) + idempotency check
