@@ -68,7 +68,7 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Site Preview GIF',
     surface: 'site',
     format: 'gif',
-    transformation: 'w_540,du_3,fps_15,fl_lossy,q_70,f_gif',
+    transformation: 'w_540,du_3,fps_15,fl_lossy,q_70,e_loop,f_gif',
     width: 540,
     // Eager: materialized at upload so the home-feed hover preview is instant
     // (no first-request generation delay). Costs a little render-time upload.

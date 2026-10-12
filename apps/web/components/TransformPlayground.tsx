@@ -27,7 +27,7 @@ const PRESETS: { label: string; transform: string; formats: Format[] }[] = [
   { label: 'Sepia', transform: 'e_sepia', formats: ['jpg'] },
   { label: 'Pixelate', transform: 'e_pixelate:12', formats: ['jpg'] },
   { label: 'Poster frame', transform: 'so_10p', formats: ['jpg'] },
-  { label: 'Preview GIF', transform: 'w_540,du_3,fps_15,fl_lossy', formats: ['gif'] },
+  { label: 'Preview GIF', transform: 'w_540,du_3,fps_15,fl_lossy,e_loop', formats: ['gif'] },
   { label: 'Boomerang', transform: 'e_boomerang,du_3', formats: ['mp4', 'gif'] },
 ];
 
