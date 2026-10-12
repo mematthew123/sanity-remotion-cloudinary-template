@@ -114,19 +114,33 @@ export async function generateMetadata({
     post.excerpt ?? 'A post rendered to video from Sanity content.';
   const url = absoluteUrl(`/posts/${slug}`);
 
-  // Prefer a rendered video's poster (showcases the Cloudinary fan-out powering
-  // the social card); fall back to the post's main image.
-  const videoPoster = (post.videos ?? [])
+  // Prefer a rendered video's `og-image-jpg` (showcases the Cloudinary fan-out
+  // powering the social card) — the promo's when there is one, matching the
+  // home feed. It's padded to exactly 1200×630, unlike the poster, which keeps
+  // its render's aspect and would be cropped by link previews. Fall back to the
+  // post's main image cropped to the same size, then to any poster (size
+  // undeclared, since it isn't 1200×630).
+  const videos = [...(post.videos ?? [])].sort(
+    (a, b) =>
+      Number(stegaClean(b.template) === 'article-promo') -
+      Number(stegaClean(a.template) === 'article-promo'),
+  );
+  const videoOgImage = videos
+    .map((v) => v.ogImageUrl)
+    .find((u): u is string => Boolean(u));
+  const mainOgImage = post.mainImage
+    ? urlFor(post.mainImage).width(1200).height(630).fit('crop').url()
+    : null;
+  const posterFallback = videos
     .map((v) => v.posterUrl)
     .find((u): u is string => Boolean(u));
-  const ogImage =
-    videoPoster ??
-    (post.mainImage
-      ? urlFor(post.mainImage).width(1200).height(630).fit('crop').url()
-      : null);
-  const images = ogImage
-    ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
-    : [];
+  const sizedOgImage = videoOgImage ?? mainOgImage;
+  const ogImage = sizedOgImage ?? posterFallback ?? null;
+  const images = sizedOgImage
+    ? [{ url: sizedOgImage, width: 1200, height: 630, alt: title }]
+    : ogImage
+      ? [{ url: ogImage, alt: title }]
+      : [];
 
   return {
     title,
@@ -185,7 +199,7 @@ export default async function PostPage({
   });
 
   // The fan-out panel showcases one render's full Cloudinary variant set.
-  // Prefer the narrated reading (richest — 5 derivations); otherwise fall back
+  // Prefer the narrated reading (richest — 6 derivations); otherwise fall back
   // to whatever render the post has so the showcase still appears.
   const fanoutVideo = narratedReading ?? shortFormVideos[0] ?? allVideos[0] ?? null;
 

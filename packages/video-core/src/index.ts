@@ -23,6 +23,7 @@ export {
   compositionsForSource,
   VARIANTS,
   variantUrl,
+  variantTransformation,
   eagerTransformsFor,
   variantsForComposition,
   snapshotVariants,

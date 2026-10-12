@@ -63,6 +63,7 @@ export const SINGLE_POST_QUERY = defineQuery(/* groq */ `
       renderedAt,
       "podcastUrl": variants[variantId == "podcast-mp3"][0].url,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
+      "ogImageUrl": variants[variantId == "og-image-jpg"][0].url,
       "youtubeUrl": variants[variantId == "youtube-1080p-mp4"][0].url,
       "siteMp4Url": variants[variantId == "site-mp4"][0].url,
       ${VIDEO_VARIANTS_PROJECTION}

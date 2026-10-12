@@ -4,7 +4,7 @@ Render videos from your **Sanity** content with **Remotion**, then publish them 
 
 Write a post in Sanity Studio, hit **Publish**, and a few moments later an MP4 is rendered — **locally with headless Chromium, or in a Vercel Sandbox once deployed** — uploaded to Cloudinary, and playing on your site. The local path means you can clone, configure only **Sanity + Cloudinary**, and render a video with **no Vercel account at all**.
 
-On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** — five derivatives of the one canonical render (site MP4, poster JPG, preview GIF, YouTube 1080p, podcast MP3) generated at render time, never re-rendered. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
+On top of that core loop the template ships the full showcase: **Sanity Assist** AI copy generation backed by an editable brand-voice doc, and automatic **Cloudinary variants** — up to six derivatives of the one canonical render (site MP4, poster JPG, preview GIF, social-card JPG, YouTube 1080p, podcast MP3) generated at render time, never re-rendered. The Cloudinary integration is surfaced inside the Studio as a **Preview** view (a plain player of the canonical render) and a **Variants** view on each `video` document (gallery + live transform preview). The minimal core (Studio document action → render → playback) still works on its own if you don't want the extras.
 
 ![The post's document action menu in Sanity Studio — Render Promo, Render Teaser, Render narrated reading, and Generate voiceover](./docs/images/studio-render-actions.png)
 
@@ -15,7 +15,7 @@ On top of that core loop the template ships the full showcase: **Sanity Assist**
 
 On top of the core render loop, the template ships four fanout surfaces, all driven by the one canonical render:
 
-1. **Site — render once.** Publish (or a Studio render action) → render → Cloudinary → site playback (promo + teaser compositions; site MP4, poster, and preview-GIF variants).
+1. **Site — render once.** Publish (or a Studio render action) → render → Cloudinary → site playback (promo + teaser compositions; site MP4, poster, preview-GIF, and social-card variants).
 2. **Newsletter — fan out to email.** A Resend-backed `newsletter` doc that embeds the `site-preview-gif` variant as the email hero.
 3. **Transactional email.** The signup welcome email embeds the preview GIF of a chosen render — same variant, different send path.
 4. **Narrated — long-form TTS.** The `article-narrated` composition: ElevenLabs voiceover, computed duration, the long-form variants (YouTube 1080p, podcast MP3), and a podcast RSS feed (`/feed.xml`) built from the MP3s.
@@ -138,9 +138,9 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 
   ![The Preview view on a video document — the finished render playing right in Sanity Studio](./docs/images/studio-preview.png)
 - **Sanity Assist + brand voice.** "Brand AI" field actions — rewrite text or generate video copy in an editable brand voice — backed by **Brand Voices** docs in the Studio. Needs a Growth plan (Agent Actions); seeding and customization in [docs/assist.md](./docs/assist.md).
-- **Cloudinary variants.** Each composition opts into a variant set (site MP4/poster/preview-GIF, plus YouTube 1080p and podcast MP3 for the narrated composition) in `packages/video-core/src/registry.ts` — eager-generated at render time and stored on `video.variants[]`, never re-rendered. See [docs/architecture.md → variant system](./docs/architecture.md#the-cloudinary-variant-system).
+- **Cloudinary variants.** Each composition opts into a variant set (site MP4/poster/preview-GIF/social card, plus YouTube 1080p and podcast MP3 for the narrated composition) in `packages/video-core/src/registry.ts` — eager-generated at render time and stored on `video.variants[]`, never re-rendered. See [docs/architecture.md → variant system](./docs/architecture.md#the-cloudinary-variant-system).
 
-  ![The Variants view on a video document in Sanity Studio — one render fanned out to five Cloudinary derivations](./docs/images/studio-variants.png)
+  ![The Variants view on a video document in Sanity Studio — one render fanned out to Cloudinary derivations](./docs/images/studio-variants.png)
 - **Transform playground.** The site ships a `/playground` page — an interactive Cloudinary transform explorer that demonstrates the same variant system live, independent of any rendered video. Tweak transforms and watch the delivery URL change.
 
 ## Deploy

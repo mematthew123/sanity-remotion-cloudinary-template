@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
       folder: 'template/videos',
       public_id: filename,
       overwrite: true,
-      eager: eagerTransformsFor(meta.variantIds),
+      eager: eagerTransformsFor(meta),
       eager_async: isLongForm,
     })) as {public_id: string; secure_url: string}
 
@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
       ? withCloudinaryAnalytics(cloudName, uploadResult.secure_url)
       : uploadResult.secure_url
     const variants = cloudName
-      ? snapshotVariants(cloudName, uploadResult.public_id, meta.variantIds).map(
+      ? snapshotVariants(cloudName, uploadResult.public_id, meta).map(
           (v) => ({...v, url: withCloudinaryAnalytics(cloudName, v.url)}),
         )
       : undefined

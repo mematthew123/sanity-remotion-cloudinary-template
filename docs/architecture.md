@@ -61,8 +61,8 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 6. Render the MP4. `useLocalRender = !process.env.VERCEL && (LOCAL_RENDER === 'true' || !BLOB_READ_WRITE_TOKEN)` picks the backend:
    - **Vercel Sandbox** (default / always on Vercel): `restoreSnapshot()` on Vercel (resumes a build-time snapshot that already contains the bundle), `createSandbox()` + `addBundleToSandbox()` locally; `renderMediaOnVercel({sandbox, compositionId, inputProps, codec: 'h264'})` renders inside it, then `uploadToVercelBlob({access: 'public'})` stages the MP4 at a public URL. See [`vercel-sandbox.md`](./vercel-sandbox.md).
    - **Local fallback** (no Blob token / `LOCAL_RENDER=true`, off-Vercel only): `renderLocally()` (`helpers.ts`) renders with headless Chromium on the machine and returns a local file path — no Sandbox, no Blob.
-7. Upload to Cloudinary from the staging source — the Blob URL or the local file path, whichever the backend produced — (`folder: template/videos`) with `eager: eagerTransformsFor(meta.variantIds)`, then drop the staging copy (best-effort): `del()` the Blob object or `unlink()` the temp file.
-8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, variantIds)`.
+7. Upload to Cloudinary from the staging source — the Blob URL or the local file path, whichever the backend produced — (`folder: template/videos`) with `eager: eagerTransformsFor(meta)`, then drop the staging copy (best-effort): `del()` the Blob object or `unlink()` the temp file.
+8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, meta)`.
 9. On any error: patch `status: failed` + `errorMessage`. The `finally` block stops the sandbox so the slot is released immediately.
 
 A **soft timeout** armed at `(maxDuration - 80)` s (~720 s) races the render: if it fires first, the render is abandoned and the doc lands on `status: failed` with a timeout message rather than letting the platform kill the function mid-flight. Narrated renders are the most likely to approach it — see [troubleshooting.md](./troubleshooting.md#render-shows-failed-with-no-obvious-error).
@@ -71,11 +71,13 @@ A **soft timeout** armed at `(maxDuration - 80)` s (~720 s) races the render: if
 
 A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a re-render. Defined in `video-core/src/registry.ts`:
 
-- `VARIANTS` — site (mp4 / poster jpg / preview gif) + a long-form family for narrated videos (`youtube-1080p-mp4` upscale, `podcast-mp3`).
+- `VARIANTS` — site (mp4 / poster jpg / preview gif / 1200×630 social-card jpg) + a long-form family for narrated videos (`youtube-1080p-mp4` upscale, `podcast-mp3`).
 - Each composition opts into a `variantIds[]` set: `article-promo` and `article-teaser` get the site base; `article-narrated` adds the long-form family.
-- `eagerTransformsFor(ids)` → the `eager` array passed to the Cloudinary upload (materialized at upload).
-- `snapshotVariants(cloudName, publicId, ids)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
-- `variantUrl(cloudName, publicId, id)` takes the **cloud name as a parameter**, so `video-core` never needs Cloudinary env. The render route passes `CLOUDINARY_CLOUD_NAME` and stores full URLs on the doc — clients just read `video.variants[].url`.
+- Still-frame variants (`seekToPoster: true` — the poster and social card) seek to the composition's `posterSeconds`, a moment when the title and byline are fully on screen. A fixed percentage doesn't work: 10% of a 7s promo lands before the title animates in. Retune `posterSeconds` when you change a composition's animation timing.
+- The social card (`og-image-jpg`) pads the frame to 1200×630 (`c_pad,b_auto`) rather than cropping, so square and vertical renders keep their text in link previews. It's what the post page uses for `og:image`.
+- `eagerTransformsFor(meta)` → the `eager` array passed to the Cloudinary upload (materialized at upload).
+- `snapshotVariants(cloudName, publicId, meta)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
+- `variantUrl(cloudName, publicId, id, meta)` takes the **cloud name as a parameter**, so `video-core` never needs Cloudinary env. The render route passes `CLOUDINARY_CLOUD_NAME` and stores full URLs on the doc — clients just read `video.variants[].url`.
 
 ## Where rendered video surfaces
 

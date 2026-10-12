@@ -21,11 +21,15 @@ const PRESENTATION: Record<
   },
   'site-poster-jpg': {
     label: 'Poster',
-    blurb: 'Still frame for thumbnails & social cards',
+    blurb: 'Still frame for thumbnails & video players',
   },
   'site-preview-gif': {
     label: 'Preview GIF',
     blurb: 'Silent 3-second loop for hovers & email',
+  },
+  'og-image-jpg': {
+    label: 'Social Card',
+    blurb: 'Padded 1200×630 still for link previews',
   },
   'youtube-1080p-mp4': {
     label: 'YouTube 1080p',

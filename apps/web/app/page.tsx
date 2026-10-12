@@ -13,7 +13,7 @@ export default async function HomePage() {
     id: post._id,
     href: post.slug?.current ? `/posts/${post.slug.current}` : null,
     imageUrl: post.mainImage
-      ? urlFor(post.mainImage).width(800).height(450).fit('crop').url()
+      ? urlFor(post.mainImage).width(800).height(600).fit('crop').url()
       : (post.preview?.posterUrl ?? null),
     previewGifUrl: post.preview?.previewGifUrl ?? null,
     imageAlt: post.mainImage?.alt ?? post.title ?? '',

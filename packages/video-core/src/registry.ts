@@ -27,6 +27,7 @@ export type VariantId =
   | 'site-mp4'
   | 'site-poster-jpg'
   | 'site-preview-gif'
+  | 'og-image-jpg'
   // ----- Long-form (article-narrated and any future long-form composition) -
   | 'youtube-1080p-mp4'
   | 'podcast-mp3'
@@ -38,6 +39,13 @@ export type VariantDef = {
   format: VariantFormat
   /** Cloudinary transformation segment, e.g. 'w_1080,h_1080,c_fill,g_center'. */
   transformation: string
+  /**
+   * Still-frame variant: prefix the transformation with `so_<posterSeconds>`
+   * from the composition, so the frame is one where the text is fully on
+   * screen. A fixed percentage can't do this — 10% of a 7s promo lands before
+   * the title animates in, and 10% of a long narrated reading lands in b-roll.
+   */
+  seekToPoster?: boolean
   width?: number
   height?: number
   /** Generate at upload time via Cloudinary's eager transform list. */
@@ -60,7 +68,8 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Site Poster',
     surface: 'site',
     format: 'jpg',
-    transformation: 'so_10p,f_jpg,q_auto',
+    transformation: 'f_jpg,q_auto',
+    seekToPoster: true,
     eager: true,
   },
   'site-preview-gif': {
@@ -72,6 +81,23 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     width: 540,
     // Eager: materialized at upload so the home-feed hover preview is instant
     // (no first-request generation delay). Costs a little render-time upload.
+    eager: true,
+  },
+  'og-image-jpg': {
+    id: 'og-image-jpg',
+    label: 'Social Card',
+    surface: 'site',
+    format: 'jpg',
+    // The poster frame padded (never cropped) to the 1.91:1 Open Graph size, so
+    // square and vertical renders keep their text in link previews. `b_auto`
+    // fills the bars from the frame's border colours (`b_blurred` is
+    // video-only and 400s on a still).
+    transformation: 'w_1200,h_630,c_pad,b_auto,f_jpg,q_auto',
+    seekToPoster: true,
+    width: 1200,
+    height: 630,
+    // Eager: link-preview crawlers time out quickly, so don't make the first
+    // share wait on generation.
     eager: true,
   },
 
@@ -109,7 +135,12 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
 // Variant groups: SITE_BASE belongs to every composition; LONG_FORM_BASE is
 // added by the narrated composition.
 
-const SITE_BASE: readonly VariantId[] = ['site-mp4', 'site-poster-jpg', 'site-preview-gif']
+const SITE_BASE: readonly VariantId[] = [
+  'site-mp4',
+  'site-poster-jpg',
+  'site-preview-gif',
+  'og-image-jpg',
+]
 
 // Long-form variants for the narrated composition. Render once → fan out to a
 // full-length YouTube upload (720p source upscaled by Cloudinary) and an
@@ -135,6 +166,12 @@ export type CompositionMeta = {
   isVertical: boolean
   /** Seed duration. `calculateMetadata` overrides at render time when defined. */
   defaultDurationFrames: number
+  /**
+   * Seconds into the render to grab still-frame variants (poster, social
+   * card) — a moment when the title and byline are fully on screen. Keep in
+   * sync with the composition's animation timing.
+   */
+  posterSeconds: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: z.ZodObject<any, any, any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,6 +206,8 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     height: 1080,
     isVertical: false,
     defaultDurationFrames: 210, // 7s @ 30fps
+    // CTA springs in at frame 110 and settles by ~140; outro fade starts at 180.
+    posterSeconds: 5,
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
     variantIds: [...SITE_BASE],
@@ -183,6 +222,8 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     height: 1920,
     isVertical: true,
     defaultDurationFrames: 180, // 6s @ 30fps
+    // Author reveal starts at frame 95 and settles by ~125; outro fade at 160.
+    posterSeconds: 4.5,
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
     variantIds: [...SITE_BASE],
@@ -203,6 +244,8 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     isVertical: false,
     // Studio preview seed only — real duration comes from calculateMetadata.
     defaultDurationFrames: 300,
+    // The intro title card holds from frame 8 to 59 before fading into b-roll.
+    posterSeconds: 1.5,
     schema: ArticleNarratedPropsSchema,
     defaultProps: {
       title: articleDefaultProps.title,
@@ -303,21 +346,34 @@ export function compositionsForSource(sourceType: SourceType): CompositionMeta[]
 // Cloudinary env. The render route passes process.env.CLOUDINARY_CLOUD_NAME and
 // writes the resulting URLs onto the video doc, so clients read URLs directly.
 
+/** A variant's transformation for one composition (resolves `seekToPoster`). */
+export function variantTransformation(variant: VariantDef, composition: CompositionMeta): string {
+  return variant.seekToPoster
+    ? `so_${composition.posterSeconds},${variant.transformation}`
+    : variant.transformation
+}
+
 /** Build the public URL for one variant of an uploaded asset. */
-export function variantUrl(cloudName: string, publicId: string, variantId: VariantId): string {
+export function variantUrl(
+  cloudName: string,
+  publicId: string,
+  variantId: VariantId,
+  composition: CompositionMeta,
+): string {
   const variant = VARIANTS[variantId]
   if (!variant) throw new Error(`Unknown variant id: ${variantId}`)
   // Source resource type is always 'video' (canonical render is MP4); Cloudinary
   // derives JPG/GIF/WebM from the same video resource.
-  const segment = variant.transformation
-    ? `${variant.transformation}/${publicId}.${variant.format}`
+  const transformation = variantTransformation(variant, composition)
+  const segment = transformation
+    ? `${transformation}/${publicId}.${variant.format}`
     : `${publicId}.${variant.format}`
   return `https://res.cloudinary.com/${cloudName}/video/upload/${segment}`
 }
 
 /**
- * The `eager` array for `cloudinary.uploader.upload_stream` — only variants
- * flagged `eager: true`; the rest derive on first request.
+ * The `eager` array for `cloudinary.uploader.upload_stream` — only the
+ * composition's variants flagged `eager: true`; the rest derive on first request.
  *
  * Use `raw_transformation` (not `transformation`): our values are raw Cloudinary
  * transformation strings like `so_10p,f_jpg,q_auto`. Passed under `transformation`
@@ -325,12 +381,12 @@ export function variantUrl(cloudName: string, publicId: string, variantId: Varia
  * "Unknown transformation so_10p".
  */
 export function eagerTransformsFor(
-  variantIds: readonly VariantId[],
+  composition: CompositionMeta,
 ): Array<{raw_transformation: string; format: VariantFormat}> {
-  return variantIds
+  return composition.variantIds
     .map((id) => VARIANTS[id])
     .filter((v) => v.eager)
-    .map((v) => ({raw_transformation: v.transformation, format: v.format}))
+    .map((v) => ({raw_transformation: variantTransformation(v, composition), format: v.format}))
 }
 
 /** Variants applicable to a composition, optionally filtered by surface. */
@@ -355,22 +411,23 @@ export type VariantSnapshot = {
 }
 
 /**
- * Snapshot of every variant URL for an upload. The render route writes this to
- * the `video.variants[]` field after upload (shape matches the Sanity schema).
+ * Snapshot of every variant URL for an upload of a composition. The render
+ * route writes this to the `video.variants[]` field after upload (shape matches
+ * the Sanity schema).
  */
 export function snapshotVariants(
   cloudName: string,
   publicId: string,
-  variantIds: readonly VariantId[],
+  composition: CompositionMeta,
 ): VariantSnapshot[] {
-  return variantIds.map((id) => {
+  return composition.variantIds.map((id) => {
     const variant = VARIANTS[id]
     return {
       _key: id,
       variantId: id,
       surface: variant.surface,
       format: variant.format,
-      url: variantUrl(cloudName, publicId, id),
+      url: variantUrl(cloudName, publicId, id, composition),
       width: variant.width,
       height: variant.height,
     }
