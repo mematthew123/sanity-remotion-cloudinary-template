@@ -17,7 +17,7 @@ const VIDEO_VARIANTS_PROJECTION = /* groq */ `
 
 // All published posts, newest first. `mainImage` stays a full image object for
 // urlFor() sizing; `authorName` is flattened. The `preview` sub-object pulls
-// a ready render's GIF + poster so the feed can animate a card on hover. It
+// a ready render's site MP4 + poster so the feed can play a card on hover. It
 // prefers the square `article-promo` (the 4:3 card crops it cleanly; 16:9 and
 // 9:16 renders lose edge text under object-cover), falling back to the newest.
 export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
@@ -30,7 +30,7 @@ export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
     mainImage,
     "authorName": author->name,
     "preview": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order((template == "article-promo") desc, renderedAt desc)[0]{
-      "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
+      "previewVideoUrl": variants[variantId == "site-mp4"][0].url,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url
     }
   }

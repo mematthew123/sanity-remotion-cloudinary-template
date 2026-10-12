@@ -15,7 +15,7 @@ export default async function HomePage() {
     imageUrl: post.mainImage
       ? urlFor(post.mainImage).width(800).height(600).fit('crop').url()
       : (post.preview?.posterUrl ?? null),
-    previewGifUrl: post.preview?.previewGifUrl ?? null,
+    previewVideoUrl: post.preview?.previewVideoUrl ?? null,
     imageAlt: post.mainImage?.alt ?? post.title ?? '',
     title: post.title ?? 'Untitled',
     excerpt: post.excerpt ?? null,
@@ -90,11 +90,11 @@ export default async function HomePage() {
                     </span>
                   </span>
                 </div>
-                {(card.imageUrl || card.previewGifUrl) && (
+                {(card.imageUrl || card.previewVideoUrl) && (
                   <div className='relative aspect-4/3 w-full overflow-hidden rounded-lg bg-muted/10 sm:order-last'>
                     <VideoHoverPreview
                       imageUrl={card.imageUrl}
-                      gifUrl={card.previewGifUrl}
+                      videoUrl={card.previewVideoUrl}
                       imageAlt={card.imageAlt}
                       sizes='(max-width: 640px) 100vw, 320px'
                     />
