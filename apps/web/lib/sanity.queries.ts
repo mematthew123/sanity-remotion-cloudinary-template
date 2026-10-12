@@ -17,7 +17,9 @@ const VIDEO_VARIANTS_PROJECTION = /* groq */ `
 
 // All published posts, newest first. `mainImage` stays a full image object for
 // urlFor() sizing; `authorName` is flattened. The `preview` sub-object pulls
-// the newest ready render's GIF + poster so the feed can animate a card on hover.
+// a ready render's GIF + poster so the feed can animate a card on hover. It
+// prefers the square `article-promo` (the 4:3 card crops it cleanly; 16:9 and
+// 9:16 renders lose edge text under object-cover), falling back to the newest.
 export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
     _id,
@@ -27,7 +29,7 @@ export const ALL_POSTS_QUERY = defineQuery(/* groq */ `
     excerpt,
     mainImage,
     "authorName": author->name,
-    "preview": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{
+    "preview": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order((template == "article-promo") desc, renderedAt desc)[0]{
       "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url
     }
@@ -120,8 +122,8 @@ export const PODCAST_FEED_QUERY = defineQuery(/* groq */ `
 export type PodcastFeedItem = PODCAST_FEED_QUERY_RESULT[number];
 
 // ── Sitemap ─────────────────────────────────────────────────────────────────
-// Every post with its primary ready video, for the video-sitemap on
-// /sitemap.xml.
+// Every post with its primary ready video (promo preferred, same pick as the
+// home feed), for the video-sitemap on /sitemap.xml.
 export const SITEMAP_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
     "slug": slug.current,
@@ -129,7 +131,7 @@ export const SITEMAP_QUERY = defineQuery(/* groq */ `
     excerpt,
     publishedAt,
     _updatedAt,
-    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order(renderedAt desc)[0]{
+    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order((template == "article-promo") desc, renderedAt desc)[0]{
       title,
       cloudinaryUrl,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url
