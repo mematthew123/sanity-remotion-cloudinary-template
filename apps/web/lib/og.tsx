@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { SITE_URL } from '@/lib/siteUrl';
 
 /**
@@ -18,27 +20,6 @@ const BRAND = {
   muted: '#6B7280',
 } as const;
 
-/**
- * Fetch a brand font as a TTF buffer for Satori. Google's css2 endpoint returns
- * a truetype `src` when a `text` subset is supplied (and no woff2 User-Agent),
- * exactly what ImageResponse needs — and subsetting keeps the payload tiny.
- */
-async function loadGoogleFont(family: string, text: string, italic = false) {
-  const axis = italic ? ':ital@1' : '';
-  const url = `https://fonts.googleapis.com/css2?family=${family.replace(
-    / /g,
-    '+',
-  )}${axis}&text=${encodeURIComponent(text)}`;
-  const css = await (await fetch(url)).text();
-  const src = css.match(
-    /src: url\((.+?)\) format\('(?:opentype|truetype)'\)/,
-  )?.[1];
-  if (!src) throw new Error(`Could not resolve a TTF for ${family}`);
-  const res = await fetch(src);
-  if (!res.ok) throw new Error(`Failed to download ${family} (${res.status})`);
-  return res.arrayBuffer();
-}
-
 export type ShareFont = {
   name: string;
   data: ArrayBuffer;
@@ -46,11 +27,17 @@ export type ShareFont = {
   weight?: 400 | 500 | 600 | 700 | 800;
 };
 
-/** Load the card's two typefaces, subset to `text`, for ImageResponse `fonts`. */
-export async function loadBrandFonts(text: string): Promise<ShareFont[]> {
+const FONT_DIR = join(process.cwd(), 'assets/fonts');
+
+async function loadFont(file: string): Promise<ArrayBuffer> {
+  return new Uint8Array(await readFile(join(FONT_DIR, file))).buffer;
+}
+
+/** Load the card's two typefaces from assets/fonts for ImageResponse `fonts`. */
+export async function loadBrandFonts(): Promise<ShareFont[]> {
   const [serif, mono] = await Promise.all([
-    loadGoogleFont('Instrument Serif', text, true),
-    loadGoogleFont('JetBrains Mono', text),
+    loadFont('InstrumentSerif-Italic.ttf'),
+    loadFont('JetBrainsMono-Regular.ttf'),
   ]);
   return [
     { name: 'Instrument Serif', data: serif, style: 'italic', weight: 400 },

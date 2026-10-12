@@ -36,6 +36,9 @@ const nextConfig: NextConfig = {
     // snapshot and skips this path).
     outputFileTracingIncludes: {
         '/api/video/render': ['./.remotion-bundle/**/*'],
+        '/opengraph-image': ['./assets/fonts/*.ttf'],
+        '/twitter-image': ['./assets/fonts/*.ttf'],
+        '/podcast-artwork.png': ['./assets/fonts/*.ttf'],
     },
     images: {
         remotePatterns: [

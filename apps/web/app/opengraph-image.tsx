@@ -5,7 +5,6 @@ import {
   ShareCard,
   loadBrandFonts,
 } from '@/lib/og';
-import { SITE_URL } from '@/lib/siteUrl';
 
 /**
  * Site-wide default share card — Next applies it to every route without its own
@@ -21,8 +20,7 @@ const TITLE = 'Render once. Publish everywhere.';
 const BRAND = 'Template';
 
 export default async function OpengraphImage() {
-  const host = SITE_URL.replace(/^https?:\/\//, '');
-  const fonts = await loadBrandFonts(KICKER + TITLE + BRAND + host);
+  const fonts = await loadBrandFonts();
 
   return new ImageResponse(
     <ShareCard kicker={KICKER} title={TITLE} brand={BRAND} />,
