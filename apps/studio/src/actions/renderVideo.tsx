@@ -8,7 +8,7 @@ import {
 import {useToast} from '@sanity/ui'
 import {PlayIcon, SparklesIcon} from '@sanity/icons'
 import {extractNarrationScenes, type CompositionId} from '@template/video-core/registry'
-import type {ArticleVideoProps} from '@template/video-core/types'
+import {cleanVideoCopy, type ArticleVideoProps} from '@template/video-core/types'
 import {useStudioClient, useStudioUserToken} from '../lib/useStudioClient'
 
 // Shown when the editor's Sanity session exposes no token (e.g. cookie-based
@@ -25,6 +25,7 @@ type ResolvedPostFields = {
   publishedAt?: string
   authorName?: string
   mainImageUrl?: string
+  videoCopy?: unknown
 }
 
 const POST_FIELDS_QUERY = `*[_id == $id][0]{
@@ -32,7 +33,8 @@ const POST_FIELDS_QUERY = `*[_id == $id][0]{
   excerpt,
   publishedAt,
   "authorName": author->name,
-  "mainImageUrl": mainImage.asset->url
+  "mainImageUrl": mainImage.asset->url,
+  videoCopy
 }`
 
 /**
@@ -78,6 +80,7 @@ function makeRenderAction(
           publishedAt: resolved?.publishedAt ?? new Date().toISOString(),
           excerpt: resolved?.excerpt ?? '',
           mainImageUrl: resolved?.mainImageUrl || undefined,
+          videoCopy: cleanVideoCopy(resolved?.videoCopy),
         }
 
         const url =

@@ -59,7 +59,10 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     label: 'Site MP4',
     surface: 'site',
     format: 'mp4',
-    // Adaptive: Cloudinary picks codec + quality per requesting client.
+    // Adaptive: Cloudinary picks codec + quality per requesting client — which
+    // is why it isn't eager: there's no single output to pre-generate. Also the
+    // home-feed hover preview (the card keeps its still until playback starts,
+    // so a cold first request only delays the preview).
     transformation: 'f_auto,q_auto,vc_auto',
     eager: false,
   },
@@ -79,8 +82,9 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
     format: 'gif',
     transformation: 'w_540,du_3,fps_15,fl_lossy,q_70,e_loop,f_gif',
     width: 540,
-    // Eager: materialized at upload so the home-feed hover preview is instant
-    // (no first-request generation delay). Costs a little render-time upload.
+    // Looping, because email clients can't play video — this is the email hero
+    // (newsletter + welcome). Eager: materialized at upload so a send never
+    // waits on first-request generation. The home-feed hover plays `site-mp4`.
     eager: true,
   },
   'og-image-jpg': {

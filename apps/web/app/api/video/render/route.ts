@@ -95,7 +95,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const {compositionId, inputProps, durationInFrames, fps, width, height, postId} = body
+    // Dimensions and timing come from the registry and the rendered file, never
+    // the request body: the composition defines its size, and duration can be
+    // data-driven (`calculateMetadata`), so only the output knows it.
+    const {compositionId, inputProps, postId} = body
 
     if (!compositionId) {
       return NextResponse.json(
@@ -171,8 +174,8 @@ export async function POST(req: NextRequest) {
       ...(postId ? {post: {_type: 'reference', _ref: postId}} : {}),
       format: 'mp4',
       template: compositionId,
-      width: width ?? meta.width,
-      height: height ?? meta.height,
+      width: meta.width,
+      height: meta.height,
       inputProps: JSON.stringify(validatedProps),
     })
 
@@ -294,9 +297,6 @@ export async function POST(req: NextRequest) {
       uploadSource = stagedBlobUrl
     }
 
-    const durationSeconds =
-      (durationInFrames ?? meta.defaultDurationFrames) / (fps ?? meta.fps)
-
     // Upload to Cloudinary directly from the file path / Blob URL — no buffering.
     await sanityClient.patch(sanityDocId).set({status: 'uploading'}).commit()
 
@@ -310,7 +310,15 @@ export async function POST(req: NextRequest) {
       overwrite: true,
       eager: eagerTransformsFor(meta),
       eager_async: isLongForm,
-    })) as {public_id: string; secure_url: string}
+    })) as {public_id: string; secure_url: string; duration?: number}
+
+    // Cloudinary probes the uploaded MP4, so this is the real length — including
+    // narrated readings, whose duration `calculateMetadata` computes at render
+    // time. The registry seed is only a fallback if the probe is missing.
+    const durationSeconds =
+      typeof uploadResult.duration === 'number' && uploadResult.duration > 0
+        ? uploadResult.duration
+        : meta.defaultDurationFrames / meta.fps
 
     // Canonical MP4 is in Cloudinary now; drop the staging copy (best-effort) —
     // the local temp file or the Blob staging object, whichever produced it.

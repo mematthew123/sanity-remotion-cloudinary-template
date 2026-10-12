@@ -24,6 +24,22 @@ export const VideoCopySchema = z.object({
 export type VideoCopy = z.infer<typeof VideoCopySchema>
 
 /**
+ * Normalize `post.videoCopy` as GROQ returns it into render props: GROQ yields
+ * `null` for an unset object (which `.optional()` rejects), and a blank slot
+ * must fall back to the article field rather than render as empty text.
+ * Returns undefined when no slot has content.
+ */
+export function cleanVideoCopy(raw: unknown): VideoCopy | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const copy: VideoCopy = {}
+  for (const key of Object.keys(VideoCopySchema.shape) as (keyof VideoCopy)[]) {
+    const value = (raw as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) copy[key] = value.trim()
+  }
+  return Object.keys(copy).length > 0 ? copy : undefined
+}
+
+/**
  * The single props contract every composition renders from. The Sanity "Render"
  * action / video app assembles this from a `post` document; the render route
  * re-validates it with this schema before handing it to Remotion.

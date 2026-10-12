@@ -4,7 +4,14 @@ import {useToast} from '@sanity/ui'
 import {LaunchIcon} from '@sanity/icons'
 import {useStudioUserToken} from '../../lib/useStudioClient'
 
+// Mirrors `sendableReason` in apps/web/app/api/newsletter/send/route.tsx: draft
+// and failed (nothing went out) are sendable, and so is a `sending` doc that was
+// abandoned before any broadcast was created.
+const STALE_SENDING_MS = 5 * 60 * 1000
+
 type NewsletterSnapshot = {
+  _updatedAt?: string
+  resendBroadcastId?: string
   status?: 'draft' | 'sending' | 'sent' | 'failed'
   recipientSelection?: {
     selectionType?: 'test' | 'audience'
@@ -29,9 +36,15 @@ export const SendNewsletterAction: DocumentActionComponent = (
   // Disable when the doc isn't in a sendable state. Defense in depth — the
   // route enforces the same precondition, but disabling here keeps the editor
   // from clicking expecting an action.
+  const staleSending =
+    status === 'sending' &&
+    !snapshot?.resendBroadcastId &&
+    Date.now() - new Date(snapshot?._updatedAt ?? 0).getTime() > STALE_SENDING_MS
   const disabledReason =
-    status !== 'draft'
-      ? `Already ${status}. Duplicate this doc to send again.`
+    status === 'sent'
+      ? 'Already sent to the audience. Create a new newsletter to send again.'
+      : status === 'sending' && !staleSending
+      ? 'Sending in progress.'
       : !selectionType
       ? 'Pick a recipient selection type first'
       : selectionType === 'test' && testEmailCount === 0
@@ -73,10 +86,12 @@ export const SendNewsletterAction: DocumentActionComponent = (
         mode?: string
         recipientCount?: number
         resendBroadcastId?: string
+        warning?: string
       }
       if (res.ok && data.ok) {
         toast.push({
-          status: 'success',
+          status: data.warning ? 'warning' : 'success',
+          description: data.warning,
           title:
             data.mode === 'audience'
               ? `Broadcast scheduled (${data.resendBroadcastId})`

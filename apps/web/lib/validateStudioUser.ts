@@ -12,9 +12,12 @@ import {secureCompare} from './secureCompare'
 
 const API_VERSION = 'v2021-06-07'
 
-// Default Sanity roles that grant no write access. Add custom read-only role
-// names here if your project defines them.
-const READ_ONLY_ROLES = new Set(['viewer'])
+// Roles allowed to trigger the editor routes (renders, voiceovers, newsletter
+// sends) — an allowlist, so an unknown role fails closed. `contributor` is
+// deliberately excluded: it can't publish, so it shouldn't be able to email the
+// audience or start paid render/TTS work. Add custom role names here if your
+// project defines write-capable ones.
+const TRIGGER_ROLES = new Set(['administrator', 'editor', 'developer'])
 
 // Opt-in diagnostics for debugging a 401 (set DEBUG_RENDER_AUTH=true). Silent
 // otherwise. Never logs the token itself.
@@ -40,7 +43,7 @@ function roleNamesOf(user: CurrentUser): string[] {
 
 /**
  * True iff `userToken` belongs to a member of this project who holds at least
- * one write-granting role.
+ * one of the `TRIGGER_ROLES`.
  *
  * Validates against the PROJECT-scoped `/users/me` (`<projectId>.api.sanity.io`),
  * which returns the caller's own roles in this project and is callable by any
@@ -73,7 +76,7 @@ async function isWriteCapableMember(userToken: string): Promise<boolean> {
   }
 
   const roles = roleNamesOf(user)
-  const ok = roles.length > 0 && roles.some((name) => !READ_ONLY_ROLES.has(name))
+  const ok = roles.some((name) => TRIGGER_ROLES.has(name))
   debug('role check', {roles, ok})
   return ok
 }

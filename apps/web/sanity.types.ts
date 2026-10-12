@@ -99,6 +99,7 @@ export type Newsletter = {
     testEmails?: Array<string>;
   };
   status?: "draft" | "sending" | "sent" | "failed";
+  lastTestSentAt?: string;
   sentAt?: string;
   recipientCount?: number;
   resendBroadcastId?: string;
@@ -701,10 +702,11 @@ export type PLAYGROUND_VIDEOS_QUERY_RESULT = Array<{
 
 // Source: ../web/lib/sanity.queries.ts
 // Variable: NEWSLETTER_BY_ID_QUERY
-// Query: *[_type == "newsletter" && _id == $id][0]{  _id,  _rev,  title,  subject,  previewText,  intro,  recipientSelection,  status,  sentAt,  recipientCount,  resendBroadcastId,  video->{    _id,    title,    cloudinaryPublicId,    status,    "gifUrl": variants[variantId == "site-preview-gif"][0].url,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url  },  post->{    title,    excerpt,    "slug": slug.current,    publishedAt,    "authorName": author->name  }}
+// Query: *[_type == "newsletter" && _id == $id][0]{  _id,  _rev,  _updatedAt,  title,  subject,  previewText,  intro,  recipientSelection,  status,  lastTestSentAt,  sentAt,  recipientCount,  resendBroadcastId,  video->{    _id,    title,    cloudinaryPublicId,    status,    "gifUrl": variants[variantId == "site-preview-gif"][0].url,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url  },  post->{    title,    excerpt,    "slug": slug.current,    publishedAt,    "authorName": author->name  }}
 export type NEWSLETTER_BY_ID_QUERY_RESULT = {
   _id: string;
   _rev: string;
+  _updatedAt: string;
   title: string | null;
   subject: string | null;
   previewText: string | null;
@@ -714,6 +716,7 @@ export type NEWSLETTER_BY_ID_QUERY_RESULT = {
     testEmails?: Array<string>;
   } | null;
   status: "draft" | "failed" | "sending" | "sent" | null;
+  lastTestSentAt: string | null;
   sentAt: string | null;
   recipientCount: number | null;
   resendBroadcastId: string | null;
@@ -736,10 +739,11 @@ export type NEWSLETTER_BY_ID_QUERY_RESULT = {
 
 // Source: ../web/lib/sanity.queries.ts
 // Variable: NEWSLETTER_BY_EITHER_ID_QUERY
-// Query: *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{  _id,  _rev,  title,  subject,  previewText,  intro,  recipientSelection,  status,  sentAt,  recipientCount,  resendBroadcastId,  video->{    _id,    title,    cloudinaryPublicId,    status,    "gifUrl": variants[variantId == "site-preview-gif"][0].url,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url  },  post->{    title,    excerpt,    "slug": slug.current,    publishedAt,    "authorName": author->name  }}
+// Query: *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{  _id,  _rev,  _updatedAt,  title,  subject,  previewText,  intro,  recipientSelection,  status,  lastTestSentAt,  sentAt,  recipientCount,  resendBroadcastId,  video->{    _id,    title,    cloudinaryPublicId,    status,    "gifUrl": variants[variantId == "site-preview-gif"][0].url,    "posterUrl": variants[variantId == "site-poster-jpg"][0].url  },  post->{    title,    excerpt,    "slug": slug.current,    publishedAt,    "authorName": author->name  }}
 export type NEWSLETTER_BY_EITHER_ID_QUERY_RESULT = {
   _id: string;
   _rev: string;
+  _updatedAt: string;
   title: string | null;
   subject: string | null;
   previewText: string | null;
@@ -749,6 +753,7 @@ export type NEWSLETTER_BY_EITHER_ID_QUERY_RESULT = {
     testEmails?: Array<string>;
   } | null;
   status: "draft" | "failed" | "sending" | "sent" | null;
+  lastTestSentAt: string | null;
   sentAt: string | null;
   recipientCount: number | null;
   resendBroadcastId: string | null;
@@ -852,8 +857,8 @@ declare module "@sanity/client" {
     '\n  *[_type == "post" && defined(slug.current)] | order(publishedAt desc){\n    "slug": slug.current,\n    title,\n    excerpt,\n    publishedAt,\n    _updatedAt,\n    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order((template == "article-promo") desc, renderedAt desc)[0]{\n      title,\n      cloudinaryUrl,\n      "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n    }\n  }\n': SITEMAP_QUERY_RESULT;
     '\n  *[_type == "post" && slug.current == $slug][0]{\n    "chunks": voiceoverChunks[]{text, durationSeconds, words[]{text, start, end}}\n  }\n': POST_CAPTIONS_QUERY_RESULT;
     '\n  *[_type == "video" && status == "ready" && defined(cloudinaryPublicId)] | order(renderedAt desc)[0...12]{\n    _id,\n    title,\n    template,\n    width,\n    height,\n    cloudinaryPublicId\n  }\n': PLAYGROUND_VIDEOS_QUERY_RESULT;
-    '\n  *[_type == "newsletter" && _id == $id][0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_ID_QUERY_RESULT;
-    '\n  *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{\n  _id,\n  _rev,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_EITHER_ID_QUERY_RESULT;
+    '\n  *[_type == "newsletter" && _id == $id][0]{\n  _id,\n  _rev,\n  _updatedAt,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  lastTestSentAt,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_ID_QUERY_RESULT;
+    '\n  *[_type == "newsletter" && _id in [$draftId, $baseId]] | order(_updatedAt desc)[0]{\n  _id,\n  _rev,\n  _updatedAt,\n  title,\n  subject,\n  previewText,\n  intro,\n  recipientSelection,\n  status,\n  lastTestSentAt,\n  sentAt,\n  recipientCount,\n  resendBroadcastId,\n  video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n  post->{\n    title,\n    excerpt,\n    "slug": slug.current,\n    publishedAt,\n    "authorName": author->name\n  }\n}\n': NEWSLETTER_BY_EITHER_ID_QUERY_RESULT;
     '\n  *[_id == "welcomeEmail"][0]{\n    enabled,\n    subject,\n    previewText,\n    intro,\n    confirmationSubject,\n    confirmationBody,\n    video->{\n    _id,\n    title,\n    cloudinaryPublicId,\n    status,\n    "gifUrl": variants[variantId == "site-preview-gif"][0].url,\n    "posterUrl": variants[variantId == "site-poster-jpg"][0].url\n  },\n    post->{\n      title,\n      excerpt,\n      "slug": slug.current\n    }\n  }\n': WELCOME_EMAIL_QUERY_RESULT;
   }
 }

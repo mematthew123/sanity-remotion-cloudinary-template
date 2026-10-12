@@ -28,6 +28,28 @@ const corsHeaders = {
 
 export const maxDuration = 60;
 
+// A doc stuck in `sending` (the function died mid-send) can be re-sent once it's
+// clearly abandoned — well past maxDuration — but only if no broadcast was ever
+// created for it, so a reclaim can never email the audience twice. Mirrored in
+// the Studio's SendNewsletterAction.
+const STALE_SENDING_MS = 5 * 60 * 1000;
+
+// `failed` is only ever set when nothing reached the audience, so it's sendable.
+function sendableReason(newsletter: {
+  status?: string | null;
+  _updatedAt?: string | null;
+  resendBroadcastId?: string | null;
+}): string | null {
+  const status = newsletter.status ?? 'draft';
+  if (status === 'draft' || status === 'failed') return null;
+  if (status === 'sending') {
+    const age = Date.now() - new Date(newsletter._updatedAt ?? 0).getTime();
+    if (age > STALE_SENDING_MS && !newsletter.resendBroadcastId) return null;
+    return 'Newsletter is already sending';
+  }
+  return `Newsletter is in status "${status}"`;
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {status: 200, headers: corsHeaders});
 }
@@ -98,13 +120,11 @@ export async function POST(req: NextRequest) {
     return jsonResponse({error: `Newsletter ${documentId} not found`}, {status: 404});
   }
 
-  // State machine guard. The Studio button disables when status!=='draft' but
-  // we re-check server-side because the bundled secret could be replayed.
-  if (newsletter.status && newsletter.status !== 'draft') {
-    return jsonResponse(
-      {error: `Newsletter is in status "${newsletter.status}", expected "draft"`},
-      {status: 409},
-    );
+  // State machine guard. The Studio button disables on the same rule, but we
+  // re-check server-side because the fallback secret could be replayed.
+  const notSendable = sendableReason(newsletter);
+  if (notSendable) {
+    return jsonResponse({error: notSendable}, {status: 409});
   }
   if (!newsletter.video || !newsletter.video.gifUrl) {
     return jsonResponse(
@@ -168,6 +188,10 @@ export async function POST(req: NextRequest) {
   );
   const audienceElement = <NewsletterTemplate newsletter={newsletter} siteUrl={SITE_URL} />;
 
+  // Set once Resend has accepted the broadcast. From then on the audience will
+  // be emailed, so no error may mark the doc `failed` (which is re-sendable).
+  let scheduledBroadcastId: string | null = null;
+
   try {
     if (selectionType === 'test') {
       const testEmails = newsletter.recipientSelection?.testEmails ?? [];
@@ -191,15 +215,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // A test send is a rehearsal: back to `draft` so the real send stays
+      // available, with the test timestamp recorded alongside.
       await client
         .patch(newsletter._id)
-        .set({
-          status: 'sent',
-          sentAt: new Date().toISOString(),
-          recipientCount: sent,
-        })
+        .set({status: 'draft', ...(sent > 0 ? {lastTestSentAt: new Date().toISOString()} : {})})
         .commit();
 
+      if (sent === 0) {
+        return jsonResponse(
+          {error: 'No test emails were delivered — check the server logs for Resend errors'},
+          {status: 502},
+        );
+      }
       return jsonResponse({ok: true, mode: 'test', recipientCount: sent});
     }
 
@@ -219,12 +247,17 @@ export async function POST(req: NextRequest) {
     }
     const broadcastId = created.data.id;
 
+    // Record the broadcast before scheduling it, so a doc left in `sending` by a
+    // crash after this point is never reclaimed (see sendableReason).
+    await client.patch(newsletter._id).set({resendBroadcastId: broadcastId}).commit();
+
     // 1-minute delay matches Resend's documented best-practice scheduling cap;
     // tighter scheduling sometimes 4xxs while the broadcast is still materializing.
     const scheduled = await resend.broadcasts.send(broadcastId, {scheduledAt: 'in 1 minute'});
     if (scheduled.error) {
       throw new Error(`Resend broadcast send failed: ${JSON.stringify(scheduled.error)}`);
     }
+    scheduledBroadcastId = broadcastId;
 
     await client
       .patch(newsletter._id)
@@ -237,6 +270,18 @@ export async function POST(req: NextRequest) {
 
     return jsonResponse({ok: true, mode: 'audience', resendBroadcastId: broadcastId});
   } catch (err) {
+    if (scheduledBroadcastId) {
+      // The broadcast is going out; only the final status write failed. Report
+      // success so nobody retries — the doc stays `sending` with its broadcast
+      // id, which is never reclaimed.
+      console.error('Broadcast scheduled but marking the newsletter sent failed:', err);
+      return jsonResponse({
+        ok: true,
+        mode: 'audience',
+        resendBroadcastId: scheduledBroadcastId,
+        warning: 'Broadcast scheduled, but the newsletter status could not be updated',
+      });
+    }
     console.error('Newsletter send failed:', err);
     await client
       .patch(newsletter._id)

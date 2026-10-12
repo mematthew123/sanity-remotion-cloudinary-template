@@ -17,7 +17,7 @@ const PRESENTATION: Record<
 > = {
   'site-mp4': {
     label: 'Site MP4',
-    blurb: 'Adaptive codec & quality, chosen per device',
+    blurb: 'Adaptive codec & quality — players & feed hovers',
   },
   'site-poster-jpg': {
     label: 'Poster',
@@ -25,7 +25,7 @@ const PRESENTATION: Record<
   },
   'site-preview-gif': {
     label: 'Preview GIF',
-    blurb: 'Silent 3-second loop for hovers & email',
+    blurb: 'Silent 3-second loop for email heroes',
   },
   'og-image-jpg': {
     label: 'Social Card',

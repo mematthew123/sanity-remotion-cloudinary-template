@@ -5,7 +5,7 @@ import {
 } from 'sanity'
 // `useToast` is exported from @sanity/ui, not the `sanity` barrel.
 import {useToast} from '@sanity/ui'
-import type {ArticleVideoProps} from '@template/video-core/types'
+import {cleanVideoCopy, type ArticleVideoProps} from '@template/video-core/types'
 import {useStudioClient, useStudioUserToken} from '../lib/useStudioClient'
 
 // The plain document snapshot carries the editable fields directly; only the
@@ -20,6 +20,7 @@ type PostSnapshot = {
   excerpt?: string
   publishedAt?: string
   autoGenerateVideoOnPublish?: boolean
+  videoCopy?: unknown
 }
 
 const DERIVED_QUERY = `*[_id == $id][0]{
@@ -115,6 +116,7 @@ export function withAutoPromoOnPublish(
                 publishedAt: snapshot.publishedAt ?? new Date().toISOString(),
                 excerpt: snapshot.excerpt ?? '',
                 mainImageUrl: derived?.mainImageUrl || undefined,
+                videoCopy: cleanVideoCopy(snapshot.videoCopy),
               },
               userToken,
             ),

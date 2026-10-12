@@ -4,14 +4,13 @@ import {render} from '@react-email/render';
 import {client} from '@/lib/sanity.client';
 import {WELCOME_EMAIL_QUERY} from '@/lib/sanity.queries';
 import {WelcomeEmailTemplate} from '@/components/emails/WelcomeEmailTemplate';
-import {verifySubscribeToken} from '@/lib/subscribeToken';
+import {verifySubscribeToken, SUBSCRIBE_TOKEN_SECRET} from '@/lib/subscribeToken';
 
 // The other half of double opt-in. The confirm link from the subscribe email
 // lands here: verify the signed token, add the contact to the Resend audience,
 // and deliver the GIF-hero welcome email. Then redirect to a friendly page.
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID;
-const NEWSLETTER_SEND_SECRET = process.env.NEWSLETTER_SEND_SECRET;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME;
@@ -26,25 +25,42 @@ function redirectTo(status: 'ok' | 'already' | 'invalid' | 'error') {
 }
 
 export async function GET(req: NextRequest) {
-  if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID || !NEWSLETTER_SEND_SECRET) {
+  if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID || !SUBSCRIBE_TOKEN_SECRET) {
     return redirectTo('error');
   }
 
   const token = new URL(req.url).searchParams.get('token');
-  const email = token ? verifySubscribeToken(token, NEWSLETTER_SEND_SECRET) : null;
+  const email = token ? verifySubscribeToken(token, SUBSCRIBE_TOKEN_SECRET) : null;
   if (!email) return redirectTo('invalid');
 
   const resend = new Resend(RESEND_API_KEY);
 
-  // Add to the audience. If the contact already exists Resend returns an error —
-  // we treat that as "already subscribed" and skip re-sending the welcome, which
-  // also dedupes repeat clicks of the confirm link within the token window.
+  // Add to the audience. A create error doesn't say *why* it failed, so look
+  // the contact up: an active subscriber means a repeat click (skip the
+  // welcome); a past unsubscriber who just re-confirmed via a signed link is
+  // resubscribed; anything else (rate limit, bad key, network) is a real error.
   const created = await resend.contacts.create({
     audienceId: RESEND_AUDIENCE_ID,
     email,
     unsubscribed: false,
   });
-  if (created.error) return redirectTo('already');
+  if (created.error) {
+    const existing = await resend.contacts.get({audienceId: RESEND_AUDIENCE_ID, email});
+    if (existing.error || !existing.data) {
+      console.error('Confirm: contact create failed:', created.error);
+      return redirectTo('error');
+    }
+    if (!existing.data.unsubscribed) return redirectTo('already');
+    const updated = await resend.contacts.update({
+      audienceId: RESEND_AUDIENCE_ID,
+      email,
+      unsubscribed: false,
+    });
+    if (updated.error) {
+      console.error('Confirm: resubscribe failed:', updated.error);
+      return redirectTo('error');
+    }
+  }
 
   // Newly subscribed → send the welcome email if the singleton is configured.
   const welcome = await client.fetch(WELCOME_EMAIL_QUERY);

@@ -125,6 +125,14 @@ export const newsletterType = defineType({
       },
     }),
     defineField({
+      name: 'lastTestSentAt',
+      title: 'Last test sent at',
+      type: 'datetime',
+      group: 'status',
+      readOnly: true,
+      description: 'Test sends leave the status as Draft, so the newsletter can still go to the audience.',
+    }),
+    defineField({
       name: 'sentAt',
       title: 'Sent at',
       type: 'datetime',

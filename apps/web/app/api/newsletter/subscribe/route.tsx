@@ -4,7 +4,7 @@ import {render} from '@react-email/render';
 import {client} from '@/lib/sanity.client';
 import {WELCOME_EMAIL_QUERY} from '@/lib/sanity.queries';
 import {ConfirmEmailTemplate} from '@/components/emails/ConfirmEmailTemplate';
-import {createSubscribeToken} from '@/lib/subscribeToken';
+import {createSubscribeToken, SUBSCRIBE_TOKEN_SECRET} from '@/lib/subscribeToken';
 import {isThrottled, markSent} from '@/lib/signupThrottle';
 
 // Public, visitor-facing endpoint — NO bearer secret (unlike the editor-only
@@ -12,7 +12,6 @@ import {isThrottled, markSent} from '@/lib/signupThrottle';
 // emails a signed confirm link (double opt-in). The contact is created later,
 // in the confirm route, so an unconfirmed/forged address never enters Resend.
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const NEWSLETTER_SEND_SECRET = process.env.NEWSLETTER_SEND_SECRET;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME;
@@ -25,7 +24,7 @@ function fromAddress(): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!RESEND_API_KEY || !NEWSLETTER_SEND_SECRET) {
+  if (!RESEND_API_KEY || !SUBSCRIBE_TOKEN_SECRET) {
     return NextResponse.json({error: 'Newsletter signup is not configured.'}, {status: 500});
   }
 
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const confirmSubject = welcome.confirmationSubject ?? 'Confirm your subscription';
-  const token = createSubscribeToken(email, NEWSLETTER_SEND_SECRET);
+  const token = createSubscribeToken(email, SUBSCRIBE_TOKEN_SECRET);
   const confirmUrl = `${SITE_URL}/api/newsletter/confirm?token=${encodeURIComponent(token)}`;
   // Build the element outside the try: @react-email/render throws synchronously
   // on bad props, but the lint rule flags JSX authored inside try/catch.
