@@ -1,4 +1,5 @@
 import type { PostVideo } from '@/lib/sanity.queries';
+import { downloadUrl } from '@/lib/downloadUrl';
 
 // "One render, delivered N ways" — the explicit fan-out showcase. Reads a
 // video's Cloudinary `variants[]` (derivations of the single canonical MP4, not
@@ -89,7 +90,7 @@ export default function FanoutPanel({ video }: { video: PostVideo }) {
                 {specFor(v)}
               </span>
               <a
-                href={v.url!}
+                href={p?.download ? downloadUrl(v.url!) : v.url!}
                 {...(p?.download
                   ? { download: true }
                   : { target: '_blank', rel: 'noopener noreferrer' })}

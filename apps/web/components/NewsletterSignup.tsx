@@ -38,7 +38,7 @@ export default function NewsletterSignup() {
 
   if (state === 'success') {
     return (
-      <p className='font-serif text-lg/relaxed text-foreground italic'>
+      <p role='status' className='font-serif text-lg/relaxed text-foreground italic'>
         Check your inbox — we sent a link to confirm your subscription.
       </p>
     );
@@ -58,7 +58,7 @@ export default function NewsletterSignup() {
         placeholder='you@example.com'
         autoComplete='email'
         disabled={state === 'submitting'}
-        className='min-w-0 flex-1 rounded-lg border border-foreground/15 bg-background px-4 py-2.5 text-sm transition-colors focus:border-accent focus:outline-none'
+        className='min-w-0 flex-1 rounded-lg border border-foreground/15 bg-background px-4 py-2.5 text-sm transition-colors focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40'
       />
       {/* Honeypot: off-screen, not tabbable, hidden from assistive tech. */}
       <input
@@ -79,7 +79,9 @@ export default function NewsletterSignup() {
         {state === 'submitting' ? 'Sending…' : 'Subscribe'}
       </button>
       {state === 'error' && (
-        <p className='basis-full text-sm text-red-600 sm:text-left'>{message}</p>
+        <p role='alert' className='basis-full text-sm text-red-600 sm:text-left'>
+          {message}
+        </p>
       )}
     </form>
   );

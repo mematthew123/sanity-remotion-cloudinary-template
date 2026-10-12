@@ -1,6 +1,9 @@
 import {defineArrayMember, defineField, defineType} from 'sanity'
 import {DocumentTextIcon, SparklesIcon} from '@sanity/icons'
 
+const maxWords = (max: number) => (value: string | undefined) =>
+  !value || value.trim().split(/\s+/).length <= max ? true : `Keep this to ${max} words or fewer`
+
 export const postType = defineType({
   name: 'post',
   title: 'Post',
@@ -17,7 +20,10 @@ export const postType = defineType({
       title: 'Title',
       type: 'string',
       group: 'content',
-      validation: (rule) => rule.required(),
+      validation: (rule) => [
+        rule.required(),
+        rule.max(100).warning('Long titles may not fit the video layouts'),
+      ],
     }),
     defineField({
       name: 'slug',
@@ -109,7 +115,7 @@ export const postType = defineType({
       group: 'video',
       readOnly: true,
       description:
-        'Populated by `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`. One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition. Re-run the script after editing body — unchanged chunks pull from Cloudinary cache.',
+        'Populated by the "Generate voiceover" action (or `pnpm --filter @template/web generate-voiceover -- --post-id=<id>`). One MP3 per paragraph of the body, hosted on Cloudinary. Used by the narrated-video composition. Re-run after editing the body — unchanged chunks pull from the Cloudinary cache.',
       of: [
         defineArrayMember({
           type: 'object',
@@ -169,18 +175,21 @@ export const postType = defineType({
           title: 'Kicker',
           type: 'string',
           description: 'Short label above the headline (max 3 words).',
+          validation: (rule) => rule.custom(maxWords(3)).warning(),
         }),
         defineField({
           name: 'headline',
           title: 'Headline',
           type: 'string',
           description: 'Punchy on-screen headline (max 8 words). May differ from the post title.',
+          validation: (rule) => rule.custom(maxWords(8)).warning(),
         }),
         defineField({
           name: 'subhead',
           title: 'Subhead',
           type: 'string',
           description: 'One supporting line (max 12 words).',
+          validation: (rule) => rule.custom(maxWords(12)).warning(),
         }),
         defineField({
           name: 'pullQuote',
@@ -188,18 +197,21 @@ export const postType = defineType({
           type: 'text',
           rows: 2,
           description: 'A short standout line drawn from the article (max 16 words).',
+          validation: (rule) => rule.custom(maxWords(16)).warning(),
         }),
         defineField({
           name: 'ctaPrimary',
           title: 'CTA (primary)',
           type: 'string',
           description: 'Primary call to action (max 4 words, e.g. "Read more").',
+          validation: (rule) => rule.custom(maxWords(4)).warning(),
         }),
         defineField({
           name: 'ctaSecondary',
           title: 'CTA (secondary)',
           type: 'string',
           description: 'Optional secondary call to action (max 6 words).',
+          validation: (rule) => rule.custom(maxWords(6)).warning(),
         }),
       ],
     }),

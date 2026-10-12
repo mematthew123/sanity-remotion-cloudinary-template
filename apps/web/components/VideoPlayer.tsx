@@ -18,6 +18,11 @@ function cloudNameFromUrl(url?: string | null): string | undefined {
   return url?.match(/res\.cloudinary\.com\/([^/]+)\//)?.[1]
 }
 
+function formatDuration(seconds: number): string {
+  const total = Math.round(seconds)
+  return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${total % 60}s`
+}
+
 export default function VideoPlayer({ videos }: VideoPlayerProps) {
   // Only render videos that actually have a Cloudinary URL.
   const playable = videos.filter((v) => v.cloudinaryUrl)
@@ -58,6 +63,8 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
               return (
                 <button
                   key={video._id}
+                  type='button'
+                  aria-pressed={isActive}
                   onClick={() => setActiveId(video._id)}
                   className={`rounded-full px-4 py-1.5 font-mono text-xs tracking-wide uppercase transition-colors ${
                     isActive
@@ -105,7 +112,7 @@ export default function VideoPlayer({ videos }: VideoPlayerProps) {
 
         <div className='mt-4 flex items-center gap-4 font-mono text-xs tracking-wide text-muted uppercase'>
           <span>{label}</span>
-          <span>{active.duration ?? 0}s</span>
+          {active.duration ? <span>{formatDuration(active.duration)}</span> : null}
           {active.renderedAt && (
             <span suppressHydrationWarning>
               Rendered{' '}

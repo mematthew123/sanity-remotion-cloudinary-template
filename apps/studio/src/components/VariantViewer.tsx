@@ -53,6 +53,9 @@ const isVideoFormat = (format: VariantFormat) => format === 'mp4' || format === 
 const previewStyle = {width: '100%', display: 'block', background: '#0b0b0b'} as const
 
 function Preview({url, format}: {url: string; format: VariantFormat}) {
+  if (format === 'mp3') {
+    return <audio src={url} controls preload="none" style={{width: '100%', display: 'block'}} />
+  }
   return isVideoFormat(format) ? (
     <video src={url} controls preload="metadata" playsInline style={previewStyle} />
   ) : (

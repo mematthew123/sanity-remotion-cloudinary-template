@@ -49,6 +49,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         month: 'short',
         day: 'numeric',
         year: 'numeric',
+        timeZone: 'UTC',
       })
     } catch {
       return publishedAt
@@ -112,7 +113,7 @@ export const ArticlePromo: React.FC<ArticleVideoProps> = ({
         {/* Title */}
         <Sequence from={30} layout="none">
           <div
-            className={`font-mono leading-[1.1] font-extrabold tracking-[-0.02em] text-foreground uppercase ${
+            className={`line-clamp-4 font-mono leading-[1.1] font-extrabold tracking-[-0.02em] text-foreground uppercase ${
               mainImageUrl ? 'text-4xl' : 'text-5xl'
             }`}
             style={{

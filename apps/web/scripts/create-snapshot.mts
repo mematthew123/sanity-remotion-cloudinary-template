@@ -28,7 +28,7 @@ async function main() {
   })
 
   console.log('[snapshot] bundling Remotion project…')
-  bundleRemotionProject(BUNDLE_DIR)
+  await bundleRemotionProject(BUNDLE_DIR)
 
   console.log('[snapshot] uploading bundle to sandbox…')
   await addBundleToSandbox({sandbox, bundleDir: BUNDLE_DIR})

@@ -1,4 +1,5 @@
 import type {PostVideo} from '@/lib/sanity.queries';
+import {downloadUrl} from '@/lib/downloadUrl';
 
 // Featured *video* player for the article-narrated composition: a long-form
 // animated reading of the post body. Shown as a hero block on the post page
@@ -42,7 +43,7 @@ export default function NarratedReadingHero({video, posterUrl, captionsUrl}: Pro
           {durationLabel && <span className='text-muted'>{durationLabel}</span>}
           {video.youtubeUrl && (
             <a
-              href={video.youtubeUrl}
+              href={downloadUrl(video.youtubeUrl)}
               download
               className='group inline-flex items-center gap-1 text-muted transition-colors hover:text-foreground'
               title='Download the full-resolution 1080p master'

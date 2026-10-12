@@ -95,7 +95,7 @@ export default defineConfig({
     // never created ad hoc. Drop it from the global "create new document" menu.
     newDocumentOptions: (prev, {creationContext}) =>
       creationContext.type === 'global'
-        ? prev.filter((template) => template.templateId !== 'welcomeEmail')
+        ? prev.filter((template) => !['welcomeEmail', 'video'].includes(template.templateId))
         : prev,
   },
 })

@@ -1,6 +1,7 @@
 import { client } from '@/lib/sanity.client';
 import { PODCAST_FEED_QUERY } from '@/lib/sanity.queries';
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl';
+import { FEED_CATEGORY, FEED_DESCRIPTION, FEED_TITLE } from '@/lib/podcast';
 
 // RSS 2.0 + iTunes podcast feed over the `podcast-mp3` fan-out variant. Turns
 // the audio derivation of every narrated render into a real, subscribable
@@ -8,9 +9,8 @@ import { SITE_URL, absoluteUrl } from '@/lib/siteUrl';
 
 export const revalidate = 300;
 
-const FEED_TITLE = 'Narrated Readings';
-const FEED_DESCRIPTION =
-  'Audio narrations of every article, extracted from the rendered video.';
+const OWNER_NAME = process.env.RESEND_FROM_NAME ?? FEED_TITLE;
+const OWNER_EMAIL = process.env.RESEND_FROM_EMAIL;
 
 function esc(value: string): string {
   return value
@@ -30,13 +30,23 @@ function clock(seconds: number | null | undefined): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+async function byteLength(url: string): Promise<number> {
+  try {
+    const res = await fetch(url, { method: 'HEAD', next: { revalidate: 86400 } });
+    return Number(res.headers.get('content-length')) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET() {
-  const episodes = await client.fetch(PODCAST_FEED_QUERY);
+  const episodes = (await client.fetch(PODCAST_FEED_QUERY)).filter((e) => e.audioUrl);
   const feedUrl = absoluteUrl('/feed.xml');
+  const artworkUrl = absoluteUrl('/podcast-artwork.png');
+  const lengths = await Promise.all(episodes.map((e) => byteLength(e.audioUrl!)));
 
   const items = episodes
-    .filter((e) => e.audioUrl)
-    .map((e) => {
+    .map((e, i) => {
       const link = e.post?.slug
         ? absoluteUrl(`/posts/${e.post.slug}`)
         : SITE_URL;
@@ -50,7 +60,7 @@ export async function GET() {
         `      <guid isPermaLink="false">${esc(e._id)}</guid>`,
         `      <description>${esc(summary)}</description>`,
         `      <pubDate>${pubDate}</pubDate>`,
-        `      <enclosure url="${esc(e.audioUrl!)}" length="0" type="audio/mpeg" />`,
+        `      <enclosure url="${esc(e.audioUrl!)}" length="${lengths[i]}" type="audio/mpeg" />`,
         `      <itunes:duration>${clock(e.duration)}</itunes:duration>`,
         `      <itunes:summary>${esc(summary)}</itunes:summary>`,
         '    </item>',
@@ -66,7 +76,23 @@ export async function GET() {
     <atom:link href="${esc(feedUrl)}" rel="self" type="application/rss+xml" />
     <description>${esc(FEED_DESCRIPTION)}</description>
     <language>en</language>
-    <itunes:explicit>false</itunes:explicit>
+    <image>
+      <url>${esc(artworkUrl)}</url>
+      <title>${esc(FEED_TITLE)}</title>
+      <link>${esc(SITE_URL)}</link>
+    </image>
+    <itunes:image href="${esc(artworkUrl)}" />
+    <itunes:category text="${esc(FEED_CATEGORY)}" />
+    <itunes:author>${esc(OWNER_NAME)}</itunes:author>
+${
+  OWNER_EMAIL
+    ? `    <itunes:owner>
+      <itunes:name>${esc(OWNER_NAME)}</itunes:name>
+      <itunes:email>${esc(OWNER_EMAIL)}</itunes:email>
+    </itunes:owner>
+`
+    : ''
+}    <itunes:explicit>false</itunes:explicit>
     <itunes:summary>${esc(FEED_DESCRIPTION)}</itunes:summary>
 ${items}
   </channel>

@@ -85,7 +85,6 @@ export const ALL_VIDEOS_QUERY = defineQuery(/* groq */ `
     cloudinaryPublicId,
     renderedAt,
     "posterUrl": variants[variantId == "site-poster-jpg"][0].url,
-    "previewGifUrl": variants[variantId == "site-preview-gif"][0].url,
     "siteMp4Url": variants[variantId == "site-mp4"][0].url,
     ${VIDEO_VARIANTS_PROJECTION},
     "post": post->{title, slug}

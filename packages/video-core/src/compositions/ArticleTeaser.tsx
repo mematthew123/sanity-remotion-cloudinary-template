@@ -113,7 +113,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
 
         {/* Title */}
         <div
-          className="text-center font-mono text-5xl leading-[1.1] font-extrabold tracking-[-0.02em] text-background uppercase"
+          className="line-clamp-5 text-center font-mono text-5xl leading-[1.1] font-extrabold tracking-[-0.02em] text-background uppercase"
           style={{
             transform: `translateY(${interpolate(titleSlide, [0, 1], [50, 0])}px)`,
             opacity: titleProgress,
@@ -142,7 +142,7 @@ export const ArticleTeaser: React.FC<ArticleVideoProps> = ({
             opacity: excerptReveal,
           }}
         >
-          <div className="font-serif text-2xl leading-[1.4] text-background italic">
+          <div className="line-clamp-6 font-serif text-2xl leading-[1.4] text-background italic">
             &ldquo;{videoCopy?.pullQuote ?? excerpt}&rdquo;
           </div>
         </div>

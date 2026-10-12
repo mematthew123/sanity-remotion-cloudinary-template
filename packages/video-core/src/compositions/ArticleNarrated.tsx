@@ -27,7 +27,12 @@ type Scene = {url: string; startFrame: number; endFrame: number; index: number}
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric'})
+    return new Date(iso).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC',
+    })
   } catch {
     return ''
   }
@@ -241,7 +246,7 @@ function IntroCard({
             {kicker}
           </p>
         ) : null}
-        <h1 className="m-0 text-[68px] font-bold leading-[1.06] tracking-[-0.02em] text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.8)]">
+        <h1 className="m-0 line-clamp-3 text-[68px] font-bold leading-[1.06] tracking-[-0.02em] text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.8)]">
           {title}
         </h1>
         <div className="mt-7 mb-5 h-px w-24" style={{backgroundColor: COLORS.accent}} />

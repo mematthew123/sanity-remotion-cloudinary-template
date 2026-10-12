@@ -77,6 +77,7 @@ export const videoType = defineType({
       to: [{type: 'post'}],
       weak: true,
       group: 'video',
+      readOnly: true,
       description: 'The blog post this video was generated from',
     }),
     defineField({
@@ -84,6 +85,7 @@ export const videoType = defineType({
       title: 'Format',
       type: 'string',
       group: 'video',
+      readOnly: true,
       options: {
         list: [{title: 'MP4', value: 'mp4'}],
         layout: 'radio',
@@ -95,7 +97,8 @@ export const videoType = defineType({
       title: 'Template',
       type: 'string',
       group: 'video',
-      description: 'Composition the renderer will use.',
+      readOnly: true,
+      description: 'Composition this video was rendered from.',
       options: {
         // Show duration in the option label so editors can pick by length.
         list: selectableCompositions.map((c) => {
@@ -110,18 +113,21 @@ export const videoType = defineType({
       title: 'Duration (seconds)',
       type: 'number',
       group: 'video',
+      readOnly: true,
     }),
     defineField({
       name: 'width',
       title: 'Width',
       type: 'number',
       group: 'technical',
+      readOnly: true,
     }),
     defineField({
       name: 'height',
       title: 'Height',
       type: 'number',
       group: 'technical',
+      readOnly: true,
     }),
     defineField({
       name: 'variants',

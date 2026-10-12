@@ -58,6 +58,8 @@ export default async function VideosPage() {
                     poster={video.posterUrl ?? undefined}
                     controls
                     playsInline
+                    preload='none'
+                    aria-label={video.title ?? label}
                     style={{
                       aspectRatio: `${width}/${height}`,
                       width: '100%',

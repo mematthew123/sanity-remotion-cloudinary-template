@@ -10,6 +10,8 @@ interface Props {
 
 type FlatWord = { start: number; pIndex: number; wIndex: number };
 
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+
 export default function InteractiveTranscript({ paragraphs }: Props) {
   const playback = useAudioPlayback();
   // Collapsed by default — optional read-along over the article body.
@@ -17,6 +19,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
   // `${p}:${w}` for the active word, `${p}` for paragraph fallback, or null.
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const activeElRef = useRef<HTMLElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   // Auto-scroll follow mode: on while playing, off on manual scroll.
   const followRef = useRef(true);
 
@@ -102,21 +105,41 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
 
   // Manual scroll disables follow; play re-enables it (see onPlay).
   useEffect(() => {
+    const container = containerRef.current;
+    if (!open || !container) return;
     const disable = () => {
       followRef.current = false;
     };
-    window.addEventListener('wheel', disable, { passive: true });
-    window.addEventListener('touchmove', disable, { passive: true });
-    return () => {
-      window.removeEventListener('wheel', disable);
-      window.removeEventListener('touchmove', disable);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(e.key)) disable();
     };
-  }, []);
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.target === container) disable();
+    };
+    container.addEventListener('wheel', disable, { passive: true });
+    container.addEventListener('touchmove', disable, { passive: true });
+    container.addEventListener('keydown', onKeyDown);
+    container.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      container.removeEventListener('wheel', disable);
+      container.removeEventListener('touchmove', disable);
+      container.removeEventListener('keydown', onKeyDown);
+      container.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [open]);
 
   // Keep the active word centred while following.
   useEffect(() => {
-    if (!followRef.current) return;
-    activeElRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const container = containerRef.current;
+    const el = activeElRef.current;
+    if (!followRef.current || !container || !el) return;
+    const elRect = el.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    container.scrollBy({
+      top: elRect.top - containerRect.top - (container.clientHeight - elRect.height) / 2,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
   }, [activeKey]);
 
   // Parse the active key for played/active styling.
@@ -152,7 +175,10 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
       </button>
 
       {open && (
-      <div className='max-h-[28rem] overflow-y-auto border-t border-foreground/10 px-5 py-5 font-serif text-lg/relaxed'>
+      <div
+        ref={containerRef}
+        className='max-h-[28rem] overflow-y-auto border-t border-foreground/10 px-5 py-5 font-serif text-lg/relaxed'
+      >
         {paragraphs.map((p) => {
           const paragraphActive = activeKey === `${p.index}`;
 
@@ -175,15 +201,26 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
           }
 
           return (
-            <p key={p.index} className='mb-4 last:mb-0'>
+            <p
+              key={p.index}
+              tabIndex={0}
+              role='button'
+              aria-label={`Play from: ${p.text.slice(0, 60)}`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  playback?.seek(p.start);
+                }
+              }}
+              className='mb-4 rounded last:mb-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none'
+            >
               {p.words.map((w, wi) => {
                 const isActive = p.index === activeP && wi === activeW;
                 const isPlayed =
                   p.index < activeP || (p.index === activeP && wi <= activeW);
                 return (
                   <span key={wi}>
-                    <button
-                      type='button'
+                    <span
                       onClick={() => playback?.seek(w.start)}
                       ref={isActive ? (el) => void (activeElRef.current = el) : undefined}
                       className={`cursor-pointer rounded px-0.5 transition-colors duration-150 hover:bg-accent/10 ${
@@ -195,7 +232,7 @@ export default function InteractiveTranscript({ paragraphs }: Props) {
                       }`}
                     >
                       {w.text}
-                    </button>{' '}
+                    </span>{' '}
                   </span>
                 );
               })}

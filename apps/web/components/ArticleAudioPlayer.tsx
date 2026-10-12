@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useAudioPlayback } from './AudioPlayback';
+import { downloadUrl } from '@/lib/downloadUrl';
 
 interface Props {
   /** The `podcast-mp3` variant URL from the narrated render. */
@@ -137,7 +138,7 @@ export default function ArticleAudioPlayer({ src, durationSeconds }: Props) {
         </div>
 
         <a
-          href={src}
+          href={downloadUrl(src)}
           download
           className='shrink-0 font-mono text-xs tracking-wide text-muted uppercase underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground'
         >
