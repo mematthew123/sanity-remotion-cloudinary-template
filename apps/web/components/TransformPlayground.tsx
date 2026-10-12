@@ -23,10 +23,10 @@ const PRESETS: { label: string; transform: string; formats: Format[] }[] = [
   { label: 'Original', transform: '', formats: ALL },
   { label: 'Grayscale', transform: 'e_grayscale', formats: ALL },
   { label: 'Blur', transform: 'e_blur:800', formats: ALL },
-  { label: 'Square crop', transform: 'c_fill,w_600,h_600,g_auto', formats: ALL },
+  { label: 'Square crop', transform: 'c_fill,w_600,h_600,g_center', formats: ALL },
   { label: 'Sepia', transform: 'e_sepia', formats: ['jpg'] },
   { label: 'Pixelate', transform: 'e_pixelate:12', formats: ['jpg'] },
-  { label: 'Poster frame', transform: 'so_10p', formats: ['jpg'] },
+  { label: 'Poster frame', transform: 'so_70p', formats: ['jpg'] },
   { label: 'Preview GIF', transform: 'w_540,du_3,fps_15,fl_lossy,e_loop', formats: ['gif'] },
   { label: 'Boomerang', transform: 'e_boomerang,du_3', formats: ['mp4', 'gif'] },
 ];
@@ -52,6 +52,7 @@ interface Props {
 
 export default function TransformPlayground({ cloudName, videos }: Props) {
   const [videoId, setVideoId] = useState(videos[0]?._id ?? '');
+  const [draft, setDraft] = useState('');
   const [transform, setTransform] = useState('');
   const [format, setFormat] = useState<Format>('mp4');
   const [copied, setCopied] = useState(false);
@@ -77,8 +78,11 @@ export default function TransformPlayground({ cloudName, videos }: Props) {
   }
 
   function applyPreset(p: (typeof PRESETS)[number]) {
+    setDraft(p.transform);
     setTransform(p.transform);
   }
+
+  const unavailable = PRESETS.filter((p) => !p.formats.includes(format));
 
   return (
     <div className='grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px]'>
@@ -158,6 +162,7 @@ export default function TransformPlayground({ cloudName, videos }: Props) {
                 key={f}
                 type='button'
                 onClick={() => setFormat(f)}
+                aria-pressed={format === f}
                 className={`rounded-full px-4 py-1.5 font-mono text-xs tracking-wide uppercase transition-colors ${
                   format === f
                     ? 'bg-foreground text-background'
@@ -182,12 +187,20 @@ export default function TransformPlayground({ cloudName, videos }: Props) {
             Transformation
           </span>
           <input
-            value={transform}
-            onChange={(e) => setTransform(e.target.value)}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setTransform(draft);
+            }}
+            onBlur={() => setTransform(draft)}
             spellCheck={false}
             placeholder='e_grayscale,w_600'
+            aria-describedby='transform-hint'
             className='rounded-lg border border-foreground/15 bg-background px-3 py-2 font-mono text-sm'
           />
+          <span id='transform-hint' className='text-xs text-muted/80'>
+            Press Enter to apply.
+          </span>
         </label>
 
         <div className='flex flex-col gap-2'>
@@ -203,6 +216,7 @@ export default function TransformPlayground({ cloudName, videos }: Props) {
                   type='button'
                   disabled={!enabled}
                   onClick={() => applyPreset(p)}
+                  aria-pressed={enabled && transform === p.transform}
                   title={enabled ? undefined : disabledReason(p.formats)}
                   className={`rounded-full px-3 py-1 text-xs ring-1 transition-colors ${
                     enabled
@@ -215,6 +229,12 @@ export default function TransformPlayground({ cloudName, videos }: Props) {
               );
             })}
           </div>
+          {unavailable.length > 0 && (
+            <p className='text-xs leading-relaxed text-muted/80'>
+              Not available for {format.toUpperCase()}:{' '}
+              {unavailable.map((p) => `${p.label} (${disabledReason(p.formats)})`).join('; ')}.
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -56,16 +56,16 @@ The `./registry` subpath in `video-core/package.json` `exports` is what enforces
 1. Bearer auth via `authorizeStudioRequest` (`lib/validateStudioUser.ts`): accepts the editor's Sanity session token (validated as a project member with an Administrator, Editor or Developer role) or, as a server-side fallback, the optional `VIDEO_RENDER_SECRET`.
 2. Lazily builds the Sanity write client (so a not-yet-configured clone returns a clean error instead of crashing at import).
 3. `findComposition(id)` → Zod `safeParse(inputProps)`.
-4. Idempotency: skip if a `video` for this `(post, template)` is already ready/in-flight.
-5. Create the `video` doc (`status: rendering`), back-referencing its `post`.
+4. Idempotency: skip if a `video` for this `(post, template)` is already in flight, or already ready — unless the request sets `replace: true`. The Studio's manual Render actions send `replace` after the editor confirms re-rendering. Auto-promo on publish never does. In-flight docs past the render ceiling are reclaimed as `failed`.
+5. Create the `video` doc (`status: rendering`), back-referencing its `post` with a **weak** reference, so posts that aren't published yet can be rendered. The check and the create aren't atomic, so the route re-checks right after creating: if an earlier in-flight doc exists for the same `(post, template)`, it deletes its own doc and returns that one instead.
 6. Render the MP4. `useLocalRender = !process.env.VERCEL && (LOCAL_RENDER === 'true' || !BLOB_READ_WRITE_TOKEN)` picks the backend:
    - **Vercel Sandbox** (default / always on Vercel): `restoreSnapshot()` on Vercel (resumes a build-time snapshot that already contains the bundle), `createSandbox()` + `addBundleToSandbox()` locally; `renderMediaOnVercel({sandbox, compositionId, inputProps, codec: 'h264'})` renders inside it, then `uploadToVercelBlob({access: 'public'})` stages the MP4 at a public URL. See [`vercel-sandbox.md`](./vercel-sandbox.md).
    - **Local fallback** (no Blob token / `LOCAL_RENDER=true`, off-Vercel only): `renderLocally()` (`helpers.ts`) renders with headless Chromium on the machine and returns a local file path — no Sandbox, no Blob.
 7. Upload to Cloudinary from the staging source — the Blob URL or the local file path, whichever the backend produced — (`folder: template/videos`) with `eager: eagerTransformsFor(meta)`, then drop the staging copy (best-effort): `del()` the Blob object or `unlink()` the temp file.
-8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration`, and `variants[]` from `snapshotVariants(cloudName, publicId, meta)`.
+8. Patch the doc: `status: ready`, `cloudinaryUrl`, `cloudinaryPublicId`, `duration` (Cloudinary's probed length), and `variants[]` from `snapshotVariants(cloudName, publicId, meta)`. Any earlier `ready` video for the same `(post, template)` is set to `status: replaced`: it's kept as history but hidden from the site, which only shows `ready`.
 9. On any error: patch `status: failed` + `errorMessage`. The `finally` block stops the sandbox so the slot is released immediately.
 
-A **soft timeout** armed at `(maxDuration - 80)` s (~720 s) races the render: if it fires first, the render is abandoned and the doc lands on `status: failed` with a timeout message rather than letting the platform kill the function mid-flight. Narrated renders are the most likely to approach it — see [troubleshooting.md](./troubleshooting.md#render-shows-failed-with-no-obvious-error).
+A **soft deadline** at `(maxDuration - 80)` s (~720 s), measured from the start of the request, races every slow stage: sandbox setup, bundling, the render, Blob staging and the Cloudinary upload. If it fires first, the work is abandoned (a local render is cancelled, and the sandbox is stopped) and the doc lands on `status: failed` with a timeout message naming the stage, rather than the platform killing the function mid-flight. Narrated renders are the most likely to approach it — see [troubleshooting.md](./troubleshooting.md#render-shows-failed-with-no-obvious-error).
 
 ## The Cloudinary variant system
 

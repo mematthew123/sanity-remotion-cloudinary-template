@@ -123,8 +123,8 @@ export const PODCAST_FEED_QUERY = defineQuery(/* groq */ `
 export type PodcastFeedItem = PODCAST_FEED_QUERY_RESULT[number];
 
 // ── Sitemap ─────────────────────────────────────────────────────────────────
-// Every post with its primary ready video (promo preferred, same pick as the
-// home feed), for the video-sitemap on /sitemap.xml.
+// Every post with its primary ready video, for the video-sitemap on
+// /sitemap.xml.
 export const SITEMAP_QUERY = defineQuery(/* groq */ `
   *[_type == "post" && defined(slug.current)] | order(publishedAt desc){
     "slug": slug.current,
@@ -132,7 +132,7 @@ export const SITEMAP_QUERY = defineQuery(/* groq */ `
     excerpt,
     publishedAt,
     _updatedAt,
-    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl)] | order((template == "article-promo") desc, renderedAt desc)[0]{
+    "video": *[_type == "video" && post._ref == ^._id && status == "ready" && defined(cloudinaryUrl) && template != "article-promo"] | order((template == "article-narrated") desc, renderedAt desc)[0]{
       title,
       cloudinaryUrl,
       "posterUrl": variants[variantId == "site-poster-jpg"][0].url

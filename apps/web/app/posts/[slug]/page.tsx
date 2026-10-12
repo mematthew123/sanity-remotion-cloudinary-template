@@ -217,10 +217,9 @@ export default async function PostPage({
   return (
     <article className='mx-auto max-w-3xl px-6 py-16'>
       <VideoJsonLd
-        videos={allVideos}
+        videos={narratedReading ? [narratedReading, ...shortFormVideos] : shortFormVideos}
         postTitle={post.title ?? 'Untitled'}
         description={post.excerpt ?? 'A post rendered to video from Sanity content.'}
-        pageUrl={absoluteUrl(`/posts/${slug}`)}
         fallbackThumbnail={mainImageUrl}
         uploadDate={post.publishedAt}
       />

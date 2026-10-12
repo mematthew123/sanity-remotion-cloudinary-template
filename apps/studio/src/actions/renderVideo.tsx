@@ -28,7 +28,26 @@ type ResolvedPostFields = {
   videoCopy?: unknown
 }
 
-const POST_FIELDS_QUERY = `*[_id == $id][0]{
+const NEWEST_POST = `*[_id in [$draftId, $publishedId]] | order(_updatedAt desc)[0]`
+
+function postIds(props: DocumentActionProps) {
+  const publishedId = (props.id || '').replace(/^drafts\./, '')
+  return {publishedId, draftId: `drafts.${publishedId}`}
+}
+
+const READY_VIDEO_QUERY = `count(*[_type == "video" && post._ref == $postId && template == $template && status == "ready"]) > 0`
+
+function replaceMessage(label: string) {
+  return `This post already has a ${label} video. Render a new one from the current content? The existing video stays live until the new render finishes.`
+}
+
+function idempotentTitle(status: unknown, readyTitle: string) {
+  return status === 'ready'
+    ? readyTitle
+    : 'A render is already in progress — it will appear in the Videos list when done'
+}
+
+const POST_FIELDS_QUERY = `${NEWEST_POST}{
   title,
   excerpt,
   publishedAt,
@@ -47,32 +66,18 @@ function makeRenderAction(
 ): DocumentActionComponent {
   function RenderAction(props: DocumentActionProps): DocumentActionDescription {
     const [isRendering, setIsRendering] = useState(false)
+    const [confirmReplace, setConfirmReplace] = useState(false)
     const client = useStudioClient()
     const userToken = useStudioUserToken()
     const toast = useToast()
+    const {publishedId, draftId} = postIds(props)
 
-    const onHandle = async () => {
-      const publishedId = (props.id || '').replace(/^drafts\./, '')
-      // Only need to confirm a snapshot exists (post is saved); all fields are
-      // re-fetched via GROQ below.
-      const snapshot = props.draft ?? props.published
-
-      if (!snapshot) {
-        toast.push({status: 'warning', title: 'Save the post first'})
-        return
-      }
-
+    const render = async (replace: boolean) => {
       try {
-        // Resolve reference/asset fields the snapshot lacks; published id first,
-        // then draft.
-        let resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {
-          id: publishedId,
+        const resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {
+          draftId,
+          publishedId,
         })
-        if (!resolved) {
-          resolved = await client.fetch<ResolvedPostFields | null>(POST_FIELDS_QUERY, {
-            id: `drafts.${publishedId}`,
-          })
-        }
 
         const inputProps: ArticleVideoProps = {
           title: resolved?.title ?? 'Untitled',
@@ -103,7 +108,7 @@ function makeRenderAction(
             'Content-Type': 'application/json',
             Authorization: `Bearer ${userToken}`,
           },
-          body: JSON.stringify({compositionId, inputProps, postId: publishedId}),
+          body: JSON.stringify({compositionId, inputProps, postId: publishedId, replace}),
         })
 
         const data: Record<string, unknown> = await res
@@ -113,7 +118,9 @@ function makeRenderAction(
         if (res.ok) {
           toast.push({
             status: 'success',
-            title: data.idempotent ? 'Video already exists' : 'Video ready — see the Videos list',
+            title: data.idempotent
+              ? idempotentTitle(data.status, 'Video already exists')
+              : 'Video ready — see the Videos list',
           })
         } else {
           const errorDescription =
@@ -135,11 +142,38 @@ function makeRenderAction(
       }
     }
 
+    const onHandle = async () => {
+      if (!(props.draft ?? props.published)) {
+        toast.push({status: 'warning', title: 'Save the post first'})
+        return
+      }
+      const hasVideo = await client
+        .fetch<boolean>(READY_VIDEO_QUERY, {postId: publishedId, template: compositionId})
+        .catch(() => false)
+      if (hasVideo) {
+        setConfirmReplace(true)
+        return
+      }
+      await render(false)
+    }
+
     return {
       label: `Render ${label}`,
       icon: PlayIcon,
       disabled: isRendering,
       onHandle,
+      dialog: confirmReplace
+        ? {
+            type: 'confirm',
+            tone: 'caution',
+            message: replaceMessage(label),
+            onConfirm: () => {
+              setConfirmReplace(false)
+              void render(true)
+            },
+            onCancel: () => setConfirmReplace(false),
+          }
+        : null,
     }
   }
 
@@ -157,7 +191,7 @@ export const RenderArticleTeaser = makeRenderAction('article-teaser', 'Teaser (9
 // `post.videoCopy` and passes the chunks straight to the composition.
 // =============================================================================
 
-const NARRATED_FIELDS_QUERY = `*[_id == $id][0]{
+const NARRATED_FIELDS_QUERY = `${NEWEST_POST}{
   title,
   publishedAt,
   "authorName": author->name,
@@ -184,35 +218,25 @@ type NarratedFields = {
 
 function RenderArticleNarratedAction(props: DocumentActionProps): DocumentActionDescription {
   const [isRendering, setIsRendering] = useState(false)
+  const [confirmReplace, setConfirmReplace] = useState(false)
   const client = useStudioClient()
   const userToken = useStudioUserToken()
   const toast = useToast()
+  const {publishedId, draftId} = postIds(props)
 
-  const onHandle = async () => {
-    const publishedId = (props.id || '').replace(/^drafts\./, '')
-    const snapshot = props.draft ?? props.published
-    if (!snapshot) {
-      toast.push({status: 'warning', title: 'Save the post first'})
-      return
-    }
-
+  const render = async (replace: boolean) => {
     try {
-      let resolved = await client.fetch<NarratedFields | null>(NARRATED_FIELDS_QUERY, {
-        id: publishedId,
+      const resolved = await client.fetch<NarratedFields | null>(NARRATED_FIELDS_QUERY, {
+        draftId,
+        publishedId,
       })
-      if (!resolved) {
-        resolved = await client.fetch<NarratedFields | null>(NARRATED_FIELDS_QUERY, {
-          id: `drafts.${publishedId}`,
-        })
-      }
 
       const chunks = resolved?.voiceoverChunks ?? []
       if (chunks.length === 0) {
         toast.push({
           status: 'warning',
           title: 'No voiceover yet',
-          description:
-            'Run: pnpm --filter @template/web generate-voiceover -- --post-id=' + publishedId,
+          description: 'Run "Generate voiceover" from this post\'s actions menu first.',
         })
         return
       }
@@ -224,7 +248,8 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
         toast.push({
           status: 'error',
           title: 'Voiceover chunks have no duration',
-          description: 'Re-run generate-voiceover — Cloudinary may not have reported durations.',
+          description:
+            'Run "Generate voiceover" again — Cloudinary may not have reported durations.',
         })
         return
       }
@@ -269,6 +294,7 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
           compositionId: 'article-narrated',
           inputProps,
           postId: publishedId,
+          replace,
         }),
       })
 
@@ -280,7 +306,7 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
         toast.push({
           status: 'success',
           title: data.idempotent
-            ? 'Narrated reading already rendered'
+            ? idempotentTitle(data.status, 'Narrated reading already rendered')
             : 'Narrated reading ready — see the Videos list',
         })
       } else {
@@ -303,11 +329,38 @@ function RenderArticleNarratedAction(props: DocumentActionProps): DocumentAction
     }
   }
 
+  const onHandle = async () => {
+    if (!(props.draft ?? props.published)) {
+      toast.push({status: 'warning', title: 'Save the post first'})
+      return
+    }
+    const hasVideo = await client
+      .fetch<boolean>(READY_VIDEO_QUERY, {postId: publishedId, template: 'article-narrated'})
+      .catch(() => false)
+    if (hasVideo) {
+      setConfirmReplace(true)
+      return
+    }
+    await render(false)
+  }
+
   return {
     label: 'Render narrated reading',
     icon: PlayIcon,
     disabled: isRendering,
     onHandle,
+    dialog: confirmReplace
+      ? {
+          type: 'confirm',
+          tone: 'caution',
+          message: replaceMessage('narrated reading'),
+          onConfirm: () => {
+            setConfirmReplace(false)
+            void render(true)
+          },
+          onCancel: () => setConfirmReplace(false),
+        }
+      : null,
   }
 }
 

@@ -18,7 +18,6 @@ interface Props {
   videos: PostVideo[];
   postTitle: string;
   description: string;
-  pageUrl: string;
   /** Fallback thumbnail (the post's main image) when a video has no poster. */
   fallbackThumbnail?: string | null;
   uploadDate?: string | null;
@@ -28,7 +27,6 @@ export default function VideoJsonLd({
   videos,
   postTitle,
   description,
-  pageUrl,
   fallbackThumbnail,
   uploadDate,
 }: Props) {
@@ -45,7 +43,6 @@ export default function VideoJsonLd({
         uploadDate: v.renderedAt ?? uploadDate ?? undefined,
         duration: isoDuration(v.duration),
         contentUrl: v.cloudinaryUrl ?? undefined,
-        embedUrl: pageUrl,
       };
     });
 

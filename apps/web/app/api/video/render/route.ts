@@ -15,12 +15,18 @@ import {findComposition, eagerTransformsFor, snapshotVariants} from '@template/v
 import {withCloudinaryAnalytics} from '@/lib/cloudinaryDelivery'
 import {authorizeStudioRequest} from '@/lib/validateStudioUser'
 
-import {unlink} from 'node:fs/promises'
+import {randomUUID} from 'node:crypto'
+import {rm, unlink} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {makeCancelSignal} from '@remotion/renderer'
 
 import {bundleRemotionProject, renderLocally} from './helpers'
 import {restoreSnapshot} from './restore-snapshot'
 
 export const maxDuration = 800 // Vercel Pro ceiling. Narrated renders take ~5-7 min; promo/teaser <60s.
+
+const SOFT_DEADLINE_MS = (maxDuration - 80) * 1000
 
 const RENDER_SECRET = process.env.VIDEO_RENDER_SECRET
 
@@ -40,7 +46,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
+type ExistingVideo = {
+  _id: string
+  _createdAt: string
+  status: string
+  renderStartedAt: string | null
+}
+
+function isStaleInFlight(doc: ExistingVideo): boolean {
+  if (doc.status === 'ready') return false
+  const startedAt = doc.renderStartedAt ? Date.parse(doc.renderStartedAt) : NaN
+  const ageMs = Number.isNaN(startedAt) ? Infinity : Date.now() - startedAt
+  return ageMs > (maxDuration + 60) * 1000
+}
+
 export async function POST(req: NextRequest) {
+  const requestStartedAt = Date.now()
   // Local render fallback: when not deployed on Vercel and either LOCAL_RENDER
   // is set or there's no Blob token, render with headless Chromium on this
   // machine and upload straight to Cloudinary — no Vercel Sandbox / Blob store
@@ -92,6 +113,8 @@ export async function POST(req: NextRequest) {
   let blobUrl: string | null = null
   // Local-render temp file, tracked for cleanup on success and error paths.
   let localFilePath: string | null = null
+  let localBundleDir: string | null = null
+  let deadlineTimer: ReturnType<typeof setTimeout> | undefined
 
   try {
     const body = await req.json()
@@ -99,6 +122,7 @@ export async function POST(req: NextRequest) {
     // the request body: the composition defines its size, and duration can be
     // data-driven (`calculateMetadata`), so only the output knows it.
     const {compositionId, inputProps, postId} = body
+    const replace = body.replace === true
 
     if (!compositionId) {
       return NextResponse.json(
@@ -124,36 +148,15 @@ export async function POST(req: NextRequest) {
     }
     const validatedProps = propsResult.data as {title: string}
 
-    // Idempotency: short-circuit if a ready/in-flight video already exists for
-    // this post + template.
     if (postId) {
-      const existing = await sanityClient.fetch<{
-        _id: string
-        status: string
-        renderStartedAt: string | null
-      } | null>(
-        `*[_type == "video" && post._ref == $postId && template == $template && status in ["ready", "rendering", "uploading"]][0]{ _id, status, renderStartedAt }`,
+      const existing = await sanityClient.fetch<ExistingVideo[]>(
+        `*[_type == "video" && post._ref == $postId && template == $template && status in ["ready", "rendering", "uploading"]]{ _id, _createdAt, status, renderStartedAt }`,
         {postId, template: compositionId},
       )
 
-      if (existing) {
-        // `ready` is always a valid idempotent hit. A `rendering`/`uploading`
-        // doc still in-flight past the render ceiling means its function was
-        // killed (no render outlives the soft timeout) — reclaim it as `failed`
-        // and fall through, else it blocks this post + template forever.
-        const startedAt = existing.renderStartedAt ? Date.parse(existing.renderStartedAt) : NaN
-        const ageMs = Number.isNaN(startedAt) ? Infinity : Date.now() - startedAt
-        const isStale = existing.status !== 'ready' && ageMs > (maxDuration + 60) * 1000
-
-        if (!isStale) {
-          return NextResponse.json(
-            {success: true, documentId: existing._id, status: existing.status, idempotent: true},
-            {status: 200, headers: corsHeaders},
-          )
-        }
-
+      for (const doc of existing.filter(isStaleInFlight)) {
         await sanityClient
-          .patch(existing._id)
+          .patch(doc._id)
           .set({
             status: 'failed',
             errorMessage:
@@ -161,6 +164,16 @@ export async function POST(req: NextRequest) {
           })
           .commit()
           .catch(() => undefined)
+      }
+
+      const blocking =
+        existing.find((doc) => doc.status !== 'ready' && !isStaleInFlight(doc)) ??
+        (replace ? undefined : existing.find((doc) => doc.status === 'ready'))
+      if (blocking) {
+        return NextResponse.json(
+          {success: true, documentId: blocking._id, status: blocking.status, idempotent: true},
+          {status: 200, headers: corsHeaders},
+        )
       }
     }
 
@@ -171,7 +184,7 @@ export async function POST(req: NextRequest) {
       title: `${validatedProps.title} — ${meta.label}`,
       status: 'rendering',
       renderStartedAt: new Date().toISOString(),
-      ...(postId ? {post: {_type: 'reference', _ref: postId}} : {}),
+      ...(postId ? {post: {_type: 'reference', _ref: postId, _weak: true}} : {}),
       format: 'mp4',
       template: compositionId,
       width: meta.width,
@@ -181,6 +194,24 @@ export async function POST(req: NextRequest) {
 
     sanityDocId = sanityDoc._id
     console.log('Video document created with status: rendering', sanityDocId)
+
+    if (postId) {
+      const inFlight = await sanityClient.fetch<ExistingVideo[]>(
+        `*[_type == "video" && post._ref == $postId && template == $template && status in ["rendering", "uploading"]]{ _id, _createdAt, status, renderStartedAt }`,
+        {postId, template: compositionId},
+      )
+      const winner = inFlight
+        .filter((doc) => !isStaleInFlight(doc))
+        .sort((a, b) => a._createdAt.localeCompare(b._createdAt) || a._id.localeCompare(b._id))[0]
+      if (winner && winner._id !== sanityDocId) {
+        await sanityClient.delete(sanityDocId).catch(() => undefined)
+        sanityDocId = null
+        return NextResponse.json(
+          {success: true, documentId: winner._id, status: winner.status, idempotent: true},
+          {status: 200, headers: corsHeaders},
+        )
+      }
+    }
 
     // Fold the post id (or doc id) into the public_id so two different posts
     // sharing a title + composition don't collide on one asset — `overwrite:
@@ -196,26 +227,27 @@ export async function POST(req: NextRequest) {
     const isLongForm = compositionId === 'article-narrated'
     const sandboxVcpus = isLongForm ? 8 : undefined
 
-    // Soft timeout firing ~80s before `maxDuration` so the catch block can mark
-    // the doc `failed` and clean up before the platform hard-kills us —
-    // otherwise the doc stays stuck in `rendering` forever. Shared by both the
-    // sandbox and local render paths.
-    const RENDER_SOFT_TIMEOUT_MS = (maxDuration - 80) * 1000
     let lastStage = 'starting'
     let lastRenderedFrames = 0
     let lastEncodedFrames = 0
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+    const localCancel = makeCancelSignal()
+    const deadline = new Promise<never>((_, reject) => {
+      deadlineTimer = setTimeout(() => {
+        localCancel.cancel()
         reject(
           new Error(
-            `Render exceeded soft timeout of ${RENDER_SOFT_TIMEOUT_MS / 1000}s ` +
+            `Render exceeded soft timeout of ${SOFT_DEADLINE_MS / 1000}s ` +
               `(lastStage=${lastStage}, renderedFrames=${lastRenderedFrames}, ` +
               `encodedFrames=${lastEncodedFrames})`,
           ),
         )
-      }, RENDER_SOFT_TIMEOUT_MS)
+      }, SOFT_DEADLINE_MS - (Date.now() - requestStartedAt))
     })
+    deadline.catch(() => undefined)
+    const beforeDeadline = <T,>(stage: string, work: Promise<T>): Promise<T> => {
+      lastStage = stage
+      return Promise.race([work, deadline])
+    }
 
     // Produce the canonical MP4, then expose it to Cloudinary as `uploadSource`:
     // a local file path (local render) or a public Blob URL (sandbox render).
@@ -225,20 +257,23 @@ export async function POST(req: NextRequest) {
     if (useLocalRender) {
       // Local fallback: render with headless Chromium on this machine. No
       // Vercel Sandbox, no Blob staging.
-      lastStage = 'local-render'
-      const renderPromise = renderLocally({
-        bundleDir: '.remotion-bundle',
-        compositionId,
-        inputProps: validatedProps,
-        onProgress: ({renderedFrames, encodedFrames}) => {
-          lastRenderedFrames = renderedFrames
-          lastEncodedFrames = encodedFrames
-        },
-      })
-
-      const {filePath} = await Promise.race([renderPromise, timeoutPromise])
-      localFilePath = filePath
-      uploadSource = filePath
+      localBundleDir = join(tmpdir(), `remotion-bundle-${randomUUID()}`)
+      localFilePath = join(tmpdir(), `${compositionId}-${randomUUID()}.mp4`)
+      await beforeDeadline(
+        'local-render',
+        renderLocally({
+          bundleDir: localBundleDir,
+          compositionId,
+          inputProps: validatedProps,
+          outputLocation: localFilePath,
+          cancelSignal: localCancel.cancelSignal,
+          onProgress: ({renderedFrames, encodedFrames}) => {
+            lastRenderedFrames = renderedFrames
+            lastEncodedFrames = encodedFrames
+          },
+        }),
+      )
+      uploadSource = localFilePath
     } else {
       // Unreachable — the guard above returns when the sandbox path lacks a
       // Blob token — but it narrows BLOB_TOKEN to a string for the upload below.
@@ -249,22 +284,28 @@ export async function POST(req: NextRequest) {
       // Spin up a Vercel Sandbox. On Vercel resume from the build-time snapshot
       // (fast, includes the bundle); locally create a fresh one and add the
       // bundle per request.
-      sandbox = process.env.VERCEL
-        ? await restoreSnapshot({vcpus: sandboxVcpus})
-        : await createSandbox()
+      sandbox = await beforeDeadline(
+        'sandbox-setup',
+        process.env.VERCEL ? restoreSnapshot({vcpus: sandboxVcpus}) : createSandbox(),
+      )
 
       // Default sandbox timeout is 5 min; narrated renders take 5–7 min of
       // work, so extend it (bounded by the route's maxDuration).
       if (isLongForm) {
-        await sandbox.extendTimeout(25 * 60 * 1000)
+        await beforeDeadline('sandbox-setup', sandbox.extendTimeout(25 * 60 * 1000))
       }
 
       if (!process.env.VERCEL) {
-        bundleRemotionProject('.remotion-bundle')
-        await addBundleToSandbox({sandbox, bundleDir: '.remotion-bundle'})
+        localBundleDir = join(tmpdir(), `remotion-bundle-${randomUUID()}`)
+        await beforeDeadline('bundle', bundleRemotionProject(localBundleDir))
+        await beforeDeadline(
+          'bundle-upload',
+          addBundleToSandbox({sandbox, bundleDir: localBundleDir}),
+        )
       }
 
       // Render inside the sandbox (output written to a path in the VM).
+      lastStage = 'render'
       const renderPromise = renderMediaOnVercel({
         sandbox,
         compositionId,
@@ -282,17 +323,20 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      const {sandboxFilePath, contentType} = await Promise.race([renderPromise, timeoutPromise])
+      const {sandboxFilePath, contentType} = await Promise.race([renderPromise, deadline])
 
       // Stage the MP4 on Vercel Blob with a public URL so Cloudinary can fetch
       // it directly.
-      const {url: stagedBlobUrl} = await uploadToVercelBlob({
-        sandbox,
-        sandboxFilePath,
-        contentType,
-        blobToken: BLOB_TOKEN,
-        access: 'public',
-      })
+      const {url: stagedBlobUrl} = await beforeDeadline(
+        'blob-staging',
+        uploadToVercelBlob({
+          sandbox,
+          sandboxFilePath,
+          contentType,
+          blobToken: BLOB_TOKEN,
+          access: 'public',
+        }),
+      )
       blobUrl = stagedBlobUrl
       uploadSource = stagedBlobUrl
     }
@@ -303,14 +347,18 @@ export async function POST(req: NextRequest) {
     // Long-form eagers (youtube-1080p-mp4, podcast-mp3) take minutes; running
     // them sync would blow past `maxDuration`. Async eagers return immediately
     // and the deterministic variant URLs resolve lazily on first request.
-    const uploadResult = (await cloudinary.uploader.upload(uploadSource, {
-      resource_type: 'video',
-      folder: 'template/videos',
-      public_id: filename,
-      overwrite: true,
-      eager: eagerTransformsFor(meta),
-      eager_async: isLongForm,
-    })) as {public_id: string; secure_url: string; duration?: number}
+    const uploadResult = (await beforeDeadline(
+      'cloudinary-upload',
+      cloudinary.uploader.upload(uploadSource, {
+        resource_type: 'video',
+        folder: 'template/videos',
+        public_id: filename,
+        overwrite: true,
+        invalidate: true,
+        eager: eagerTransformsFor(meta),
+        eager_async: isLongForm,
+      }),
+    )) as {public_id: string; secure_url: string; duration?: number}
 
     // Cloudinary probes the uploaded MP4, so this is the real length — including
     // narrated readings, whose duration `calculateMetadata` computes at render
@@ -362,6 +410,20 @@ export async function POST(req: NextRequest) {
         ...(variants ? {variants} : {}),
       })
       .commit()
+
+    if (postId) {
+      const previous = await sanityClient.fetch<string[]>(
+        `*[_type == "video" && post._ref == $postId && template == $template && status == "ready" && _id != $id]._id`,
+        {postId, template: compositionId, id: sanityDocId},
+      )
+      for (const id of previous) {
+        await sanityClient
+          .patch(id)
+          .set({status: 'replaced'})
+          .commit()
+          .catch((err) => console.warn('Failed to retire replaced video', id, err))
+      }
+    }
 
     console.log('Video uploaded to Cloudinary, status: ready', {
       sanityDocId,
@@ -416,9 +478,13 @@ export async function POST(req: NextRequest) {
       {status: 500, headers: corsHeaders},
     )
   } finally {
+    clearTimeout(deadlineTimer)
     // Stop explicitly to release the slot now rather than at the idle timeout.
     if (sandbox) {
       await sandbox.stop().catch(() => undefined)
+    }
+    if (localBundleDir) {
+      await rm(localBundleDir, {recursive: true, force: true}).catch(() => undefined)
     }
   }
 }

@@ -9,7 +9,7 @@ import {findComposition} from '@template/video-core/registry'
 
 type VideoDoc = {
   title?: string
-  status?: 'rendering' | 'uploading' | 'ready' | 'failed'
+  status?: 'rendering' | 'uploading' | 'ready' | 'failed' | 'replaced'
   template?: string
   duration?: number
   width?: number
@@ -55,7 +55,7 @@ export const VideoPreview: UserViewComponent = ({document}) => {
     )
   }
 
-  if (doc.status && doc.status !== 'ready') {
+  if (doc.status && doc.status !== 'ready' && doc.status !== 'replaced') {
     return (
       <Box padding={4}>
         <Card tone="caution" padding={4} radius={2}>

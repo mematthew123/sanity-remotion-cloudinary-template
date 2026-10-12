@@ -28,7 +28,7 @@ type VariantRow = {
 }
 
 type VideoDoc = {
-  status?: 'rendering' | 'uploading' | 'ready' | 'failed'
+  status?: 'rendering' | 'uploading' | 'ready' | 'failed' | 'replaced'
   cloudinaryPublicId?: string
   cloudinaryUrl?: string
   errorMessage?: string
@@ -192,7 +192,7 @@ export const VariantViewer: UserViewComponent = ({document}) => {
     )
   }
 
-  if (doc.status && doc.status !== 'ready') {
+  if (doc.status && doc.status !== 'ready' && doc.status !== 'replaced') {
     return (
       <Box padding={4}>
         <Card tone="caution" padding={4} radius={2}>
