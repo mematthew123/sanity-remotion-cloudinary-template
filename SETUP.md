@@ -137,7 +137,7 @@ optional server-side fallback for CI/automation only. The sender domain must be
 ## 8. (Optional) Brand voice for Sanity Assist
 
 ```bash
-cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
+cd apps/studio && npx sanity exec ./scripts/seed-brand-voices.ts --with-user-token
 ```
 
 Then edit the **Brand Voices** docs in Studio (the source of truth). Assist's AI

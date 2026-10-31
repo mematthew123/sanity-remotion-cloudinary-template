@@ -1,0 +1,17 @@
+{
+  "name": "@template/blueprint",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "doctor": "pnpm dlx sanity@latest blueprints doctor",
+    "plan": "pnpm dlx sanity@latest blueprints plan",
+    "deploy": "pnpm dlx sanity@latest blueprints deploy"
+  },
+  "devDependencies": {
+    "@sanity/blueprints": "^0.32.0",
+    "@types/node": "^20",
+    "dotenv": "^17.3.1"
+  }
+}

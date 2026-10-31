@@ -28,10 +28,10 @@ export const structure = (S: StructureBuilder) =>
         .icon(RocketIcon)
         .child(S.document().schemaType('welcomeEmail').documentId('welcomeEmail')),
       S.divider(),
-      // Brand-voice Agent Context docs (@sanity/agent-context). Surfaced so
-      // editors can read/tune the voices that AI Assist actions follow. Each
-      // voice is seeded from a markdown file in `apps/studio/voices/`.
-      S.documentTypeListItem('sanity.agentContext').title('Brand Voices').icon(SparklesIcon),
+      // Brand-voice docs. Surfaced so editors can read/tune the voices that AI
+      // Assist actions follow. Each voice is seeded from a markdown file in
+      // `apps/studio/voices/`.
+      S.documentTypeListItem('brandVoice').title('Brand Voices').icon(SparklesIcon),
     ])
 
 // Add custom views to the `video` document type: a "Preview" player for the

@@ -88,14 +88,14 @@ export const postType = defineType({
       title: 'Brand voice',
       type: 'reference',
       group: 'settings',
-      to: [{type: 'sanity.agentContext'}],
+      to: [{type: 'brandVoice'}],
       icon: SparklesIcon,
       description:
         'Preferred brand voice for this post. The "Brand AI" menu lists every voice — this one is highlighted first. Manage voices under "Brand Voices" in the sidebar. Leave empty to prefer the default "brand-voice".',
       options: {
-        // Don't let editors create blank agent-context docs from the post picker —
+        // Don't let editors create blank voice docs from the post picker —
         // voices are authored via Studio's "Brand Voices" list (or seeded from
-        // apps/studio/voices/*.md by scripts/seed-agent-context.ts).
+        // apps/studio/voices/*.md by scripts/seed-brand-voices.ts).
         disableNew: true,
       },
     }),

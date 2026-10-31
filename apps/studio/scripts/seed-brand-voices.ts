@@ -1,8 +1,8 @@
 /**
- * Seeds Brand Voice Agent Context documents.
+ * Seeds Brand Voice documents.
  *
  * Reads every `*.md` file in `apps/studio/voices/` and ensures one
- * `sanity.agentContext` document per file:
+ * `brandVoice` document per file:
  *
  *   apps/studio/voices/<slug>.md  →  doc id `<slug>` (e.g. `brand-voice`, `dead-head`)
  *
@@ -13,15 +13,12 @@
  * re-bootstrap from markdown, delete the voice document in Studio first.
  *
  * Run with:
- *   cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
+ *   cd apps/studio && npx sanity exec ./scripts/seed-brand-voices.ts --with-user-token
  */
 import {getCliClient} from 'sanity/cli'
 import {readFileSync, readdirSync} from 'node:fs'
 import {dirname, resolve, basename, extname} from 'node:path'
 import {fileURLToPath} from 'node:url'
-
-// Which document types these voices apply to. Add your own types here.
-const GROQ_FILTER = '_type in ["post", "author"]'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const voicesDir = resolve(scriptDir, '../voices')
@@ -55,19 +52,17 @@ async function main() {
 
     await client.createIfNotExists({
       _id: slug,
-      _type: 'sanity.agentContext',
-      version: '1',
+      _type: 'brandVoice',
       name,
       slug: {_type: 'slug', current: slug},
-      groqFilter: GROQ_FILTER,
       instructions,
     })
 
-    console.log(`Ensured Agent Context "${name}" (id: ${slug}).`)
+    console.log(`Ensured brand voice "${name}" (id: ${slug}).`)
   }
 
   console.log(
-    `\nEdit voices in the Studio under "Brand Voice" to tune them. ` +
+    `\nEdit voices in the Studio under "Brand Voices" to tune them. ` +
       `Seeding will not overwrite documents that already exist.`,
   )
 }

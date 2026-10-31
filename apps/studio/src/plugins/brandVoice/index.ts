@@ -1,7 +1,6 @@
 import {definePlugin, useClient, pathToString} from 'sanity'
 import {useToast} from '@sanity/ui'
 import {useMemo} from 'react'
-import {agentContextPlugin} from '@sanity/agent-context/studio'
 import {assist, defineAssistFieldAction} from '@sanity/assist'
 import {preferredVoiceId, sortVoices, useVoices, type VoiceDoc} from './voices'
 
@@ -38,20 +37,17 @@ async function runAssistAction(
 }
 
 // Brand-voice AI feature, bundled as one plugin so the root sanity.config.ts
-// stays focused on the video-render wiring. Composes two upstream plugins:
-//   - agentContextPlugin(): registers the `sanity.agentContext` doc type +
-//     the "Brand Voices" list where voices are authored/edited.
-//   - assist(): adds a per-voice "Brand AI" field-action menu.
+// stays focused on the video-render wiring. Wraps assist() to add a per-voice
+// "Brand AI" field-action menu.
 //
-// Voices are data-driven: each `sanity.agentContext` doc (seeded from
-// voices/*.md by scripts/seed-agent-context.ts) yields its own menu actions —
+// Voices are data-driven: each `brandVoice` doc (seeded from voices/*.md by
+// scripts/seed-brand-voices.ts) yields its own menu actions —
 // "Rewrite as <voice>" on text-like fields, and "Generate video copy as
 // <voice>" on `post.videoCopy`. The post's preferred `voice` reference (or the
 // default brand-voice) is sorted to the top of the menu.
 export const brandVoicePlugin = definePlugin({
   name: 'brand-voice',
   plugins: [
-    agentContextPlugin(),
     assist({
       fieldActions: {
         title: 'Brand AI',
