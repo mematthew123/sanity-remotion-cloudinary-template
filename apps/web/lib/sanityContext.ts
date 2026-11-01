@@ -26,7 +26,12 @@ export async function connectContextTools(mcpUrl: string) {
   const client = await createMCPClient({
     transport: { type: 'http', url: mcpUrl, headers: authHeaders() },
   });
-  const tools = await client.tools();
-  delete tools.initial_context;
-  return { client, tools };
+  try {
+    const tools = await client.tools();
+    delete tools.initial_context;
+    return { client, tools };
+  } catch (err) {
+    await client.close();
+    throw err;
+  }
 }

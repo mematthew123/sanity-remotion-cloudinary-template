@@ -7,6 +7,7 @@ import {
   type UIMessage,
 } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   isAskEnabled,
   SANITY_CONTEXT_ASSISTANT_URL,
@@ -21,6 +22,12 @@ export const maxDuration = 60;
 const MODEL = 'anthropic/claude-haiku-4.5';
 const MAX_MESSAGES = 12;
 const MAX_QUESTION_CHARS = 1500;
+const MAX_HISTORY_CHARS = 16_000;
+
+const textPartSchema = z.object({ type: z.literal('text'), text: z.string() });
+const bodySchema = z.object({
+  messages: z.array(z.object({ id: z.string(), role: z.string(), parts: z.array(z.unknown()) })),
+});
 
 function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string): string {
   return [
@@ -44,11 +51,36 @@ function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string):
   ].join('\n');
 }
 
-function questionLength(message: UIMessage): number {
+function textLength(message: UIMessage): number {
   return message.parts.reduce(
     (total, part) => total + (part.type === 'text' ? part.text.length : 0),
     0,
   );
+}
+
+function toTextMessages(body: unknown): UIMessage[] {
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) return [];
+  return parsed.data.messages.flatMap(({ id, role, parts }) => {
+    if (role !== 'user' && role !== 'assistant') return [];
+    const textParts = parts.flatMap((part) => {
+      const text = textPartSchema.safeParse(part);
+      return text.success ? [text.data] : [];
+    });
+    return textParts.length > 0 ? [{ id, role, parts: textParts }] : [];
+  });
+}
+
+function trimHistory(messages: UIMessage[]): UIMessage[] {
+  const kept: UIMessage[] = [];
+  let total = 0;
+  for (const message of messages.slice(-MAX_MESSAGES).reverse()) {
+    total += textLength(message);
+    if (total > MAX_HISTORY_CHARS) break;
+    kept.unshift(message);
+  }
+  while (kept[0]?.role === 'assistant') kept.shift();
+  return kept;
 }
 
 export async function POST(req: NextRequest) {
@@ -64,15 +96,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { messages?: UIMessage[] };
-  const messages = (Array.isArray(body.messages) ? body.messages : [])
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .slice(-MAX_MESSAGES);
-  const question = messages.at(-1);
+  const allMessages = toTextMessages(await req.json().catch(() => null));
+  const question = allMessages.at(-1);
   if (!question || question.role !== 'user') {
     return NextResponse.json({ error: 'Ask a question.' }, { status: 400 });
   }
-  if (questionLength(question) > MAX_QUESTION_CHARS) {
+  if (textLength(question) > MAX_QUESTION_CHARS) {
     return NextResponse.json(
       { error: `Keep questions under ${MAX_QUESTION_CHARS} characters.` },
       { status: 400 },
@@ -80,12 +109,16 @@ export async function POST(req: NextRequest) {
   }
 
   const urls = [SANITY_CONTEXT_ASSISTANT_URL!, SANITY_CONTEXT_CATALOG_URL!];
-  const connections = await Promise.all(urls.map(connectContextTools));
+  const settled = await Promise.allSettled(urls.map(connectContextTools));
+  const connections = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
   const closeAll = async () => {
     await Promise.allSettled(connections.map(({ client }) => client.close()));
   };
 
   try {
+    const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed) throw failed.reason;
+
     const [knowledgeBaseOutline, catalogSchema] = await Promise.all(urls.map(getInitialContext));
 
     const result = streamText({
@@ -95,10 +128,11 @@ export async function POST(req: NextRequest) {
         content: buildInstructions(knowledgeBaseOutline, catalogSchema),
         providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
       },
-      messages: await convertToModelMessages(messages),
+      messages: await convertToModelMessages(trimHistory(allMessages)),
       tools: Object.assign({}, ...connections.map(({ tools }) => tools)),
       stopWhen: isStepCount(6),
       maxOutputTokens: 1024,
+      abortSignal: req.signal,
       onEnd: closeAll,
       onAbort: closeAll,
       onError: async ({ error }) => {
