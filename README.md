@@ -50,6 +50,7 @@ pnpm workspaces, orchestrated with [Turborepo](https://turbo.build/) (`turbo.jso
 ```
 apps/web/            @template/web        — Next.js 16 site + /api/video/render (spawns a Vercel Sandbox) + Remotion site entry
 apps/studio/         @template/studio     — Sanity Studio v5: schemas, "Render" actions, Assist + brand voice
+apps/blueprint/      @template/blueprint  — Sanity Blueprint: the Sanity Context Knowledge Base + MCP endpoints behind /ask (optional)
 packages/video-core/ @template/video-core — Remotion compositions, registry, Cloudinary variant catalog
 ```
 

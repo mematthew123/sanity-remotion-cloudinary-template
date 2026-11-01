@@ -24,12 +24,22 @@ They're two endpoints, not one, on purpose: **an endpoint serves one mode**. If 
 
 `apps/web/app/api/ask/route.ts` (Vercel AI SDK, Claude Haiku 4.5 through the Vercel AI Gateway):
 
-1. Rejects the request if Ask isn't configured, the IP is over the rate limit, or the question is too long.
+1. Rejects the request if Ask isn't configured, the IP is over the rate limit, or the question is over 1,500 characters. History is trimmed to the last 12 messages and 16,000 characters.
 2. Connects an MCP client to **both** endpoints and merges their tools, dropping `initial_context`.
 3. Inlines both endpoints' `/initial-context` (the Knowledge Base outline and the catalog schema) into the instructions, cached in memory for 10 minutes.
 4. Streams the answer, capped at 6 tool steps and 1,024 output tokens, then closes the MCP clients.
 
 The tool names don't collide across modes (`knowledge_base_search`/`knowledge_base_read` vs `groq_query`/`schema_explorer`/`array_field_reader`), so the model picks the source per question.
+
+### The page
+
+`app/ask/page.tsx` fetches the post list (slug, title, image) and hands it to `components/AskChat.tsx`, which streams the answer and shows each tool call as a status line ("Searching the knowledge base", "Queried the catalog"). The model answers in plain text; `lib/askAnswer.ts` turns that into paragraphs, lists, and links:
+
+- **Article links** become rows with the post's image and title, and stay on-site (`/posts/<slug>`). A link only counts as an article when its host matches `NEXT_PUBLIC_SITE_URL` and its slug is in the post list.
+- **Doc links** (`…/docs/<name>.md`) render as "From the docs: …".
+- Anything else is a plain external link.
+
+The suggested questions on the empty page and the "Keep going" follow-ups are fixed lists in `AskChat.tsx`, picked by keyword (no extra model call). They're written for this template's content, so edit them in a fork.
 
 ## Setup
 
@@ -41,7 +51,7 @@ The tool names don't collide across modes (`knowledge_base_search`/`knowledge_ba
    cd apps/blueprint
    cp .env.example .env   # CONTEXT_PROJECT_ID, CONTEXT_DATASET, SITE_URL, DOCS_BASE_URL
    ```
-   `DOCS_BASE_URL` is where agents link template docs (`<DOCS_BASE_URL>/docs/configuration.md`); point it at your fork. The variables are deliberately **not** named `SANITY_PROJECT_ID`/`SANITY_DATASET`. The Blueprints CLI reads `SANITY_PROJECT_ID` from the environment as a scope override, which points the org stack at the project and fails with a 404.
+   `SITE_URL` is the origin the endpoint instructions use for post links. Set it to the same origin as the web app's `NEXT_PUBLIC_SITE_URL`, or article links render as plain external links instead of article rows; redeploy the blueprint after changing it. `DOCS_BASE_URL` is where agents link template docs (`<DOCS_BASE_URL>/docs/configuration.md`); point it at your fork. The variables are deliberately **not** named `SANITY_PROJECT_ID`/`SANITY_DATASET`. The Blueprints CLI reads `SANITY_PROJECT_ID` from the environment as a scope override, which points the org stack at the project and fails with a 404.
 3. **Create the stack and deploy.** Use your own login; CI deploy tokens can't attach datasets.
    ```bash
    pnpm dlx sanity@latest blueprints init . --blueprint-type ts --organization-id <org-id> --stack-name production
