@@ -37,6 +37,9 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 | `NEWSLETTER_TOKEN_SECRET` | **Required for public newsletter signup.** Signs the double-opt-in confirm links; any long random string. Falls back to `NEWSLETTER_SEND_SECRET` if unset, but keep them separate — that one can also trigger audience sends. Without either, signup returns an error. |
 | `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | only for the `article-narrated` voiceover step (paid — see [Optional / paid features](#optional--paid-features)); leave blank otherwise. Also flip `SANITY_STUDIO_ENABLE_NARRATED=true` to surface it in the Studio. |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for the **Sandbox** render path — auto-injected on Vercel when a Blob store is connected; for local Sandbox renders, run `cd apps/web && vercel link && vercel env pull` (from the Vercel project root). **Optional locally:** leave blank to render with headless Chromium on your machine (uploads straight to Cloudinary, no Vercel needed). See [vercel-sandbox.md](./vercel-sandbox.md). |
+| `SANITY_CONTEXT_TOKEN` | **Optional (Ask page).** Organization API token with **Context → Viewer**; project tokens are rejected. Server-only. See [sanity-context.md](./sanity-context.md). |
+| `SANITY_CONTEXT_ASSISTANT_URL` / `SANITY_CONTEXT_CATALOG_URL` | **Optional (Ask page).** The `site-assistant` (Knowledge Base) and `video-catalog` (dataset) MCP endpoint URLs from the Context app. |
+| `AI_GATEWAY_API_KEY` | **Optional (Ask page).** `/ask` answers with Claude Haiku 4.5 through the **Vercel AI Gateway**. On Vercel it authenticates with OIDC automatically; locally the `VERCEL_OIDC_TOKEN` from `vercel env pull` works (expires after 12h — re-pull), or set this key instead. Needs paid gateway credits. `/ask` and its nav link stay hidden until the three `SANITY_CONTEXT_*` vars and a gateway credential are present (prerendered — rebuild after setting them). |
 | `LOCAL_RENDER` | Optional. Set to `true` to force the local headless-Chromium render path even when `BLOB_READ_WRITE_TOKEN` is present. Otherwise the route auto-selects local rendering only when no Blob token is set. **Ignored on Vercel deployments** (those always use the Sandbox). |
 
 ### `apps/studio/.env`
@@ -50,12 +53,13 @@ Only the prefixed vars reach each client bundle. A `NEXT_PUBLIC_*` var won't app
 
 ## Optional / paid features
 
-Two features ship enabled in the codebase but lean on **paid third-party plans**. They're handled so a first-run clone on free tiers never hits a confusing failure — but you'll want to know what they cost before relying on them. For the full cost picture across *every* service (including Vercel Pro and Resend), see [Plans & costs](./plans-and-costs.md).
+Three features ship in the codebase but lean on **paid third-party plans**. They're handled so a first-run clone on free tiers never hits a confusing failure — but you'll want to know what they cost before relying on them. For the full cost picture across *every* service (including Vercel Pro and Resend), see [Plans & costs](./plans-and-costs.md).
 
 | Feature | What it needs | First-run behaviour |
 | --- | --- | --- |
 | **Sanity Assist** (the "Brand AI" field menu — *Rewrite as voice*, *Generate video copy*) | Agent Actions are a **paid feature on the Sanity Growth plan and up** (~$15/seat/mo) and consume AI credits — unavailable on Free. See [assist.md](./assist.md). | **Stays visible** (it showcases Sanity). On a Free plan the action fails gracefully with a *"Brand AI needs a Sanity Growth plan"* toast instead of a raw API error. |
 | **Narrated video** (`article-narrated`, the TTS reading of the post body) | **ElevenLabs** — `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` on the web app. The free API tier has **no commercial licence and forces attribution**; real use needs at least the ~$5/mo Starter plan (verify at [elevenlabs.io/pricing](https://elevenlabs.io/pricing/api)). | **Hidden by default.** Set `SANITY_STUDIO_ENABLE_NARRATED=true` in `apps/studio/.env` to surface the *Generate voiceover* + *Render narrated reading* actions and add "Article Narrated" to the video template picker. The promo/teaser render loop needs none of this. |
+| **Ask page** (`/ask` — visitor Q&A from a Sanity Context Knowledge Base) | Sanity Context enabled in Labs (Knowledge Bases are **beta**), the `apps/blueprint` stack deployed, an org Context token, and **paid Vercel AI Gateway credits** (the free tier excludes Haiku 4.5). See [sanity-context.md](./sanity-context.md). | **Hidden** until `SANITY_CONTEXT_TOKEN`, both endpoint URLs, and a gateway credential (OIDC on Vercel, or `AI_GATEWAY_API_KEY`) are present. |
 
 ## The render trigger's auth
 

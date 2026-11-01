@@ -12,6 +12,8 @@ Every external service this template touches, what it's for, and what it costs. 
 | **Cloudinary** | Canonical video host + variant derivations (partner) | ✅ Yes | At real video volume / bandwidth | Plus — $89/mo |
 | **Vercel** | *Hosting only* — runs the render route / sandbox **when deployed** | ✅ Not needed locally (renders run on your machine) | Deploying the hosted app | **Pro — $20/seat/mo** + usage |
 | **Resend** | Newsletter sends, broadcasts, signup audience | ✅ Yes | At list size / send volume | Pro — $20/mo |
+| **Sanity Context** | Knowledge Base + MCP endpoints behind `/ask` (optional, beta) | Beta — check limits | Not published yet | — |
+| **Vercel AI Gateway** | Routes Claude Haiku 4.5, which answers `/ask` questions (optional) | ❌ Free tier excludes this model | Every question | Paid gateway credits (Haiku 4.5: $1 / $5 per 1M input/output tokens) |
 | **ElevenLabs** | TTS for the `article-narrated` composition (optional) | ❌ No (no free commercial use) | Any real/commercial use | Starter — ~$5/mo |
 
 **You can run the whole core loop free.** With only **Sanity** and **Cloudinary** configured — both have genuinely usable free tiers — the render route renders with headless Chromium **on your own machine** and uploads straight to Cloudinary, so you can clone, render a video, and see it play on the site **without a Vercel account at all** (see [Vercel](#vercel--only-for-the-hosted-deployment) below). **Vercel Pro becomes the floor only when you deploy the hosted app**, where renders move into a Vercel Sandbox. The two *content features* that need paid plans — Sanity Assist and ElevenLabs — are documented in [configuration.md → Optional / paid features](./configuration.md#optional--paid-features) and degrade gracefully when absent.
@@ -76,6 +78,16 @@ The newsletter and public-signup fan-out uses **both** Resend products:
 Pricing: [resend.com/pricing](https://resend.com/pricing) · [Quotas & limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits).
 
 ---
+
+## Sanity Context — optional, beta
+
+The `/ask` page reads from a Sanity Context Knowledge Base and two MCP endpoints (see [sanity-context.md](./sanity-context.md)). Knowledge Bases are an **opt-in beta**: Sanity hasn't published pricing, and limits may change before general availability (one dataset source matches at most 5,000 documents). Check your organization's usage in Manage before relying on it.
+
+## Vercel AI Gateway — optional, pay per question
+
+`/ask` answers with **Claude Haiku 4.5** through the **Vercel AI Gateway**, billed from your Vercel team's gateway credits (Haiku 4.5 lists at $1 per 1M input tokens, $5 per 1M output). The gateway's free tier **doesn't serve this model**: requests fail with a 403 until you top up paid credits. Each question sends the instructions, the inlined Knowledge Base outline and catalog schema, and up to six tool round-trips, with output capped at 1,024 tokens. Prompt caching only applies once the cached prefix passes Haiku 4.5's 4,096-token minimum. Because the endpoint is public, the in-memory rate limit in `lib/askThrottle.ts` is the only spend guard; back it with a durable store before a real launch.
+
+Pricing: [vercel.com/docs/ai-gateway/pricing](https://vercel.com/docs/ai-gateway/pricing).
 
 ## ElevenLabs — optional, paid for any real use
 
