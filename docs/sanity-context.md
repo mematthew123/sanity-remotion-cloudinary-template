@@ -83,7 +83,7 @@ The tool names don't collide across modes (`knowledge_base_search`/`knowledge_ba
 
 ## Limits and caveats
 
-- **Rate limiting is best-effort.** `lib/askThrottle.ts` is in-memory (20 questions per IP per 10 minutes). It resets on cold start and isn't shared across instances, so back it with a durable store (Vercel KV / Upstash) before relying on it to cap model spend.
+- **Spend is capped in two layers.** An **AI Gateway project budget** caps dollars (`vercel --scope <team> ai-gateway budgets set project <project> --limit 20 --refresh-period monthly`); once it's used up, `/ask` says it has reached its monthly limit. It's a soft cap and only counts the deployment's OIDC calls. On top of that, `lib/rateLimit.ts` limits each IP to 20 questions per 10 minutes, shared across instances via **Upstash Redis** (connect it from the Vercel Marketplace; it injects `KV_REST_API_URL` / `KV_REST_API_TOKEN`). Without Upstash env it falls back to an in-memory limit, which resets on cold start; if Redis is unreachable it fails open rather than blocking questions.
 - **URLs are dropped from Knowledge Base entries.** Builds keep facts, not links, which is why the catalog endpoint is there, and why docs are linked from their repo path via `DOCS_BASE_URL`.
 - **Read-only.** Context MCP never writes to your dataset.
 - **Insights** (conversation analytics in the Context app) isn't wired up. It needs `@sanity/context` and `@sanity/client` 8.4+; the web app is on 7.x.

@@ -14,7 +14,7 @@ import {
   SANITY_CONTEXT_ASSISTANT_URL,
   SANITY_CONTEXT_CATALOG_URL,
 } from '@/lib/askConfig';
-import { isRateLimited } from '@/lib/askThrottle';
+import { createLimiter } from '@/lib/rateLimit';
 import { connectContextTools, getInitialContext } from '@/lib/sanityContext';
 import { SITE_URL } from '@/lib/siteUrl';
 
@@ -28,6 +28,8 @@ const textPartSchema = z.object({ type: z.literal('text'), text: z.string() });
 const bodySchema = z.object({
   messages: z.array(z.object({ id: z.string(), role: z.string(), parts: z.array(z.unknown()) })),
 });
+
+const isRateLimited = createLimiter({ prefix: 'ask', limit: 20, windowSeconds: 600 });
 
 function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string): string {
   return [
@@ -53,6 +55,11 @@ function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string):
 
 function fulfilled<T>(results: PromiseSettledResult<T>[]): T[] {
   return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+}
+
+function isBudgetExhausted(error: unknown): boolean {
+  const { statusCode, message } = (error ?? {}) as { statusCode?: number; message?: string };
+  return statusCode === 402 || /budget exceeded|quota_for_entity_exceeded/i.test(message ?? '');
 }
 
 function textLength(message: UIMessage): number {
@@ -93,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(ip)) {
     return NextResponse.json(
       { error: 'Too many questions. Try again in a few minutes.' },
       { status: 429 },
@@ -153,7 +160,10 @@ export async function POST(req: NextRequest) {
     return createUIMessageStreamResponse({
       stream: toUIMessageStream({
         stream: result.stream,
-        onError: () => 'Something went wrong answering that. Please try again.',
+        onError: (error) =>
+          isBudgetExhausted(error)
+            ? 'Ask has reached its monthly limit. Please check back next month.'
+            : 'Something went wrong answering that. Please try again.',
       }),
     });
   } catch (err) {

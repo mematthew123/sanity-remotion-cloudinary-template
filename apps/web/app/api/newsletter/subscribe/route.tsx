@@ -5,18 +5,17 @@ import {client} from '@/lib/sanity.client';
 import {WELCOME_EMAIL_QUERY} from '@/lib/sanity.queries';
 import {ConfirmEmailTemplate} from '@/components/emails/ConfirmEmailTemplate';
 import {createSubscribeToken, SUBSCRIBE_TOKEN_SECRET} from '@/lib/subscribeToken';
-import {isThrottled, markSent} from '@/lib/signupThrottle';
+import {createLimiter} from '@/lib/rateLimit';
 
-// Public, visitor-facing endpoint — NO bearer secret (unlike the editor-only
-// send/preview routes). It never adds anyone to the audience directly; it only
-// emails a signed confirm link (double opt-in). The contact is created later,
-// in the confirm route, so an unconfirmed/forged address never enters Resend.
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isThrottled = createLimiter({prefix: 'signup', limit: 1, windowSeconds: 60});
 
 function fromAddress(): string {
   if (!RESEND_FROM_EMAIL) throw new Error('RESEND_FROM_EMAIL not configured');
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   // Always answer ok past validation so the form never reveals whether an
   // address is already pending or subscribed (no enumeration).
-  if (isThrottled(email)) return NextResponse.json({ok: true});
+  if (await isThrottled(email)) return NextResponse.json({ok: true});
 
   const welcome = await client.fetch(WELCOME_EMAIL_QUERY);
   // Feature off or singleton unconfigured → accept the request, send nothing.
@@ -73,7 +72,6 @@ export async function POST(req: NextRequest) {
     });
     if (error) throw new Error(JSON.stringify(error));
 
-    markSent(email);
     return NextResponse.json({ok: true});
   } catch (err) {
     console.error('Subscribe confirm-send failed:', err);
