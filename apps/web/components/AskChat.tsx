@@ -84,7 +84,7 @@ function Linkified({ text, posts }: { text: string; posts: PostRef[] }) {
             </Link>
           );
         return (
-          <a key={i} href={chunk} className={className}>
+          <a key={i} href={chunk} className={`${className} wrap-anywhere`}>
             {link.label}
           </a>
         );
@@ -116,7 +116,7 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
               ))}
             </ul>
           );
-        const { link } = block;
+        const { link, caption } = block;
         if (link.kind === 'post')
           return (
             <Link
@@ -139,6 +139,7 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
                 <span className='block font-serif text-xl/tight tracking-tight transition-colors group-hover:text-accent'>
                   {link.post.title}
                 </span>
+                {caption && <span className='mt-1 block text-base/snug text-muted'>{caption}</span>}
                 <span className='mt-1.5 inline-flex items-center gap-1.5 font-mono text-[0.65rem] tracking-wide text-foreground/60 uppercase transition-colors group-hover:text-foreground'>
                   Read article
                   <span className='transition-transform group-hover:translate-x-1'>→</span>
@@ -152,9 +153,11 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
             href={link.url}
             target='_blank'
             rel='noreferrer'
-            className='flex w-fit items-center gap-2 font-mono text-xs tracking-wide text-muted uppercase transition-colors hover:text-accent'
+            className='flex w-fit max-w-full items-center gap-2 font-mono text-xs tracking-wide text-muted uppercase transition-colors hover:text-accent'
           >
-            {link.kind === 'doc' ? `From the docs: ${link.label}` : link.label}
+            <span className='min-w-0 wrap-anywhere'>
+              {link.kind === 'doc' ? `From the docs: ${link.label}` : link.label}
+            </span>
             <span aria-hidden>↗</span>
           </a>
         );
@@ -301,6 +304,7 @@ export default function AskChat({
                     {steps.map((step) => (
                       <span key={step.id} className='inline-flex items-center gap-1.5'>
                         {step.state === 'done' && <span className='text-accent'>✓</span>}
+                        {step.state === 'failed' && <span className='text-red-700'>×</span>}
                         {step.state === 'active' && <Spinner />}
                         {step.state === 'stopped' && <span aria-hidden>■</span>}
                         {step.label}
@@ -319,6 +323,12 @@ export default function AskChat({
                   <div className='mt-6 border-l-2 border-accent/30 pl-6 text-lg/relaxed'>
                     <AnswerBody blocks={parseAnswer(text, posts)} posts={posts} />
                   </div>
+                )}
+
+                {!isLast && !exchange.answer && !stopped && (
+                  <p className='mt-6 border-l-2 border-accent/30 pl-6 text-lg/relaxed text-muted'>
+                    No answer came back for this one.
+                  </p>
                 )}
 
                 {finished && stopped && (

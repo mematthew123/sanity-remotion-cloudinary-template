@@ -86,6 +86,7 @@ function trimHistory(messages: UIMessage[]): UIMessage[] {
   const kept: UIMessage[] = [];
   let total = 0;
   for (const message of messages.slice(-MAX_MESSAGES).reverse()) {
+    if (message.role === 'user' && kept[0]?.role === 'user') continue;
     total += textLength(message);
     if (total > MAX_HISTORY_CHARS) break;
     kept.unshift(message);
