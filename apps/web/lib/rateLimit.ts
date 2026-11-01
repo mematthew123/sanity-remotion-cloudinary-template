@@ -7,24 +7,41 @@ const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TO
 const redis = url && token ? new Redis({ url, token }) : null;
 
 type LimiterOptions = { prefix: string; limit: number; windowSeconds: number };
-export type IsRateLimited = (key: string) => Promise<boolean>;
+export type RateLimitResult = { limited: boolean; refund: () => Promise<void> };
+export type RateLimiter = (key: string) => Promise<RateLimitResult>;
 
-export function createLimiter({ prefix, limit, windowSeconds }: LimiterOptions): IsRateLimited {
+const noRefund = async () => {};
+
+export function createLimiter({ prefix, limit, windowSeconds }: LimiterOptions): RateLimiter {
   if (redis) {
+    const window = `${windowSeconds} s` as const;
     const ratelimit = new Ratelimit({
       redis,
       prefix: `ratelimit:${prefix}`,
-      limiter: Ratelimit.slidingWindow(limit, `${windowSeconds} s`),
+      limiter:
+        limit === 1
+          ? Ratelimit.tokenBucket(1, window, 1)
+          : Ratelimit.slidingWindow(limit, window),
       timeout: 1000,
     });
     return async (key) => {
       try {
         const { success, pending } = await ratelimit.limit(key);
         after(() => pending);
-        return !success;
+        if (!success) return { limited: true, refund: noRefund };
+        return {
+          limited: false,
+          refund: async () => {
+            try {
+              await ratelimit.limit(key, { rate: -1 });
+            } catch (err) {
+              console.warn(`[rateLimit:${prefix}] Redis unavailable, could not refund:`, err);
+            }
+          },
+        };
       } catch (err) {
         console.warn(`[rateLimit:${prefix}] Redis unavailable, allowing request:`, err);
-        return false;
+        return { limited: false, refund: noRefund };
       }
     };
   }
@@ -41,9 +58,21 @@ export function createLimiter({ prefix, limit, windowSeconds }: LimiterOptions):
       }
     }
     const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
-    const limited = recent.length >= limit;
-    if (!limited) recent.push(now);
+    if (recent.length >= limit) {
+      hits.set(key, recent);
+      return { limited: true, refund: noRefund };
+    }
+    recent.push(now);
     hits.set(key, recent);
-    return limited;
+    return {
+      limited: false,
+      refund: async () => {
+        const times = hits.get(key);
+        const i = times?.lastIndexOf(now) ?? -1;
+        if (!times || i < 0) return;
+        times.splice(i, 1);
+        if (times.length === 0) hits.delete(key);
+      },
+    };
   };
 }

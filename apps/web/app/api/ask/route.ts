@@ -29,7 +29,7 @@ const bodySchema = z.object({
   messages: z.array(z.object({ id: z.string(), role: z.string(), parts: z.array(z.unknown()) })),
 });
 
-const isRateLimited = createLimiter({ prefix: 'ask', limit: 20, windowSeconds: 600 });
+const limitAsk = createLimiter({ prefix: 'ask', limit: 20, windowSeconds: 600 });
 
 function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string): string {
   return [
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  if (await isRateLimited(ip)) {
+  if ((await limitAsk(ip)).limited) {
     return NextResponse.json(
       { error: 'Too many questions. Try again in a few minutes.' },
       { status: 429 },
