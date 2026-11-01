@@ -4,7 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   answerTextOf,
   classifyLink,
@@ -13,7 +13,6 @@ import {
   parseAnswer,
   stepsOf,
   URL_RE,
-  type AnswerBlock,
   type PostRef,
 } from '@/lib/askAnswer';
 
@@ -93,10 +92,10 @@ function Linkified({ text, posts }: { text: string; posts: PostRef[] }) {
   );
 }
 
-function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[] }) {
+const AnswerBody = memo(function AnswerBody({ text, posts }: { text: string; posts: PostRef[] }) {
   return (
     <div className='space-y-4'>
-      {blocks.map((block, i) => {
+      {parseAnswer(text, posts).map((block, i) => {
         if (block.type === 'p')
           return (
             <p key={i}>
@@ -131,6 +130,7 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
                     alt=''
                     fill
                     sizes='88px'
+                    unoptimized={link.post.imageUrl.startsWith('https://cdn.sanity.io/')}
                     className='object-cover transition-transform duration-500 group-hover:scale-[1.03]'
                   />
                 )}
@@ -164,7 +164,7 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
       })}
     </div>
   );
-}
+});
 
 export default function AskChat({
   posts,
@@ -321,7 +321,7 @@ export default function AskChat({
 
                 {text && (
                   <div className='mt-6 border-l-2 border-accent/30 pl-6 text-lg/relaxed'>
-                    <AnswerBody blocks={parseAnswer(text, posts)} posts={posts} />
+                    <AnswerBody text={text} posts={posts} />
                   </div>
                 )}
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { urlFor } from '@/lib/sanity.client';
+import { postImageUrl } from '@/lib/sanity.client';
 import { sanityFetch } from '@/lib/sanity.live';
 import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 import VideoHoverPreview from '@/components/VideoHoverPreview';
@@ -12,9 +12,7 @@ export default async function HomePage() {
   const cards = posts.map((post) => ({
     id: post._id,
     href: post.slug?.current ? `/posts/${post.slug.current}` : null,
-    imageUrl: post.mainImage
-      ? urlFor(post.mainImage).width(800).height(600).fit('crop').url()
-      : (post.preview?.posterUrl ?? null),
+    imageUrl: postImageUrl(post, 800, 600),
     previewVideoUrl: post.preview?.previewVideoUrl ?? null,
     imageAlt: post.mainImage?.alt ?? post.title ?? '',
     title: post.title ?? 'Untitled',

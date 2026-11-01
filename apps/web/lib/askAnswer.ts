@@ -1,4 +1,4 @@
-import type { DynamicToolUIPart, UIMessage } from 'ai';
+import type { UIMessage } from 'ai';
 import { SITE_URL } from './siteUrl';
 
 export type PostRef = { slug: string; title: string; imageUrl: string | null };
@@ -67,25 +67,31 @@ export function exchangesOf(messages: UIMessage[]): Exchange[] {
   return exchanges;
 }
 
+const STATE_PRIORITY: Step['state'][] = ['active', 'stopped', 'done', 'failed'];
+
 export function stepsOf(message: UIMessage, streaming: boolean): Step[] {
-  return message.parts
-    .filter((p): p is DynamicToolUIPart => p.type === 'dynamic-tool')
-    .map((p) => {
-      const state =
-        p.state === 'output-available'
-          ? 'done'
-          : p.state === 'output-error'
-            ? 'failed'
-            : streaming
-              ? 'active'
-              : 'stopped';
-      const labels = TOOL_LABELS[p.toolName];
-      return {
-        id: p.toolCallId,
-        label: labels ? labels[state === 'stopped' ? 'active' : state] : p.toolName,
-        state,
-      };
-    });
+  const byTool = new Map<string, Step['state'][]>();
+  for (const p of message.parts) {
+    if (p.type !== 'dynamic-tool') continue;
+    const state =
+      p.state === 'output-available'
+        ? 'done'
+        : p.state === 'output-error'
+          ? 'failed'
+          : streaming
+            ? 'active'
+            : 'stopped';
+    byTool.set(p.toolName, [...(byTool.get(p.toolName) ?? []), state]);
+  }
+  return [...byTool].map(([toolName, states]) => {
+    const state = STATE_PRIORITY.find((s) => states.includes(s))!;
+    const labels = TOOL_LABELS[toolName];
+    return {
+      id: toolName,
+      label: labels ? labels[state === 'stopped' ? 'active' : state] : toolName,
+      state,
+    };
+  });
 }
 
 export function answerTextOf(message: UIMessage, finished: boolean): string {
@@ -105,7 +111,9 @@ export function classifyLink(url: string, posts: PostRef[]): AnswerLink {
   let path = '';
   try {
     ({ host, hostname, pathname: path } = new URL(url));
-  } catch {}
+  } catch {
+    return { kind: 'external', url, label: url };
+  }
   const slug = host === SITE_HOST ? path.match(/^\/posts\/([^/]+)/)?.[1] : undefined;
   const post = slug ? posts.find((p) => p.slug === slug) : undefined;
   if (post) return { kind: 'post', url, href: `/posts/${post.slug}`, post };
