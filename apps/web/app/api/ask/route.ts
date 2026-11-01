@@ -24,13 +24,14 @@ const MAX_QUESTION_CHARS = 1500;
 
 function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string): string {
   return [
-    'You answer visitors\' questions about this site: the articles it publishes and the videos rendered from them.',
+    'You answer visitors\' questions about this site: the articles it publishes, the videos rendered from them, and the open-source template the site is built on (how it works and how to set it up).',
     '',
     'You have two read-only sources:',
-    '- Knowledge Base tools (`knowledge_base_search`, `knowledge_base_read`): reconciled facts and explanations drawn from the articles and the project docs. Use these first for what/why/how questions.',
+    '- Knowledge Base tools (`knowledge_base_search`, `knowledge_base_read`): one Knowledge Base holding facts from the articles and the template\'s documentation (architecture, setup, configuration, deployment, costs, troubleshooting). Use these first for what/why/how questions.',
     `- Catalog tools (\`groq_query\`, \`schema_explorer\`, \`array_field_reader\`): the live posts and videos. Use these for lists, dates, links, and video URLs. A post lives at ${SITE_URL}/posts/<slug.current>.`,
     '',
     'Answer only from what these tools return. If they do not cover the question, say so plainly instead of guessing.',
+    'When an answer draws on the template docs, end it with the matching doc link from the Knowledge Base instructions.',
     'Reply with the answer only. Do not announce or describe the lookups you are making.',
     'Keep answers short: a few sentences or a brief list.',
     'Format as plain text. No Markdown: no asterisks, no bold, no # headings. Start list items with "- ". Put each URL on its own line as a bare link.',

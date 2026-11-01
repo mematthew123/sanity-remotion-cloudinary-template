@@ -4,9 +4,14 @@ import {
   defineContextKnowledgeBase,
   defineContextMcpEndpoint,
 } from '@sanity/blueprints'
+import {citationName, docPaths} from './docs.mjs'
 
-const {CONTEXT_PROJECT_ID, CONTEXT_DATASET = 'production', SITE_URL = 'http://localhost:3000'} =
-  process.env
+const {
+  CONTEXT_PROJECT_ID,
+  CONTEXT_DATASET = 'production',
+  SITE_URL = 'http://localhost:3000',
+  DOCS_BASE_URL = 'https://github.com/mematthew123/sanity-remotion-cloudinary-template/blob/main',
+} = process.env
 
 if (!CONTEXT_PROJECT_ID) {
   throw new Error('Set CONTEXT_PROJECT_ID in apps/blueprint/.env (see .env.example).')
@@ -16,7 +21,7 @@ const siteKnowledge = defineContextKnowledgeBase({
   name: 'site-knowledge',
   title: 'Site knowledge',
   description:
-    'Serves readers and agents asking about what this site publishes: the articles, the topics they cover, and the videos rendered from them. Also explains how the render-once, fan-out pipeline works.',
+    'Serves two audiences: readers asking about what this site publishes (the articles, the topics they cover, and the videos rendered from them), and developers evaluating or setting up the Sanity + Remotion + Cloudinary template behind it (how the render-once, fan-out pipeline works, how to configure and deploy it, what it costs, and how to fix common problems).',
 })
 
 export default defineBlueprint({
@@ -42,7 +47,10 @@ export default defineBlueprint({
       sources: [siteKnowledge],
       instructions: [
         'Answer from the Knowledge Base only, and cite the entries you used.',
+        'It covers the published articles and the template itself: architecture, setup, configuration, deployment, costs, and troubleshooting.',
         'Link articles as `' + SITE_URL + '/posts/<slug>` when an entry names one.',
+        'Entries drawn from the template docs cite their source file by the names below. When an answer uses one, link the matching doc:',
+        ...docPaths.map((path) => `- ${citationName(path)} → ${DOCS_BASE_URL}/${path}`),
         'If the Knowledge Base does not cover the question, say so instead of guessing.',
       ].join('\n'),
     }),

@@ -7,7 +7,8 @@
   "scripts": {
     "doctor": "pnpm dlx sanity@latest blueprints doctor",
     "plan": "pnpm dlx sanity@latest blueprints plan",
-    "deploy": "pnpm dlx sanity@latest blueprints deploy"
+    "deploy": "pnpm dlx sanity@latest blueprints deploy",
+    "docs:sync": "node scripts/sync-docs.mjs"
   },
   "devDependencies": {
     "@sanity/blueprints": "^0.32.0",

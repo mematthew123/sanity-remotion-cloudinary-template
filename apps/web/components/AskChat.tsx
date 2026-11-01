@@ -8,6 +8,7 @@ const SUGGESTIONS = [
   'What topics do the articles cover?',
   'Which articles have videos?',
   'How does the render-once pipeline work?',
+  'How do I run the template locally without Vercel?',
 ];
 
 const TOOL_LABELS: Record<string, string> = {

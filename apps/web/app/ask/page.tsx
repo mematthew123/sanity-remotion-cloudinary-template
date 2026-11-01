@@ -5,7 +5,7 @@ import { isAskEnabled } from '@/lib/askConfig';
 export const metadata = {
   title: 'Ask',
   description:
-    'Ask questions about the articles and their videos, answered from a Sanity Context Knowledge Base.',
+    'Ask about the articles, their videos, or the template behind the site, answered from a Sanity Context Knowledge Base.',
 };
 
 export default function AskPage() {
@@ -19,8 +19,9 @@ export default function AskPage() {
         </span>
         <h1 className='mt-4 font-serif text-5xl tracking-tight'>Ask the site</h1>
         <p className='mt-4 max-w-xl font-serif text-xl/relaxed text-muted italic'>
-          Answers come from a Knowledge Base built from these articles, plus the live catalog
-          of rendered videos. If something isn&apos;t covered, it says so.
+          Answers come from a Knowledge Base built from these articles and the template&apos;s
+          docs, plus the live catalog of rendered videos. If something isn&apos;t covered, it
+          says so.
         </p>
       </header>
       <AskChat />
