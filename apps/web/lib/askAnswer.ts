@@ -88,7 +88,16 @@ export function parseAnswer(text: string, posts: PostRef[]): AnswerBlock[] {
     if (!line) {
       paragraphOpen = false;
     } else if (URL_ONLY_RE.test(line)) {
-      blocks.push({ type: 'link', link: classifyLink(line, posts) });
+      const link = classifyLink(line, posts);
+      if (
+        link.kind === 'post' &&
+        last?.type === 'list' &&
+        last.items.at(-1)?.toLowerCase().startsWith(link.post.title.toLowerCase())
+      ) {
+        last.items.pop();
+        if (!last.items.length) blocks.pop();
+      }
+      blocks.push({ type: 'link', link });
       paragraphOpen = false;
     } else if (line.startsWith('- ')) {
       if (last?.type === 'list') last.items.push(line.slice(2));

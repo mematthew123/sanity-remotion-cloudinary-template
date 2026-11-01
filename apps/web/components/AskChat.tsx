@@ -372,7 +372,7 @@ export default function AskChat({
           e.preventDefault();
           ask(input);
         }}
-        className='sticky bottom-0 -mx-6 border-t border-foreground/10 bg-background/90 px-6 pt-4 pb-16 backdrop-blur'
+        className='sticky bottom-0 -mx-6 mb-16 border-t border-foreground/10 bg-background/90 px-6 pt-4 pb-5 backdrop-blur'
       >
         <label htmlFor='ask-input' className='sr-only'>
           Your question
