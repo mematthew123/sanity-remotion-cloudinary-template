@@ -19,7 +19,7 @@ const TOOL_LABELS: Record<string, string> = {
   array_field_reader: 'Read an article',
 };
 
-const URL_RE = /(https?:\/\/[^\s<>"')\]]+)/g;
+const URL_RE = /(https?:\/\/[^\s<>"')\]]*[^\s<>"')\].,:;!?])/g;
 
 function Linkified({ text }: { text: string }) {
   return (
@@ -41,13 +41,18 @@ function Linkified({ text }: { text: string }) {
   );
 }
 
-function MessageBody({ message }: { message: UIMessage }) {
+function MessageBody({ message, pending }: { message: UIMessage; pending: boolean }) {
   const toolNames = [
     ...new Set(
       message.parts.flatMap((part) => (part.type === 'dynamic-tool' ? [part.toolName] : [])),
     ),
   ];
   const lastToolIndex = message.parts.findLastIndex((part) => part.type === 'dynamic-tool');
+  const texts = message.parts.flatMap((part, i) =>
+    part.type === 'text' ? [{ text: part.text, afterTools: i > lastToolIndex }] : [],
+  );
+  const answer = texts.filter((t) => t.afterTools);
+  const shown = answer.length > 0 || pending ? answer : texts;
 
   return (
     <div className='space-y-3'>
@@ -63,18 +68,21 @@ function MessageBody({ message }: { message: UIMessage }) {
           ))}
         </ul>
       )}
-      {message.parts.map((part, i) =>
-        part.type === 'text' && i > lastToolIndex ? (
-          <p key={i} className='whitespace-pre-wrap'>
-            <Linkified text={part.text} />
-          </p>
-        ) : null,
+      {shown.map(({ text }, i) => (
+        <p key={i} className='whitespace-pre-wrap'>
+          <Linkified text={text} />
+        </p>
+      ))}
+      {shown.length === 0 && !pending && message.role === 'assistant' && (
+        <p className='text-muted'>
+          Couldn&apos;t finish an answer for that one. Try asking it more narrowly.
+        </p>
       )}
     </div>
   );
 }
 
-export default function AskChat() {
+export default function AskChat({ maxQuestionChars }: { maxQuestionChars: number }) {
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: '/api/ask' }),
   });
@@ -106,7 +114,7 @@ export default function AskChat() {
         </ul>
       ) : (
         <ol className='space-y-8' aria-live='polite'>
-          {messages.map((m) => (
+          {messages.map((m, i) => (
             <li key={m.id}>
               <span className='font-mono text-[0.7rem] tracking-[0.25em] text-accent uppercase'>
                 {m.role === 'user' ? 'You' : 'Answer'}
@@ -114,7 +122,7 @@ export default function AskChat() {
               <div
                 className={`mt-2 text-lg/relaxed ${m.role === 'user' ? 'font-serif italic' : ''}`}
               >
-                <MessageBody message={m} />
+                <MessageBody message={m} pending={busy && i === messages.length - 1} />
               </div>
             </li>
           ))}
@@ -145,7 +153,7 @@ export default function AskChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder='Ask about the articles or their videos'
-          maxLength={1500}
+          maxLength={maxQuestionChars}
           disabled={busy}
           className='min-w-0 flex-1 rounded-lg border border-foreground/15 bg-background px-4 py-2.5 text-sm transition-colors focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40'
         />

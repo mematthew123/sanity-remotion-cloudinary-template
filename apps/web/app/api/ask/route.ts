@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   isAskEnabled,
+  MAX_QUESTION_CHARS,
   SANITY_CONTEXT_ASSISTANT_URL,
   SANITY_CONTEXT_CATALOG_URL,
 } from '@/lib/askConfig';
@@ -21,7 +22,6 @@ export const maxDuration = 60;
 
 const MODEL = 'anthropic/claude-haiku-4.5';
 const MAX_MESSAGES = 12;
-const MAX_QUESTION_CHARS = 1500;
 const MAX_HISTORY_CHARS = 16_000;
 
 const textPartSchema = z.object({ type: z.literal('text'), text: z.string() });
@@ -49,6 +49,10 @@ function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string):
     '# Catalog schema',
     catalogSchema,
   ].join('\n');
+}
+
+function fulfilled<T>(results: PromiseSettledResult<T>[]): T[] {
+  return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
 }
 
 function textLength(message: UIMessage): number {
@@ -109,17 +113,22 @@ export async function POST(req: NextRequest) {
   }
 
   const urls = [SANITY_CONTEXT_ASSISTANT_URL!, SANITY_CONTEXT_CATALOG_URL!];
-  const settled = await Promise.allSettled(urls.map(connectContextTools));
-  const connections = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const [connected, initialContexts] = await Promise.all([
+    Promise.allSettled(urls.map(connectContextTools)),
+    Promise.allSettled(urls.map(getInitialContext)),
+  ]);
+  const connections = fulfilled(connected);
   const closeAll = async () => {
     await Promise.allSettled(connections.map(({ client }) => client.close()));
   };
 
   try {
-    const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    const failed = [...connected, ...initialContexts].find(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
     if (failed) throw failed.reason;
 
-    const [knowledgeBaseOutline, catalogSchema] = await Promise.all(urls.map(getInitialContext));
+    const [knowledgeBaseOutline, catalogSchema] = fulfilled(initialContexts);
 
     const result = streamText({
       model: MODEL,

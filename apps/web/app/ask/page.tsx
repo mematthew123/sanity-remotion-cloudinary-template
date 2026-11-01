@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import AskChat from '@/components/AskChat';
-import { isAskEnabled } from '@/lib/askConfig';
+import { isAskEnabled, MAX_QUESTION_CHARS } from '@/lib/askConfig';
 
 export const metadata = {
   title: 'Ask',
@@ -24,7 +24,7 @@ export default function AskPage() {
           says so.
         </p>
       </header>
-      <AskChat />
+      <AskChat maxQuestionChars={MAX_QUESTION_CHARS} />
     </div>
   );
 }
