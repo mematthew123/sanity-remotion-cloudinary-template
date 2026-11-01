@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   answerTextOf,
@@ -74,13 +75,17 @@ function Linkified({ text, posts }: { text: string; posts: PostRef[] }) {
       {text.split(URL_RE).map((chunk, i) => {
         if (i % 2 === 0) return chunk;
         const link = classifyLink(chunk, posts);
+        const className =
+          'text-accent underline decoration-accent/30 underline-offset-3 transition-colors hover:decoration-accent';
+        if (link.kind === 'post')
+          return (
+            <Link key={i} href={link.href} className={className}>
+              {link.post.title}
+            </Link>
+          );
         return (
-          <a
-            key={i}
-            href={chunk}
-            className='text-accent underline decoration-accent/30 underline-offset-3 transition-colors hover:decoration-accent'
-          >
-            {link.kind === 'post' ? link.post.title : link.label}
+          <a key={i} href={chunk} className={className}>
+            {link.label}
           </a>
         );
       })}
@@ -114,9 +119,9 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
         const { link } = block;
         if (link.kind === 'post')
           return (
-            <a
+            <Link
               key={i}
-              href={link.url}
+              href={link.href}
               className='group grid grid-cols-[88px_1fr] items-center gap-5'
             >
               <span className='relative aspect-4/3 overflow-hidden rounded-md bg-muted/10'>
@@ -139,7 +144,7 @@ function AnswerBody({ blocks, posts }: { blocks: AnswerBlock[]; posts: PostRef[]
                   <span className='transition-transform group-hover:translate-x-1'>→</span>
                 </span>
               </span>
-            </a>
+            </Link>
           );
         return (
           <a
@@ -165,8 +170,15 @@ export default function AskChat({
   posts: PostRef[];
   maxQuestionChars: number;
 }) {
+  const [stoppedIds, setStoppedIds] = useState<string[]>([]);
   const { messages, sendMessage, setMessages, regenerate, stop, status, error, clearError } =
-    useChat({ transport: new DefaultChatTransport({ api: '/api/ask' }) });
+    useChat({
+      transport: new DefaultChatTransport({ api: '/api/ask' }),
+      onFinish: ({ messages, isAbort }) => {
+        const question = messages.findLast((m) => m.role === 'user');
+        if (isAbort && question) setStoppedIds((ids) => [...ids, question.id]);
+      },
+    });
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -192,9 +204,16 @@ export default function AskChat({
     setInput('');
   }
 
+  function retry() {
+    const last = exchanges.at(-1);
+    if (last) setStoppedIds((ids) => ids.filter((id) => id !== last.id));
+    regenerate();
+  }
+
   function reset() {
     stop();
     setMessages([]);
+    setStoppedIds([]);
     clearError();
     inputRef.current?.focus();
   }
@@ -260,8 +279,9 @@ export default function AskChat({
         <ol className='space-y-16 pb-16' aria-live='polite'>
           {exchanges.map((exchange, i) => {
             const isLast = i === exchanges.length - 1;
-            const steps = exchange.answer ? stepsOf(exchange.answer) : [];
+            const steps = exchange.answer ? stepsOf(exchange.answer, isLast && busy) : [];
             const finished = !isLast || status === 'ready';
+            const stopped = stoppedIds.includes(exchange.id);
             const text = exchange.answer ? answerTextOf(exchange.answer, finished) : '';
             return (
               <li
@@ -280,8 +300,11 @@ export default function AskChat({
                   <div className='mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.65rem] tracking-wide text-muted uppercase'>
                     {steps.map((step) => (
                       <span key={step.id} className='inline-flex items-center gap-1.5'>
-                        {step.done ? <span className='text-accent'>✓</span> : <Spinner />}
+                        {step.state === 'done' && <span className='text-accent'>✓</span>}
+                        {step.state === 'active' && <Spinner />}
+                        {step.state === 'stopped' && <span aria-hidden>■</span>}
                         {step.label}
+                        {step.state === 'stopped' && ' · stopped'}
                       </span>
                     ))}
                     {isLast && busy && steps.length === 0 && (
@@ -298,25 +321,33 @@ export default function AskChat({
                   </div>
                 )}
 
-                {finished && exchange.answer && !text && !(isLast && error) && (
+                {finished && stopped && (
+                  <p className='mt-6 border-l-2 border-accent/30 pl-6 text-lg/relaxed text-muted'>
+                    {text ? 'Stopped before the answer finished.' : 'Stopped.'}
+                  </p>
+                )}
+
+                {finished && !stopped && exchange.answer && !text && !(isLast && error) && (
                   <p className='mt-6 border-l-2 border-accent/30 pl-6 text-lg/relaxed text-muted'>
                     Couldn&apos;t finish an answer for that one. Try asking it more narrowly.
                   </p>
                 )}
 
-                {finished && text && (
+                {finished && (text || (stopped && isLast)) && (
                   <div className='mt-6 flex gap-5 pl-6 font-mono text-[0.65rem] tracking-wide text-muted uppercase'>
-                    <button
-                      type='button'
-                      onClick={() => copy(exchange.id, text)}
-                      className='transition-colors hover:text-foreground'
-                    >
-                      {copiedId === exchange.id ? 'Copied' : 'Copy answer'}
-                    </button>
+                    {text && (
+                      <button
+                        type='button'
+                        onClick={() => copy(exchange.id, text)}
+                        className='transition-colors hover:text-foreground'
+                      >
+                        {copiedId === exchange.id ? 'Copied' : 'Copy answer'}
+                      </button>
+                    )}
                     {isLast && (
                       <button
                         type='button'
-                        onClick={() => regenerate()}
+                        onClick={retry}
                         className='transition-colors hover:text-foreground'
                       >
                         Ask again
@@ -333,7 +364,7 @@ export default function AskChat({
                     {errorMessageOf(error)}
                     <button
                       type='button'
-                      onClick={() => regenerate()}
+                      onClick={retry}
                       className='shrink-0 font-mono text-xs tracking-wide uppercase underline underline-offset-2'
                     >
                       Try again
@@ -341,7 +372,7 @@ export default function AskChat({
                   </div>
                 )}
 
-                {isLast && finished && text && !error && (
+                {isLast && finished && text && !stopped && !error && (
                   <div className='mt-10'>
                     <span className='font-mono text-xs tracking-[0.2em] text-muted uppercase'>
                       Keep going

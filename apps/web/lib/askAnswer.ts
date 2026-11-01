@@ -1,9 +1,10 @@
 import type { DynamicToolUIPart, UIMessage } from 'ai';
+import { SITE_URL } from './siteUrl';
 
 export type PostRef = { slug: string; title: string; imageUrl: string | null };
 
 export type AnswerLink =
-  | { kind: 'post'; url: string; post: PostRef }
+  | { kind: 'post'; url: string; href: string; post: PostRef }
   | { kind: 'doc'; url: string; label: string }
   | { kind: 'external'; url: string; label: string };
 
@@ -12,7 +13,7 @@ export type AnswerBlock =
   | { type: 'list'; items: string[] }
   | { type: 'link'; link: AnswerLink };
 
-export type Step = { id: string; label: string; done: boolean };
+export type Step = { id: string; label: string; state: 'active' | 'done' | 'stopped' };
 
 export type Exchange = { id: string; question: string; answer: UIMessage | null };
 
@@ -26,6 +27,7 @@ const TOOL_LABELS: Record<string, { active: string; done: string }> = {
 
 export const URL_RE = /(https?:\/\/[^\s<>"')\]]*[^\s<>"')\].,:;!?])/g;
 const URL_ONLY_RE = /^https?:\/\/\S*[^\s.,:;!?)\]]$/;
+const SITE_HOST = new URL(SITE_URL).host;
 
 export function exchangesOf(messages: UIMessage[]): Exchange[] {
   const exchanges: Exchange[] = [];
@@ -40,7 +42,7 @@ export function exchangesOf(messages: UIMessage[]): Exchange[] {
   return exchanges;
 }
 
-export function stepsOf(message: UIMessage): Step[] {
+export function stepsOf(message: UIMessage, streaming: boolean): Step[] {
   return message.parts
     .filter((p): p is DynamicToolUIPart => p.type === 'dynamic-tool')
     .map((p) => {
@@ -49,7 +51,7 @@ export function stepsOf(message: UIMessage): Step[] {
       return {
         id: p.toolCallId,
         label: labels ? (done ? labels.done : labels.active) : p.toolName,
-        done,
+        state: done ? 'done' : streaming ? 'active' : 'stopped',
       };
     });
 }
@@ -67,16 +69,17 @@ export function answerTextOf(message: UIMessage, finished: boolean): string {
 
 export function classifyLink(url: string, posts: PostRef[]): AnswerLink {
   let host = '';
+  let hostname = '';
   let path = '';
   try {
-    ({ hostname: host, pathname: path } = new URL(url));
+    ({ host, hostname, pathname: path } = new URL(url));
   } catch {}
-  const slug = path.match(/^\/posts\/([^/]+)/)?.[1];
+  const slug = host === SITE_HOST ? path.match(/^\/posts\/([^/]+)/)?.[1] : undefined;
   const post = slug ? posts.find((p) => p.slug === slug) : undefined;
-  if (post) return { kind: 'post', url, post };
+  if (post) return { kind: 'post', url, href: `/posts/${post.slug}`, post };
   const doc = path.match(/\/docs\/([^/]+)\.md$/)?.[1];
   if (doc) return { kind: 'doc', url, label: doc.replace(/-/g, ' ') };
-  return { kind: 'external', url, label: `${host}${path === '/' ? '' : path}` };
+  return { kind: 'external', url, label: `${hostname}${path === '/' ? '' : path}` };
 }
 
 export function parseAnswer(text: string, posts: PostRef[]): AnswerBlock[] {
