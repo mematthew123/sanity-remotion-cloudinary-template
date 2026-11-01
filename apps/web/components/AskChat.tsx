@@ -18,26 +18,23 @@ import {
 
 const SUGGESTION_GROUPS = [
   {
-    label: 'The articles',
-    items: ['What topics do the articles cover?', 'What was published most recently?'],
+    label: 'The pipeline',
+    items: ['How does the render-once pipeline work?', 'How are the formats derived?'],
   },
   {
-    label: 'The videos',
-    items: ['Which articles have videos?', 'What formats does each render come in?'],
+    label: 'Setup',
+    items: ['How do I run the template locally without Vercel?', 'What does it cost to run?'],
   },
   {
-    label: 'The template',
-    items: [
-      'How does the render-once pipeline work?',
-      'How do I run the template locally without Vercel?',
-    ],
+    label: 'The renders',
+    items: ['Which posts have rendered videos?', 'What formats did the latest render come in?'],
   },
 ];
 
 const FOLLOW_UPS: { match: RegExp; items: string[] }[] = [
   {
     match: /video|format/i,
-    items: ['How are the formats derived?', 'Can I add my own format?', 'Which article was rendered last?'],
+    items: ['How are the formats derived?', 'Can I add my own format?', 'Which post was rendered last?'],
   },
   {
     match: /local|vercel|setup|install|deploy/i,
@@ -50,9 +47,9 @@ const FOLLOW_UPS: { match: RegExp; items: string[] }[] = [
 ];
 
 const DEFAULT_FOLLOW_UPS = [
-  'Which of these have videos?',
-  'How does the render-once pipeline work?',
+  'Which posts have rendered videos?',
   'How do I run the template locally?',
+  'What does it cost to run?',
 ];
 
 function followUpsFor(question: string): string[] {
@@ -235,10 +232,10 @@ export default function AskChat({
           <span className='font-mono text-[0.7rem] tracking-[0.25em] text-accent uppercase'>
             Sanity Context · Knowledge Base
           </span>
-          <h1 className='mt-4 font-serif text-5xl tracking-tight'>Ask the site</h1>
+          <h1 className='mt-4 font-serif text-5xl tracking-tight'>Ask the template</h1>
           <p className='mt-4 max-w-xl font-serif text-xl/relaxed text-muted italic'>
-            Answers come from these articles, the template&apos;s docs, and the live catalog of
-            rendered videos. If something isn&apos;t covered, it says so.
+            Answers come from the template&apos;s docs and the live catalog of rendered videos. If
+            something isn&apos;t covered, it says so.
           </p>
         </div>
         {exchanges.length > 0 && (
@@ -433,7 +430,7 @@ export default function AskChat({
               }
             }}
             placeholder={
-              exchanges.length ? 'Ask a follow-up…' : 'Ask about the articles, videos, or template…'
+              exchanges.length ? 'Ask a follow-up…' : 'Ask about the template or its renders…'
             }
             className='max-h-48 min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted'
           />

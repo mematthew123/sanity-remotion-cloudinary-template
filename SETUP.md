@@ -146,8 +146,8 @@ a paid Growth-plan feature. See [`docs/assist.md`](./docs/assist.md).
 
 ## 9. (Optional) Ask page
 
-`/ask` answers visitor questions from a Sanity Context Knowledge Base (articles +
-these docs) and a GROQ-mode endpoint over the live posts and videos. It needs
+`/ask` answers questions about the template from a Sanity Context Knowledge Base
+built from these docs, plus a GROQ-mode endpoint over the live posts and videos. It needs
 Sanity Context enabled in Labs (beta), the `apps/blueprint` stack deployed, an org
 token with **Context → Viewer**, and paid Vercel AI Gateway credits. `/ask` and its
 nav link stay hidden until it's configured. Full walkthrough:

@@ -8,7 +8,7 @@ import { ALL_POSTS_QUERY } from '@/lib/sanity.queries';
 export const metadata = {
   title: 'Ask',
   description:
-    'Ask about the articles, their videos, or the template behind the site, answered from a Sanity Context Knowledge Base.',
+    'Ask about the template behind this site and the videos it has rendered, answered from Sanity Context.',
 };
 
 export default async function AskPage() {

@@ -33,11 +33,12 @@ const limitAsk = createLimiter({ prefix: 'ask', limit: 20, windowSeconds: 600 })
 
 function buildInstructions(knowledgeBaseOutline: string, catalogSchema: string): string {
   return [
-    'You answer visitors\' questions about this site: the articles it publishes, the videos rendered from them, and the open-source template the site is built on (how it works and how to set it up).',
+    'You answer developers\' questions about the open-source Sanity + Remotion + Cloudinary template this site is built on (how it works, how to set it up, what it costs) and about the videos it has rendered.',
     '',
     'You have two read-only sources:',
-    '- Knowledge Base tools (`knowledge_base_search`, `knowledge_base_read`): one Knowledge Base holding facts from the articles and the template\'s documentation (architecture, setup, configuration, deployment, costs, troubleshooting). Use these first for what/why/how questions.',
-    `- Catalog tools (\`groq_query\`, \`schema_explorer\`, \`array_field_reader\`): the live posts and videos. Use these for lists, dates, links, and video URLs. A post lives at ${SITE_URL}/posts/<slug.current>.`,
+    '- Knowledge Base tools (`knowledge_base_search`, `knowledge_base_read`): facts from the template\'s documentation (architecture, setup, configuration, deployment, costs, troubleshooting). Use these first for what/why/how questions.',
+    `- Catalog tools (\`groq_query\`, \`schema_explorer\`, \`array_field_reader\`): the live posts and the videos rendered from them. Use these for which posts have videos, render dates, formats, and video URLs. A post lives at ${SITE_URL}/posts/<slug.current>.`,
+    'Questions about what the articles say are out of scope: point to the post link instead of summarizing it.',
     '',
     'Answer only from what these tools return. If they do not cover the question, say so plainly instead of guessing.',
     'When an answer draws on the template docs, end it with the matching doc link from the Knowledge Base instructions.',
