@@ -21,7 +21,7 @@ const siteKnowledge = defineContextKnowledgeBase({
   name: 'site-knowledge',
   title: 'Site knowledge',
   description:
-    'Serves two audiences: readers asking about what this site publishes (the articles, the topics they cover, and the videos rendered from them), and developers evaluating or setting up the Sanity + Remotion + Cloudinary template behind it (how the render-once, fan-out pipeline works, how to configure and deploy it, what it costs, and how to fix common problems).',
+    'Serves developers evaluating or setting up the Sanity + Remotion + Cloudinary template: how the render-once, fan-out pipeline works, how to configure and deploy it, what it costs, and how to fix common problems.',
 })
 
 export default defineBlueprint({
@@ -33,7 +33,7 @@ export default defineBlueprint({
       sources: [{type: 'dataset', id: `${CONTEXT_PROJECT_ID}.${CONTEXT_DATASET}`}],
       groqFilter: '_type in ["post", "author"] || (_type == "video" && status == "ready")',
       instructions: [
-        'You answer questions about the articles on this site and the videos rendered from them.',
+        'You answer questions about the videos this template has rendered and the posts they were rendered from.',
         'Articles are `post` documents; a post is read at `' + SITE_URL + '/posts/<slug.current>`.',
         'Videos are `video` documents that reference their article through `post._ref`. Find a post\'s videos with `*[_type == "video" && post._ref == $postId]`.',
         'Every video has one canonical MP4 in `cloudinaryUrl` and a list of ready-made derivations in `variants[]` (`variantId`, `surface`, `format`, `url`, `width`, `height`).',
@@ -47,7 +47,7 @@ export default defineBlueprint({
       sources: [siteKnowledge],
       instructions: [
         'Answer from the Knowledge Base only, and cite the entries you used.',
-        'It covers the published articles and the template itself: architecture, setup, configuration, deployment, costs, and troubleshooting.',
+        'It covers the template: architecture, setup, configuration, deployment, costs, and troubleshooting.',
         'Link articles as `' + SITE_URL + '/posts/<slug>` when an entry names one.',
         'Entries drawn from the template docs cite their source file by the names below. When an answer uses one, link the matching doc:',
         ...docPaths.map((path) => `- ${citationName(path)} → ${DOCS_BASE_URL}/${path}`),

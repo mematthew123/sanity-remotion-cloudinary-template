@@ -91,4 +91,4 @@ The blueprint's `SITE_URL` (in `apps/blueprint/.env`) doesn't match the web app'
 ## Blueprint deploy fails with a 404 or `plan limit for knowledge bases is reached`
 
 - **404**: `SANITY_PROJECT_ID` is set in your shell or `.env`. The Blueprints CLI reads it as a scope override and points the org-scoped stack at the project. Use `CONTEXT_PROJECT_ID` (see `apps/blueprint/.env.example`) and unset the other.
-- **Plan limit**: your organization's plan caps Knowledge Bases (some allow one). The template already shares one Knowledge Base between articles and docs; remove any other Knowledge Base in the organization or upgrade.
+- **Plan limit**: your organization's plan caps Knowledge Bases (some allow one). The template declares only one; remove any other Knowledge Base in the organization or upgrade.

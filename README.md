@@ -143,7 +143,7 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 
   ![The Variants view on a video document in Sanity Studio — one render fanned out to Cloudinary derivations](./docs/images/studio-variants.png)
 - **Transform playground.** The site ships a `/playground` page — an interactive Cloudinary transform explorer that demonstrates the same variant system live, independent of any rendered video. Tweak transforms and watch the delivery URL change.
-- **Ask the site (Sanity Context, optional).** An `/ask` page answers visitor questions from a Sanity Context **Knowledge Base** built from the articles, plus a GROQ-mode endpoint over the live posts and videos for real links. The Knowledge Base and endpoints are defined as code in `apps/blueprint`. Hidden until configured; Knowledge Bases are in beta. See [docs/sanity-context.md](./docs/sanity-context.md).
+- **Ask the template (Sanity Context, optional).** An `/ask` page answers questions about the template from a Sanity Context **Knowledge Base** built from these docs, plus a GROQ-mode endpoint over the live posts and rendered videos for real links and variant URLs. A fork can point the Knowledge Base at its own content instead. The Knowledge Base and endpoints are defined as code in `apps/blueprint`. Hidden until configured; Knowledge Bases are in beta. See [docs/sanity-context.md](./docs/sanity-context.md).
 
 ## Deploy
 

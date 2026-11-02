@@ -1,6 +1,6 @@
 # Sanity Context + the Ask page
 
-[Sanity Context](https://www.sanity.io/docs/ai/sanity-context) is a hosted, read-only MCP server that gives AI agents access to your content. The template uses it as one more surface that reads the same content as the site: an **Ask** page (`/ask`) where visitors ask questions and get answers grounded in the articles, their rendered videos, and the template's own docs.
+[Sanity Context](https://www.sanity.io/docs/ai/sanity-context) is a hosted, read-only MCP server that gives AI agents access to your content. The template uses it as one more surface that reads the same content as the site: an **Ask** page (`/ask`) where developers ask about the template and get answers grounded in its docs and the videos it has rendered. A fork can point it at its own content instead (see [Answering from your own content](#answering-from-your-own-content)).
 
 It's an optional extra. Nothing in the render loop depends on it, and `/ask` (plus its nav link) stays hidden until it's configured.
 
@@ -12,11 +12,11 @@ Everything is declared in [`apps/blueprint/sanity.blueprint.ts`](../apps/bluepri
 
 | Resource | Type | What it serves |
 | --- | --- | --- |
-| `site-knowledge` | Knowledge Base | A pre-built index of the published articles **and** the template's Markdown docs (`README.md`, `SETUP.md`, `docs/*.md`): topics, reconciled facts, citations. |
-| `site-assistant` | MCP endpoint (Knowledge Base mode) | `site-knowledge`. Used for what/why/how answers, from fly-fishing tips to setup steps. |
-| `video-catalog` | MCP endpoint (GROQ mode) | The live dataset, filtered to `post`, `author`, and ready `video` docs. Used for links, lists, and `video.variants[].url`. |
+| `site-knowledge` | Knowledge Base | A pre-built index of the template's Markdown docs (`README.md`, `SETUP.md`, `docs/*.md`): topics, reconciled facts, citations. |
+| `site-assistant` | MCP endpoint (Knowledge Base mode) | `site-knowledge`. Used for what/why/how answers: the pipeline, setup, costs, troubleshooting. |
+| `video-catalog` | MCP endpoint (GROQ mode) | The live dataset, filtered to `post`, `author`, and ready `video` docs. Used for which posts have renders, their formats, and `video.variants[].url`. |
 
-Articles and docs share one Knowledge Base because plans cap how many Knowledge Bases an organization can have (some allow only one; a second fails the deploy with `plan limit for knowledge bases is reached`). Its purpose names both audiences so the outline covers both. If your plan allows more, splitting docs into their own Knowledge Base on the same endpoint gives each a sharper outline. If you don't want template questions answered on your own site, skip the docs sync.
+The blueprint declares a single Knowledge Base because plans cap how many an organization can have (some allow only one; a second fails the deploy with `plan limit for knowledge bases is reached`).
 
 They're two endpoints, not one, on purpose: **an endpoint serves one mode**. If you attach a dataset and a Knowledge Base to the same endpoint, the dataset wins and the Knowledge Base is silently ignored.
 
@@ -58,7 +58,26 @@ The suggested questions on the empty page and the "Keep going" follow-ups are fi
    pnpm plan
    pnpm run deploy        # not `pnpm deploy`, which is pnpm's built-in command
    ```
-4. **Add the articles.** A deploy creates the Knowledge Base empty. Get its id (the `kb…` publicId) with `pnpm dlx sanity@latest context list --organization <org-id>`, then:
+4. **Add the docs and build.** A deploy creates the Knowledge Base empty.
+   ```bash
+   pnpm --filter @template/blueprint docs:sync
+   ```
+   The script finds the `Site knowledge` Knowledge Base (or uses `SITE_KNOWLEDGE_KB_ID` from `apps/blueprint/.env`), replaces its Markdown imports with the current `README.md`, `SETUP.md`, and `docs/*.md` (skipping the `docs/README.md` index), rebuilds it, and prints the outline and any open issues. It leaves dataset imports alone, so [your own content](#answering-from-your-own-content) survives a sync. Each doc is imported as Markdown titled with its repo path, which is what lets agents link to it.
+5. **Mint an org token.** In Manage → your organization → API → Tokens, add a token with **Context → Viewer**. Project tokens are rejected by Context endpoints.
+6. **Configure the web app** (`apps/web/.env.local`, or Vercel env):
+   ```bash
+   SANITY_CONTEXT_TOKEN=...
+   SANITY_CONTEXT_ASSISTANT_URL=https://api.sanity.io/v2026-09-01/context/organizations/<org-id>/mcp/site-assistant
+   SANITY_CONTEXT_CATALOG_URL=https://api.sanity.io/v2026-09-01/context/organizations/<org-id>/mcp/video-catalog
+   ```
+   Copy the endpoint URLs from each endpoint's page in the Context app, and replace `<org-id>` (a leftover placeholder fails with `organizationAccessDenied`, "Not a member of this organization"). `/ask` is prerendered, so **rebuild** after adding these.
+7. **Enable the model.** The model runs through the Vercel AI Gateway. On Vercel it authenticates with OIDC; locally, run `vercel env pull` in `apps/web` (the OIDC token expires after 12 hours) or set `AI_GATEWAY_API_KEY`. The gateway's free tier doesn't serve Claude Haiku 4.5, so top up paid credits in Vercel → AI first, or every question fails with a 403.
+
+## Answering from your own content
+
+Out of the box, `/ask` is a page about the template: the Knowledge Base holds only its docs, and `video-catalog` supplies the posts and renders. In a fork, you'll more likely want visitors asking about **your** content. The Knowledge Base can take a dataset import alongside (or instead of) the docs:
+
+1. Import your posts and rebuild. Get the Knowledge Base id (the `kb…` publicId) with `pnpm dlx sanity@latest context list --organization <org-id>`:
    ```bash
    KB=kb...
    pnpm dlx sanity@latest context imports create $KB \
@@ -68,26 +87,17 @@ The suggested questions on the empty page and the "Keep going" follow-ups are fi
    pnpm dlx sanity@latest context update $KB --refresh-enabled --refresh-frequency weekly
    ```
    A Knowledge Base created from the CLI starts with scheduled refresh **off**, and the blueprint can't set it, so the last command turns it on.
-5. **Add the docs and build.**
-   ```bash
-   pnpm --filter @template/blueprint docs:sync
-   ```
-   The script finds the `Site knowledge` Knowledge Base (or uses `SITE_KNOWLEDGE_KB_ID` from `apps/blueprint/.env`), replaces its Markdown imports with the current `README.md`, `SETUP.md`, and `docs/*.md` (skipping the `docs/README.md` index) while leaving the dataset source alone, rebuilds it, and prints the outline and any open issues. Each doc is imported as Markdown titled with its repo path, which is what lets agents link to it.
-6. **Mint an org token.** In Manage → your organization → API → Tokens, add a token with **Context → Viewer**. Project tokens are rejected by Context endpoints.
-7. **Configure the web app** (`apps/web/.env.local`, or Vercel env):
-   ```bash
-   SANITY_CONTEXT_TOKEN=...
-   SANITY_CONTEXT_ASSISTANT_URL=https://api.sanity.io/v2026-09-01/context/organizations/<org-id>/mcp/site-assistant
-   SANITY_CONTEXT_CATALOG_URL=https://api.sanity.io/v2026-09-01/context/organizations/<org-id>/mcp/video-catalog
-   ```
-   Copy the endpoint URLs from each endpoint's page in the Context app, and replace `<org-id>` (a leftover placeholder fails with `organizationAccessDenied`, "Not a member of this organization"). `/ask` is prerendered, so **rebuild** after adding these.
-8. **Enable the model.** The model runs through the Vercel AI Gateway. On Vercel it authenticates with OIDC; locally, run `vercel env pull` in `apps/web` (the OIDC token expires after 12 hours) or set `AI_GATEWAY_API_KEY`. The gateway's free tier doesn't serve Claude Haiku 4.5, so top up paid credits in Vercel → AI first, or every question fails with a 403.
+2. Widen the scope to match:
+   - the Knowledge Base `description` and the `site-assistant` instructions in `apps/blueprint/sanity.blueprint.ts` (then redeploy);
+   - `buildInstructions()` in `apps/web/app/api/ask/route.ts`, which currently treats questions about what the articles say as out of scope;
+   - the suggested questions, follow-ups, and header copy in `apps/web/components/AskChat.tsx`.
+3. If you don't want template questions answered on your site, delete the Markdown imports (`sanity context imports list $KB`, then `imports delete`) and stop running `docs:sync`.
 
 ## Keeping it current
 
-- **Refresh** re-checks dataset sources weekly and files issues for what changed; entries update when you apply them.
+- **Refresh** only matters if you've added a dataset import ([your own content](#answering-from-your-own-content)): it re-checks dataset sources weekly and files issues for what changed; entries update when you apply them.
 - **Docs never refresh on their own.** Run `pnpm --filter @template/blueprint docs:sync` after editing any Markdown doc. When you **add or rename** a doc, also redeploy the blueprint: entries cite docs by a slugified name (`docs/configuration.md` → `docs-configuration-md.md`), and `site-assistant`'s instructions carry a generated name → URL table built from the same list (`apps/blueprint/docs.mjs`). To automate it, run the same command in CI on pushes that touch `docs/**`, `README.md`, or `SETUP.md`, authenticated with an org token that has **Context → Editor** (the Viewer token used by `/ask` can't manage imports).
-- **Issues** flag conflicting claims between sources. Review them in the Context app or with `sanity context issues list $KB --status open`. To fix one, correct the content in Sanity; the next build follows the dataset.
+- **Issues** flag conflicting claims between sources. Review them in the Context app or with `sanity context issues list $KB --status open`. To fix one, correct the doc and re-run `docs:sync` (or, for a dataset source, correct the content in Sanity; the next build follows the dataset).
 - **Entries can't be hand-edited.** Change the source, or add an instruction in the Context app.
 - If the knowledge base's outline changes a lot, the 10-minute initial-context cache in `lib/sanityContext.ts` picks it up on its own.
 
