@@ -7,7 +7,8 @@ import {
   type PortableTextComponents,
 } from '@portabletext/react';
 import { stegaClean } from 'next-sanity';
-import { client, urlFor, type SanityImageSource } from '@/lib/sanity.client';
+import type { SanityImageSource } from '@sanity/image-url';
+import { client, urlFor } from '@/lib/sanity.client';
 import { sanityFetch } from '@/lib/sanity.live';
 import { ALL_POSTS_QUERY, SINGLE_POST_QUERY, POST_CAPTIONS_QUERY } from '@/lib/sanity.queries';
 import { absoluteUrl } from '@/lib/siteUrl';
@@ -74,8 +75,11 @@ const portableTextComponents: PortableTextComponents = {
   },
   types: {
     image: ({ value }) => {
+      if (!(value as { asset?: unknown } | undefined)?.asset) return null;
       const src = urlFor(value as SanityImageSource)
         .width(1600)
+        .height(900)
+        .fit('crop')
         .url();
       return (
         <div className='relative my-2 aspect-video w-full overflow-hidden rounded-lg bg-muted/10'>

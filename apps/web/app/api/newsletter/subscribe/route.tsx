@@ -5,7 +5,7 @@ import {client} from '@/lib/sanity.client';
 import {WELCOME_EMAIL_QUERY} from '@/lib/sanity.queries';
 import {ConfirmEmailTemplate} from '@/components/emails/ConfirmEmailTemplate';
 import {createSubscribeToken, SUBSCRIBE_TOKEN_SECRET} from '@/lib/subscribeToken';
-import {isThrottled, markSent} from '@/lib/signupThrottle';
+import {createLimiter} from '@/lib/rateLimit';
 
 // Public, visitor-facing endpoint — NO bearer secret (unlike the editor-only
 // send/preview routes). It never adds anyone to the audience directly; it only
@@ -17,6 +17,8 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const limitSignup = createLimiter({prefix: 'signup', limit: 1, windowSeconds: 60});
 
 function fromAddress(): string {
   if (!RESEND_FROM_EMAIL) throw new Error('RESEND_FROM_EMAIL not configured');
@@ -41,11 +43,13 @@ export async function POST(req: NextRequest) {
 
   // Always answer ok past validation so the form never reveals whether an
   // address is already pending or subscribed (no enumeration).
-  if (isThrottled(email)) return NextResponse.json({ok: true});
+  const signupLimit = await limitSignup(email);
+  if (signupLimit.limited) return NextResponse.json({ok: true});
 
   const welcome = await client.fetch(WELCOME_EMAIL_QUERY);
   // Feature off or singleton unconfigured → accept the request, send nothing.
   if (!welcome || welcome.enabled === false) {
+    await signupLimit.refund();
     return NextResponse.json({ok: true, skipped: true});
   }
 
@@ -73,10 +77,10 @@ export async function POST(req: NextRequest) {
     });
     if (error) throw new Error(JSON.stringify(error));
 
-    markSent(email);
     return NextResponse.json({ok: true});
   } catch (err) {
     console.error('Subscribe confirm-send failed:', err);
+    await signupLimit.refund();
     return NextResponse.json(
       {error: 'Could not send the confirmation email. Please try again.'},
       {status: 500},

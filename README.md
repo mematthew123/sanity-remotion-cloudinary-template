@@ -50,6 +50,7 @@ pnpm workspaces, orchestrated with [Turborepo](https://turbo.build/) (`turbo.jso
 ```
 apps/web/            @template/web        — Next.js 16 site + /api/video/render (spawns a Vercel Sandbox) + Remotion site entry
 apps/studio/         @template/studio     — Sanity Studio v5: schemas, "Render" actions, Assist + brand voice
+apps/blueprint/      @template/blueprint  — Sanity Blueprint: the Sanity Context Knowledge Base + MCP endpoints behind /ask (optional)
 packages/video-core/ @template/video-core — Remotion compositions, registry, Cloudinary variant catalog
 ```
 
@@ -142,6 +143,7 @@ Or run them individually: `pnpm dev:web` (http://localhost:3000) and
 
   ![The Variants view on a video document in Sanity Studio — one render fanned out to Cloudinary derivations](./docs/images/studio-variants.png)
 - **Transform playground.** The site ships a `/playground` page — an interactive Cloudinary transform explorer that demonstrates the same variant system live, independent of any rendered video. Tweak transforms and watch the delivery URL change.
+- **Ask the site (Sanity Context, optional).** An `/ask` page answers visitor questions from a Sanity Context **Knowledge Base** built from the articles, plus a GROQ-mode endpoint over the live posts and videos for real links. The Knowledge Base and endpoints are defined as code in `apps/blueprint`. Hidden until configured; Knowledge Bases are in beta. See [docs/sanity-context.md](./docs/sanity-context.md).
 
 ## Deploy
 

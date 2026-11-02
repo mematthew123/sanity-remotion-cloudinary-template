@@ -4,6 +4,7 @@ import {blockContentType} from './blockContent'
 import {videoType} from './video'
 import {newsletterType} from './newsletter'
 import {welcomeEmailType} from './welcomeEmail'
+import {brandVoiceType} from './brandVoice'
 
 export const schemaTypes = [
   postType,
@@ -12,4 +13,5 @@ export const schemaTypes = [
   videoType,
   newsletterType,
   welcomeEmailType,
+  brandVoiceType,
 ]

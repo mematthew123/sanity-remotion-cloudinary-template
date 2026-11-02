@@ -86,7 +86,7 @@ set, the render route uses the local Chromium backend automatically. You can
 also force it explicitly by setting `LOCAL_RENDER=true` in `apps/web/.env.local`
 (useful if you've pulled a Blob token but still want to render locally).
 
-That's enough to run the loop. Skip to "Run it" (section 9). Set up the Vercel
+That's enough to run the loop. Skip to "Run it" (section 10). Set up the Vercel
 Sandbox (section 6) when you're ready to deploy.
 
 ## 6. (Deploy only) Vercel Sandbox
@@ -137,14 +137,23 @@ optional server-side fallback for CI/automation only. The sender domain must be
 ## 8. (Optional) Brand voice for Sanity Assist
 
 ```bash
-cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
+cd apps/studio && npx sanity exec ./scripts/seed-brand-voices.ts --with-user-token
 ```
 
 Then edit the **Brand Voices** docs in Studio (the source of truth). Assist's AI
 field actions also need the schema deployed (`npx sanity schema deploy`) and are
 a paid Growth-plan feature. See [`docs/assist.md`](./docs/assist.md).
 
-## 9. Run it
+## 9. (Optional) Ask page
+
+`/ask` answers visitor questions from a Sanity Context Knowledge Base (articles +
+these docs) and a GROQ-mode endpoint over the live posts and videos. It needs
+Sanity Context enabled in Labs (beta), the `apps/blueprint` stack deployed, an org
+token with **Context → Viewer**, and paid Vercel AI Gateway credits. `/ask` and its
+nav link stay hidden until it's configured. Full walkthrough:
+[`docs/sanity-context.md`](./docs/sanity-context.md).
+
+## 10. Run it
 
 ```bash
 pnpm dev          # both apps at once (Turborepo) — site :3000 + studio :3333
@@ -161,7 +170,7 @@ Then in Studio: create an **Author** → a **Post** (publish it) → document ac
 **Render Promo (1:1)** or **Render Teaser (9:16)**. Watch the **Videos** list move
 `rendering → uploading → ready`, then open `/posts/<slug>` or `/videos` on the site.
 
-## 10. Deploy
+## 11. Deploy
 
 1. **Web** → Vercel, project root `apps/web`. Set `/api/video/render` max duration
    to **800s** and add every `apps/web` env var (Sanity, Cloudinary, secret). The

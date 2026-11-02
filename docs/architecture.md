@@ -33,6 +33,7 @@ The **render route is the only server-side mutator.** Everything else (the Studi
 | --- | --- | --- |
 | `apps/web` | `@template/web` | Next.js 16 site, `/api/video/render` (renders via a Vercel Sandbox or local headless Chromium), the Remotion site entry (`remotion/`) bundled for both paths |
 | `apps/studio` | `@template/studio` | Sanity Studio v5: schemas, the "Render" document action, the Preview + Variants views, Assist + brand voice |
+| `apps/blueprint` | `@template/blueprint` | Optional. Sanity Blueprint declaring the Sanity Context Knowledge Base and MCP endpoints behind `/ask` ([sanity-context.md](./sanity-context.md)) |
 | `packages/video-core` | `@template/video-core` | Remotion compositions, the registry, the Cloudinary variant catalog |
 
 ## The React-free registry boundary
@@ -84,6 +85,7 @@ A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a 
 - GROQ in `apps/web/lib/sanity.queries.ts`. A post's videos come from a **back-reference** subquery (`*[_type=="video" && post._ref==^._id && status=="ready" ...]`) — the render route never writes a `videos[]` array back onto the post.
 - `apps/web/components/VideoPlayer.tsx` plays `cloudinaryUrl` (or a variant URL).
 - `apps/web/app/posts/[slug]/page.tsx` embeds a post's videos; `apps/web/app/videos/page.tsx` is the gallery.
+- `/ask` (optional) reads the same `video` docs, including `variants[].url`, through the `video-catalog` Sanity Context endpoint, so answers link real renders. See [sanity-context.md](./sanity-context.md).
 
 ## Composition → render data flow
 

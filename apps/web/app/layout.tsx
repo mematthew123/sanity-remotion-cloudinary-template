@@ -7,6 +7,7 @@ import { SITE_URL } from '@/lib/siteUrl';
 import { SanityLive } from '@/lib/sanity.live';
 import NewsletterSignup from '@/components/NewsletterSignup';
 import DisableDraftMode from '@/components/DisableDraftMode';
+import { isAskEnabled } from '@/lib/askConfig';
 import './globals.css';
 
 const jetbrainsMono = JetBrains_Mono({
@@ -80,6 +81,14 @@ export default async function RootLayout({
                         >
                             Playground
                         </Link>
+                        {isAskEnabled() && (
+                            <Link
+                                href='/ask'
+                                className='transition-colors hover:text-foreground'
+                            >
+                                Ask
+                            </Link>
+                        )}
                     </nav>
                 </header>
                 <main className='flex-1'>{children}</main>

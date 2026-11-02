@@ -8,4 +8,5 @@ Guides for the Sanity + Remotion + Cloudinary video template. Start with the roo
 - **[Vercel Sandbox](./vercel-sandbox.md)** — connecting a Blob store, the build-time snapshot, local dev, and the env vars the render route needs.
 - **[The apps](./apps.md)** — the Next.js site + render route, and the Studio's render/preview/variants surfaces.
 - **[Assist + brand voice](./assist.md)** — the AI field actions, seeding the brand-voice doc, and customizing the voice.
+- **[Sanity Context + Ask](./sanity-context.md)** — the Knowledge Base and MCP endpoints (as a Blueprint), and the `/ask` page that answers from them.
 - **[Troubleshooting](./troubleshooting.md)** — the issues you're most likely to hit, with fixes.

@@ -143,11 +143,11 @@ export type AuthorReference = {
   [internalGroqTypeReferenceTo]?: "author";
 };
 
-export type SanityAgentContextReference = {
+export type BrandVoiceReference = {
   _ref: string;
   _type: "reference";
   _weak?: boolean;
-  [internalGroqTypeReferenceTo]?: "sanity.agentContext";
+  [internalGroqTypeReferenceTo]?: "brandVoice";
 };
 
 export type Post = {
@@ -170,7 +170,7 @@ export type Post = {
   };
   publishedAt?: string;
   body?: BlockContent;
-  voice?: SanityAgentContextReference;
+  voice?: BrandVoiceReference;
   autoGenerateVideoOnPublish?: boolean;
   voiceoverChunks?: Array<{
     id?: string;
@@ -193,6 +193,23 @@ export type Post = {
     ctaPrimary?: string;
     ctaSecondary?: string;
   };
+};
+
+export type BrandVoice = {
+  _id: string;
+  _type: "brandVoice";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  name?: string;
+  slug?: Slug;
+  instructions?: string;
+};
+
+export type Slug = {
+  _type: "slug";
+  current?: string;
+  source?: string;
 };
 
 export type SanityImageCrop = {
@@ -245,12 +262,6 @@ export type Author = {
     _type: "block";
     _key: string;
   }>;
-};
-
-export type Slug = {
-  _type: "slug";
-  current?: string;
-  source?: string;
 };
 
 export type SanityAssistInstructionTask = {
@@ -390,19 +401,6 @@ export type SanityAssistSchemaTypeField = {
   >;
 };
 
-export type SanityAgentContext = {
-  _id: string;
-  _type: "sanity.agentContext";
-  _createdAt: string;
-  _updatedAt: string;
-  _rev: string;
-  version?: string;
-  name?: string;
-  slug?: Slug;
-  groqFilter?: string;
-  instructions?: string;
-};
-
 export type SanityImagePaletteSwatch = {
   _type: "sanity.imagePaletteSwatch";
   background?: string;
@@ -509,12 +507,13 @@ export type AllSanitySchemaTypes =
   | Newsletter
   | Video
   | AuthorReference
-  | SanityAgentContextReference
+  | BrandVoiceReference
   | Post
+  | BrandVoice
+  | Slug
   | SanityImageCrop
   | SanityImageHotspot
   | Author
-  | Slug
   | SanityAssistInstructionTask
   | SanityAssistTaskStatus
   | SanityAssistSchemaTypeAnnotations
@@ -528,7 +527,6 @@ export type AllSanitySchemaTypes =
   | SanityAssistInstructionFieldRef
   | SanityAssistInstruction
   | SanityAssistSchemaTypeField
-  | SanityAgentContext
   | SanityImagePaletteSwatch
   | SanityImagePalette
   | SanityImageDimensions

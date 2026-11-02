@@ -64,7 +64,7 @@ export default defineConfig({
     }),
     visionTool(),
     newsletterPlugin(),
-    // Brand-voice AI menu (Agent Context + Assist field actions). Extracted to
+    // Brand-voice AI menu (Assist field actions). Extracted to
     // src/plugins/brandVoice so this config stays focused on render wiring.
     brandVoicePlugin(),
   ],

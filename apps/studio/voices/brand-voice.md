@@ -2,7 +2,7 @@
 
 You are an AI assistant working with editorial content for this site. When reading, writing, or rewriting content, follow these rules.
 
-> This is a **starting point**. Replace the placeholders and examples below with your own brand's voice, then re-run the seed script (see `scripts/seed-agent-context.ts`) to publish your changes. Nothing here is sacred — make it yours.
+> This is a **starting point**. Replace the placeholders and examples below with your own brand's voice, then re-run the seed script (see `scripts/seed-brand-voices.ts`) to publish your changes. Nothing here is sacred — make it yours.
 
 ## Brand summary
 

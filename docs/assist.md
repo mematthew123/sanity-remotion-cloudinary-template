@@ -1,6 +1,6 @@
 # Sanity Assist + brand voice
 
-The Studio adds AI copy generation grounded in an editable **brand-voice** document, via `@sanity/assist` and `@sanity/agent-context`. No external API key is needed (Sanity-hosted AI), but note: the custom field actions run **Agent Actions** (Transform/Generate), which are a **paid feature on the Growth plan** and consume usage. The `@sanity/assist` plugin itself is free; the Actions it calls are not.
+The Studio adds AI copy generation grounded in an editable **brand-voice** document, via `@sanity/assist`. No external API key is needed (Sanity-hosted AI), but note: the custom field actions run **Agent Actions** (Transform/Generate), which are a **paid feature on the Growth plan** and consume usage. The `@sanity/assist` plugin itself is free; the Actions it calls are not.
 
 ## What it adds
 
@@ -13,16 +13,29 @@ Each action references *its* voice doc via `instructionParams` (`voice: {type: '
 
 ## The voice documents
 
-- Type: `sanity.agentContext` (provided by `@sanity/agent-context`), surfaced in the Studio structure as **Brand Voices**. The default voice has id **`brand-voice`**.
+- Type: `brandVoice` (`apps/studio/src/schemaTypes/brandVoice.ts` — `name`, `slug`, `instructions`), surfaced in the Studio structure as **Brand Voices**. The default voice has id **`brand-voice`**.
 - Each markdown file in **`apps/studio/voices/`** seeds one voice doc whose id is the filename stem — e.g. `brand-voice.md` → `brand-voice`, `dead-head.md` → `dead-head`. The doc's `name` comes from the file's first `# Heading`.
 - The Studio documents are the **source of truth** — the AI actions read them live. The markdown files are only the initial template used to bootstrap them.
 - Bootstrap them once with:
 
 ```bash
-cd apps/studio && npx sanity exec ./scripts/seed-agent-context.ts --with-user-token
+cd apps/studio && npx sanity exec ./scripts/seed-brand-voices.ts --with-user-token
 ```
 
-The script `createIfNotExists` one doc per `voices/*.md` file (with a `groqFilter` scoping each to `post` / `author`) — a one-time bootstrap that **won't overwrite** later Studio edits.
+The script `createIfNotExists` one doc per `voices/*.md` file — a one-time bootstrap that **won't overwrite** later Studio edits.
+
+## Migrating from `sanity.agentContext` voices
+
+Earlier versions stored voices as `sanity.agentContext` documents from `@sanity/agent-context`. That package was renamed to `@sanity/context`, and its Studio plugin is deprecated: Sanity Context endpoints now live in the Context app in the Sanity Dashboard, not in your dataset. Voices are now plain `brandVoice` documents.
+
+To convert existing voice docs, keeping their ids and re-pointing every post's `voice` reference in a single transaction:
+
+```bash
+cd apps/studio
+npx sanity exec ./scripts/migrate-agent-context-voices.ts --with-user-token              # dry run
+npx sanity exec ./scripts/migrate-agent-context-voices.ts --with-user-token -- --apply   # commit
+npx sanity schema deploy
+```
 
 ## Customizing the voices
 

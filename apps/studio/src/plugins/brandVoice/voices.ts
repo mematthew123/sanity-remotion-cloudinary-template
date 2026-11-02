@@ -1,10 +1,10 @@
 import {useEffect, useState} from 'react'
 import type {SanityClient} from 'sanity'
 
-// Default brand-voice Agent Context document id. The AI Assist menu exposes
+// Default brandVoice document id. The AI Assist menu exposes
 // one action per voice doc found in the dataset; this id is the fallback
 // used to highlight the "preferred" voice when `post.voice` is unset.
-// All voice docs are seeded from `voices/*.md` by `scripts/seed-agent-context.ts`.
+// All voice docs are seeded from `voices/*.md` by `scripts/seed-brand-voices.ts`.
 const DEFAULT_VOICE_DOC_ID = 'brand-voice'
 
 export type VoiceDoc = {_id: string; name: string | null}
@@ -21,7 +21,7 @@ export function useVoices(client: SanityClient): VoiceDoc[] {
     if (!voicesPromise) {
       voicesPromise = client
         .fetch<VoiceDoc[]>(
-          `*[_type == "sanity.agentContext"] | order(name asc, _id asc){_id, name}`,
+          `*[_type == "brandVoice"] | order(name asc, _id asc){_id, name}`,
         )
         .catch(() => [] as VoiceDoc[])
     }

@@ -1,5 +1,5 @@
 import { createClient } from 'next-sanity';
-import imageUrlBuilder from '@sanity/image-url';
+import { createImageUrlBuilder, type SanityImageSource } from '@sanity/image-url';
 
 export const client = createClient({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
@@ -15,12 +15,18 @@ export const client = createClient({
   },
 });
 
-const builder = imageUrlBuilder(client);
-
-// Derived from the builder so we don't depend on a deep internal import path
-// from @sanity/image-url (which isn't exposed under `bundler` resolution).
-export type SanityImageSource = Parameters<typeof builder.image>[0];
+const builder = createImageUrlBuilder(client);
 
 export function urlFor(source: SanityImageSource) {
   return builder.image(source);
+}
+
+export function postImageUrl(
+  post: { mainImage?: SanityImageSource | null; preview?: { posterUrl?: string | null } | null },
+  width: number,
+  height: number,
+): string | null {
+  return post.mainImage
+    ? urlFor(post.mainImage).width(width).height(height).fit('crop').url()
+    : (post.preview?.posterUrl ?? null);
 }
