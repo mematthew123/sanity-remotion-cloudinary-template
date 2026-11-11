@@ -10,8 +10,10 @@ const {fontFamily: serifFamily} = loadInstrumentSerif('italic', {
   weights: ['400'],
 })
 
+// 700 is used by the narrated composition's titles — without it the browser
+// synthesises a smeared faux-bold from the regular weight.
 const {fontFamily: bodyFamily} = loadInter('normal', {
-  weights: ['400'],
+  weights: ['400', '700'],
 })
 
 export const loadedFonts = {

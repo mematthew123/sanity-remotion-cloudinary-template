@@ -6,6 +6,12 @@ import {
   type ArticleNarratedProps,
   type ArticleVideoProps,
 } from './types'
+import {
+  NARRATED_TIMELINE,
+  PROMO_TIMELINE,
+  TEASER_TIMELINE,
+  posterSecondsOf,
+} from './timeline'
 
 // =============================================================================
 // Variant catalog
@@ -172,8 +178,9 @@ export type CompositionMeta = {
   defaultDurationFrames: number
   /**
    * Seconds into the render to grab still-frame variants (poster, social
-   * card) — a moment when the title and byline are fully on screen. Keep in
-   * sync with the composition's animation timing.
+   * card) — a moment when the title and byline are fully on screen. Derived
+   * from the composition's beat sheet in `timeline.ts`, so it follows the
+   * animation when that is retimed.
    */
   posterSeconds: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,9 +216,9 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     width: 1080,
     height: 1080,
     isVertical: false,
-    defaultDurationFrames: 210, // 7s @ 30fps
-    // CTA springs in at frame 110 and settles by ~140; outro fade starts at 180.
-    posterSeconds: 5,
+    defaultDurationFrames: PROMO_TIMELINE.duration, // 8s @ 30fps
+    // The card is fully built and holding; the closing curtain hasn't started.
+    posterSeconds: posterSecondsOf(PROMO_TIMELINE),
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
     variantIds: [...SITE_BASE],
@@ -225,9 +232,9 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     width: 1080,
     height: 1920,
     isVertical: true,
-    defaultDurationFrames: 180, // 6s @ 30fps
-    // Author reveal starts at frame 95 and settles by ~125; outro fade at 160.
-    posterSeconds: 4.5,
+    defaultDurationFrames: TEASER_TIMELINE.duration, // 7s @ 30fps
+    // Headline, quote, byline and CTA all landed; the closing curtain hasn't started.
+    posterSeconds: posterSecondsOf(TEASER_TIMELINE),
     schema: ArticleVideoPropsSchema,
     defaultProps: articleDefaultProps,
     variantIds: [...SITE_BASE],
@@ -248,8 +255,8 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
     isVertical: false,
     // Studio preview seed only — real duration comes from calculateMetadata.
     defaultDurationFrames: 300,
-    // The intro title card holds from frame 8 to 59 before fading into b-roll.
-    posterSeconds: 1.5,
+    // The intro title card has settled and hasn't begun to lift away.
+    posterSeconds: posterSecondsOf(NARRATED_TIMELINE),
     schema: ArticleNarratedPropsSchema,
     defaultProps: {
       title: articleDefaultProps.title,
@@ -302,7 +309,7 @@ export const COMPOSITIONS: ReadonlyArray<CompositionMeta> = [
         },
         {
           id: 'demo-5',
-          text: 'An intro title card opens the video and an outro call-to-action closes it.',
+          text: 'An intro title card opens the video and a brand sign-off closes it.',
           audioUrl: '',
           durationSeconds: 6,
         },

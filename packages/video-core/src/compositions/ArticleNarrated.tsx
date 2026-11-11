@@ -1,6 +1,8 @@
 import React from 'react'
 import {AbsoluteFill, Audio, Img, Sequence, interpolate, useCurrentFrame, useVideoConfig} from 'remotion'
 import {COLORS, type ArticleNarratedChunk, type ArticleNarratedProps} from '../types'
+import {NARRATED_TIMELINE as T} from '../timeline'
+import {EASE, atFps, blockReveal, mix, tween} from '../motion'
 import '../fonts'
 
 // Long-form narrated reading, "documentary + b-roll" treatment. The spoken
@@ -8,16 +10,16 @@ import '../fonts'
 // <video>, YouTube) — NOT burned into pixels — so the frame is free to be
 // cinematic: full-bleed imagery cross-dissolving through the post's body
 // images (falling back to the main image), with broadcast chrome (progress
-// bar, brand lockup), chapter cards on the H2 boundaries, and intro/outro
-// cards. Each chunk's MP3 still plays in its own <Sequence> for exact audio
-// timing; the total duration is computed by `calculateMetadata` (registry.ts).
+// bar with chapter ticks, brand lockup), chapter cards on the H2 boundaries,
+// and intro/outro cards. Each chunk's MP3 still plays in its own <Sequence>
+// for exact audio timing; the total duration is computed by
+// `calculateMetadata` (registry.ts). Beat lengths live in NARRATED_TIMELINE.
+//
+// Narration starts on frame 0, so the intro and outro cards are overlays on
+// the timeline, never padding around it — caption timings depend on that.
 
-const INTRO_FRAMES = 75 // ~2.5s @ 30fps
-const OUTRO_FRAMES = 90 // ~3s @ 30fps
-const SCENE_FADE_FRAMES = 18 // b-roll cross-dissolve
-const CHAPTER_CARD_FRAMES = 80 // how long a chapter card holds
-const CHAPTER_FADE_FRAMES = 12
 const DEFAULT_BRAND = 'The Template'
+const INK = '#0c0c0c'
 
 // Element types derived from the props contract so they never drift from the schema.
 type Chapter = NonNullable<ArticleNarratedProps['chapters']>[number]
@@ -76,40 +78,49 @@ function buildScenes(
   return scenes
 }
 
-// Full-bleed cross-dissolving image stage with a slow per-scene Ken-Burns zoom.
-// Scenes stack in order and stay mounted once shown; the next scene fading in
-// reveals over the previous, so only the trailing edge needs a ramp.
+// Full-bleed cross-dissolving image stage with a slow per-scene Ken Burns move.
+// Scenes alternate push-in / pull-back so consecutive shots never drift the
+// same way. Each dissolve is centred on the scene boundary; a scene mounts
+// just before its dissolve and unmounts once the next one fully covers it, so
+// a long reading only ever composites one or two images per frame.
 function BRollStage({scenes}: {scenes: Scene[]}) {
   const frame = useCurrentFrame()
+  const {fps} = useVideoConfig()
+  const fade = atFps(fps)(T.sceneFade)
 
   return (
-    <AbsoluteFill className="bg-[#0c0c0c]">
-      {scenes.map((scene) => {
-        if (frame < scene.startFrame - SCENE_FADE_FRAMES) return null
+    <AbsoluteFill style={{backgroundColor: INK}}>
+      {scenes.map((scene, i) => {
+        const next = scenes[i + 1]
+        if (frame < scene.startFrame - fade) return null
+        if (next && frame >= next.startFrame + fade) return null
 
         const opacity =
-          scene.index === 0
-            ? 1
-            : interpolate(
-                frame,
-                [scene.startFrame - SCENE_FADE_FRAMES, scene.startFrame + SCENE_FADE_FRAMES],
-                [0, 1],
-                {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-              )
+          scene.index === 0 ? 1 : tween(frame, scene.startFrame - fade, fade * 2, EASE.soft)
 
-        const progress = interpolate(frame, [scene.startFrame, scene.endFrame], [0, 1], {
-          extrapolateLeft: 'clamp',
-          extrapolateRight: 'clamp',
-        })
-        const zoom = 1.05 + 0.08 * progress
-        const originY = scene.index % 2 === 0 ? '35%' : '62%'
+        // The move spans the dissolves on both sides, so a shot is already
+        // travelling as it fades up and still travelling as it fades away.
+        const progress = interpolate(
+          frame,
+          [scene.startFrame - fade, scene.endFrame + fade],
+          [0, 1],
+          {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+        )
+        const pushIn = scene.index % 2 === 0
+        const zoom = pushIn ? mix(progress, 1.06, 1.15) : mix(progress, 1.15, 1.06)
+        const panX = mix(progress, pushIn ? -0.8 : 0.8, pushIn ? 0.8 : -0.8)
+        const originY = pushIn ? '36%' : '62%'
 
         return (
           <Img
             key={`${scene.index}-${scene.url}`}
             src={scene.url}
             className="absolute inset-0 size-full object-cover"
-            style={{opacity, transform: `scale(${zoom})`, transformOrigin: `center ${originY}`}}
+            style={{
+              opacity,
+              transform: `scale(${zoom}) translateX(${panX}%)`,
+              transformOrigin: `center ${originY}`,
+            }}
           />
         )
       })}
@@ -122,52 +133,72 @@ function BRollStage({scenes}: {scenes: Scene[]}) {
 // the imagery reads.
 function Scrim() {
   return (
-    <AbsoluteFill className="bg-[linear-gradient(to_bottom,rgba(12,12,12,0.6)_0%,rgba(12,12,12,0.15)_20%,transparent_42%,transparent_60%,rgba(12,12,12,0.62)_86%,rgba(12,12,12,0.85)_100%)]" />
+    <AbsoluteFill className="bg-[linear-gradient(to_bottom,rgba(12,12,12,0.62)_0%,rgba(12,12,12,0.16)_20%,transparent_40%,transparent_52%,rgba(12,12,12,0.5)_78%,rgba(12,12,12,0.85)_100%)]" />
   )
 }
 
 // Thin broadcast progress bar across the very top — fills 0→100% across the
-// whole reading so viewers can gauge how much is left. Rendered last so it
-// stays visible over the intro/outro cards.
-function ProgressBar() {
+// whole reading so viewers can gauge how much is left, with a tick at each
+// chapter. Rendered last so it stays visible over the intro/outro cards.
+function ProgressBar({chapters, timedChunks}: {chapters: Chapter[]; timedChunks: TimedChunk[]}) {
   const frame = useCurrentFrame()
   const {durationInFrames} = useVideoConfig()
-  const pct = interpolate(frame, [0, Math.max(1, durationInFrames - 1)], [0, 100], {
+  const last = Math.max(1, durationInFrames - 1)
+  const pct = interpolate(frame, [0, last], [0, 100], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   })
 
   return (
-    <div className="absolute inset-x-0 top-0 h-[5px] bg-white/10">
-      <div className="h-full" style={{width: `${pct}%`, backgroundColor: COLORS.accent}} />
+    <div className="absolute inset-x-0 top-0 h-[5px] bg-white/15">
+      <div className="h-full" style={{width: `${pct}%`, backgroundColor: COLORS.highlight}} />
+      {chapters.map((chapter, i) => {
+        const start = timedChunks[chapter.chunkIndex]?.startFrame
+        if (!start) return null
+        return (
+          <span
+            key={`${chapter.chunkIndex}-${i}`}
+            className="absolute top-0 h-[9px] w-[2px]"
+            style={{left: `${(start / last) * 100}%`, backgroundColor: INK}}
+          />
+        )
+      })}
     </div>
   )
 }
 
-// Persistent top-left brand lockup + byline. Fades in as the intro card clears
-// so the two don't overlap, and is held back during the outro by the outro
-// scrim sitting above it.
+// Persistent top-left brand lockup + byline. Slides in as the intro card
+// clears so the two don't overlap, and is held back during the outro by the
+// outro scrim sitting above it.
 function BrandLockup({brandName, authorName}: {brandName: string; authorName: string}) {
   const frame = useCurrentFrame()
-  const opacity = interpolate(frame, [INTRO_FRAMES - 12, INTRO_FRAMES + 6], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
+  const {fps} = useVideoConfig()
+  const f = atFps(fps)
+  const enter = tween(frame, f(T.intro - 8), f(22))
 
   return (
-    <div className="absolute top-9 left-16 flex items-center gap-3" style={{opacity}}>
-      <span className="size-3 rounded-full" style={{backgroundColor: COLORS.accent}} />
-      <span className="text-[22px] font-semibold tracking-[-0.01em] text-white">{brandName}</span>
+    <div
+      className="absolute top-9 left-16 flex items-center gap-3"
+      style={{opacity: enter, transform: `translateX(${(1 - enter) * -16}px)`}}
+    >
+      <span className="size-3" style={{backgroundColor: COLORS.highlight}} />
+      <span className="text-[22px] font-bold tracking-[-0.01em] text-white">{brandName}</span>
       <span className="text-[20px] text-white/40">·</span>
-      <span className="text-[20px] font-medium text-white/70">by {authorName}</span>
+      <span className="text-[20px] text-white/70">by {authorName}</span>
     </div>
   )
 }
 
-// Chapter cards: one per H2/H3 heading, appearing at the heading's narration
-// chunk for a few seconds, numbered in document order.
+// Chapter cards: one per H2/H3 heading, a lower third that opens at the
+// heading's narration chunk, numbered in document order. Sits above the band
+// where players draw closed captions. A card yields early if the next chapter
+// arrives before its hold is up.
 function ChapterCards({chapters, timedChunks}: {chapters: Chapter[]; timedChunks: TimedChunk[]}) {
   const frame = useCurrentFrame()
+  const {fps, durationInFrames} = useVideoConfig()
+  const f = atFps(fps)
+  const exitFrames = f(14)
+  const outroStart = durationInFrames - f(T.outro)
 
   return (
     <>
@@ -175,34 +206,50 @@ function ChapterCards({chapters, timedChunks}: {chapters: Chapter[]; timedChunks
         const tc = timedChunks[chapter.chunkIndex]
         if (!tc) return null
 
-        const start = tc.startFrame
-        const end = start + CHAPTER_CARD_FRAMES
-        const opacity = interpolate(
-          frame,
-          [start, start + CHAPTER_FADE_FRAMES, end - CHAPTER_FADE_FRAMES, end],
-          [0, 1, 1, 0],
-          {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-        )
-        if (opacity <= 0) return null
+        // A chapter that opens inside the intro waits for the title card to clear.
+        const start = Math.max(tc.startFrame, f(T.intro))
+        const nextStart = chapters
+          .slice(i + 1)
+          .map((c) => timedChunks[c.chunkIndex]?.startFrame)
+          .find((s): s is number => s !== undefined && s > start)
+        const end = Math.min(start + f(T.chapterCard), nextStart ?? Infinity, outroStart)
+        if (frame < start || frame >= end) return null
 
-        const slide = interpolate(frame, [start, start + CHAPTER_FADE_FRAMES], [18, 0], {
-          extrapolateLeft: 'clamp',
-          extrapolateRight: 'clamp',
-        })
+        const rule = tween(frame, start, f(14), EASE.inOut)
+        const label = tween(frame, start + f(5), f(16))
+        const heading = tween(frame, start + f(8), f(22))
+        const exit = tween(frame, end - exitFrames, exitFrames, EASE.in)
 
         return (
           <div
             key={`${chapter.chunkIndex}-${i}`}
-            className="absolute bottom-16 left-16 flex items-center gap-4"
-            style={{opacity, transform: `translateY(${slide}px)`}}
+            className="absolute bottom-[124px] left-16 max-w-[70%] pl-6"
+            style={{opacity: 1 - exit, transform: `translateX(${exit * -20}px)`}}
           >
-            <span className="h-px w-10" style={{backgroundColor: COLORS.accent}} />
-            <span className="text-[22px] font-bold tabular-nums" style={{color: COLORS.accent}}>
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <span className="text-[30px] font-semibold tracking-[-0.01em] text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.85)]">
+            <span
+              className="absolute inset-y-0 left-0 w-1"
+              style={{
+                backgroundColor: COLORS.highlight,
+                transform: `scaleY(${rule})`,
+                transformOrigin: 'top',
+              }}
+            />
+            <p
+              className="m-0 mb-2.5 font-mono text-[15px] leading-none font-bold tracking-[0.24em] uppercase"
+              style={{
+                color: COLORS.highlight,
+                opacity: label,
+                transform: `translateX(${(1 - label) * -12}px)`,
+              }}
+            >
+              Chapter {String(i + 1).padStart(2, '0')}
+            </p>
+            <p
+              className="m-0 line-clamp-2 text-[38px] leading-[1.12] font-bold tracking-[-0.02em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]"
+              style={blockReveal(heading, 20)}
+            >
               {chapter.title}
-            </span>
+            </p>
           </div>
         )
       })}
@@ -210,8 +257,9 @@ function ChapterCards({chapters, timedChunks}: {chapters: Chapter[]; timedChunks
   )
 }
 
-// Intro title card over the first INTRO_FRAMES: kicker + headline + byline,
-// fading out as the b-roll takes over underneath.
+// Intro title card over the opening b-roll: kicker, headline, rule, byline —
+// staggered in, held, then lifted away as the b-roll takes over. The scrim is
+// already down on frame 0 so the video never opens on a bare image.
 function IntroCard({
   kicker,
   title,
@@ -224,67 +272,119 @@ function IntroCard({
   publishedAt: string
 }) {
   const frame = useCurrentFrame()
-  const opacity = interpolate(frame, [0, 8, INTRO_FRAMES - 16, INTRO_FRAMES], [0, 1, 1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  if (opacity <= 0) return null
+  const {fps} = useVideoConfig()
+  const f = atFps(fps)
+  if (frame >= f(T.intro)) return null
 
-  const rise = interpolate(frame, [0, 22], [26, 0], {extrapolateRight: 'clamp'})
+  const exit = tween(frame, f(T.intro - T.introExit), f(T.introExit), EASE.in)
+  const kickerIn = tween(frame, f(2), f(18))
+  const titleIn = tween(frame, f(5), f(26))
+  const rule = tween(frame, f(16), f(22), EASE.inOut)
+  const bylineIn = tween(frame, f(22), f(20))
+  const date = formatDate(publishedAt)
 
   return (
     <AbsoluteFill
-      className="flex flex-col items-start justify-center bg-black/45 px-24"
-      style={{opacity}}
+      className="flex flex-col items-start justify-center bg-[linear-gradient(to_right,rgba(12,12,12,0.78),rgba(12,12,12,0.4))] px-24"
+      style={{opacity: 1 - exit}}
     >
-      <div style={{transform: `translateY(${rise}px)`}} className="max-w-[80%]">
+      <div className="max-w-[80%]" style={{transform: `translateY(${exit * -24}px)`}}>
         {kicker ? (
           <p
-            className="m-0 mb-5 text-[24px] font-semibold uppercase tracking-[0.22em]"
-            style={{color: COLORS.accent}}
+            className="m-0 mb-6 flex items-center gap-4 font-mono text-[19px] leading-none font-bold tracking-[0.24em] uppercase"
+            style={{
+              color: COLORS.highlight,
+              opacity: kickerIn,
+              transform: `translateX(${(1 - kickerIn) * -16}px)`,
+            }}
           >
+            <span className="h-[3px] w-10" style={{backgroundColor: COLORS.highlight}} />
             {kicker}
           </p>
         ) : null}
-        <h1 className="m-0 line-clamp-3 text-[68px] font-bold leading-[1.06] tracking-[-0.02em] text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.8)]">
+        <h1
+          className="m-0 line-clamp-3 text-[72px] leading-[1.05] font-bold tracking-[-0.03em] text-white [text-shadow:0_2px_30px_rgba(0,0,0,0.6)]"
+          style={blockReveal(titleIn, 36)}
+        >
           {title}
         </h1>
-        <div className="mt-7 mb-5 h-px w-24" style={{backgroundColor: COLORS.accent}} />
-        <p className="m-0 text-[22px] font-medium text-white/75">
-          {authorName}
-          {formatDate(publishedAt) ? `  ·  ${formatDate(publishedAt)}` : ''}
+        <div
+          className="mt-8 mb-6 h-[3px] w-28"
+          style={{
+            backgroundColor: COLORS.highlight,
+            transform: `scaleX(${rule})`,
+            transformOrigin: 'left',
+          }}
+        />
+        <p
+          className="m-0 text-[23px] text-white/80"
+          style={{opacity: bylineIn, transform: `translateY(${(1 - bylineIn) * 12}px)`}}
+        >
+          <span className="font-bold text-white">{authorName}</span>
+          {date ? <span className="text-white/60">{`  ·  ${date}`}</span> : null}
         </p>
       </div>
     </AbsoluteFill>
   )
 }
 
-// Outro brand card over the last OUTRO_FRAMES, anchored to the end of the
+// Outro brand card over the closing b-roll, anchored to the end of the
 // timeline. This composition IS the full article read aloud, so there's no
-// "read more" CTA — the reading simply resolves on the brand wordmark.
-function OutroCard({brandName}: {brandName: string}) {
+// "read more" CTA — the reading resolves on the brand wordmark with the
+// article title as a sign-off, and <FadeToBlack> closes the video.
+function OutroCard({brandName, title}: {brandName: string; title: string}) {
   const frame = useCurrentFrame()
-  const {durationInFrames} = useVideoConfig()
-  const start = durationInFrames - OUTRO_FRAMES
-  const opacity = interpolate(frame, [start, start + 16], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  if (opacity <= 0) return null
+  const {fps, durationInFrames} = useVideoConfig()
+  const f = atFps(fps)
+  const start = durationInFrames - f(T.outro)
+  // Too short to hold both cards (e.g. a one-line post): skip the outro.
+  if (start < f(T.intro) || frame < start) return null
 
-  const rise = interpolate(frame, [start, start + 22], [22, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
+  const scrim = tween(frame, start, f(24), EASE.soft)
+  const mark = tween(frame, start + f(8), f(18), EASE.back)
+  const wordmark = tween(frame, start + f(12), f(26))
+  const rule = tween(frame, start + f(22), f(22), EASE.inOut)
+  const signOff = tween(frame, start + f(30), f(22))
 
   return (
-    <AbsoluteFill className="flex flex-col items-center justify-center bg-black/60" style={{opacity}}>
-      <div style={{transform: `translateY(${rise}px)`}} className="flex flex-col items-center">
-        <span className="mb-7 size-4 rounded-full" style={{backgroundColor: COLORS.accent}} />
-        <p className="m-0 text-[56px] font-bold tracking-[-0.02em] text-white">{brandName}</p>
-      </div>
+    <AbsoluteFill
+      className="flex flex-col items-center justify-center bg-[rgba(12,12,12,0.72)]"
+      style={{opacity: scrim}}
+    >
+        <span
+          className="mb-8 size-5"
+          style={{backgroundColor: COLORS.highlight, transform: `scale(${mark})`}}
+        />
+        <p
+          className="m-0 text-[64px] leading-[1.1] font-bold tracking-[-0.03em] text-white"
+          style={blockReveal(wordmark, 30)}
+        >
+          {brandName}
+        </p>
+        <div
+          className="mt-7 mb-6 h-[3px] w-28"
+          style={{backgroundColor: COLORS.highlight, transform: `scaleX(${rule})`}}
+        />
+        <p
+          className="m-0 line-clamp-1 max-w-[70%] text-center font-serif text-[30px] text-white/75 italic"
+          style={{opacity: signOff, transform: `translateY(${(1 - signOff) * 12}px)`}}
+        >
+          {title}
+        </p>
     </AbsoluteFill>
   )
+}
+
+// Final fade to black over everything (chrome included), landing on the last
+// frame. Skipped with the outro on readings too short to hold one.
+function FadeToBlack() {
+  const frame = useCurrentFrame()
+  const {fps, durationInFrames} = useVideoConfig()
+  const f = atFps(fps)
+  if (durationInFrames - f(T.outro) < f(T.intro)) return null
+  const opacity = tween(frame, durationInFrames - f(T.fadeOut), f(T.fadeOut) - 1, EASE.soft)
+  if (opacity <= 0) return null
+  return <AbsoluteFill style={{backgroundColor: '#000', opacity}} />
 }
 
 export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({
@@ -315,7 +415,7 @@ export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({
   const scenes = buildScenes(timedChunks, images, mainImageUrl, durationInFrames)
 
   return (
-    <AbsoluteFill className="bg-[#0c0c0c]">
+    <AbsoluteFill style={{backgroundColor: INK}}>
       <BRollStage scenes={scenes} />
 
       <Scrim />
@@ -326,9 +426,11 @@ export const ArticleNarrated: React.FC<ArticleNarratedProps> = ({
 
       <IntroCard kicker={kicker} title={title} authorName={authorName} publishedAt={publishedAt} />
 
-      <OutroCard brandName={brand} />
+      <OutroCard brandName={brand} title={title} />
 
-      <ProgressBar />
+      <ProgressBar chapters={chapters ?? []} timedChunks={timedChunks} />
+
+      <FadeToBlack />
 
       {timedChunks.map((chunk) =>
         // Guard the empty-`audioUrl` demo/preview chunks — Remotion's <Audio>
