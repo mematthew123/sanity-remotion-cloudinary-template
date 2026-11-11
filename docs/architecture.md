@@ -74,7 +74,7 @@ A **variant** is a Cloudinary *derivation* of the one canonical MP4 — never a 
 
 - `VARIANTS` — site (mp4 / poster jpg / preview gif / 1200×630 social-card jpg) + a long-form family for narrated videos (`youtube-1080p-mp4` upscale, `podcast-mp3`).
 - Each composition opts into a `variantIds[]` set: `article-promo` and `article-teaser` get the site base; `article-narrated` adds the long-form family.
-- Still-frame variants (`seekToPoster: true` — the poster and social card) seek to the composition's `posterSeconds`, a moment when the title and byline are fully on screen. A fixed percentage doesn't work: 10% of a 7s promo lands before the title animates in. Retune `posterSeconds` when you change a composition's animation timing.
+- Still-frame variants (`seekToPoster: true` — the poster and social card) seek to the composition's `posterSeconds`, a moment when the title and byline are fully on screen. A fixed percentage doesn't work: 10% of an 8s promo lands on the opening brand ident, before the title animates in. `posterSeconds` is derived from each composition's beat sheet in `packages/video-core/src/timeline.ts` — retime a composition there and the poster frame follows.
 - The social card (`og-image-jpg`) pads the frame to 1200×630 (`c_pad,b_auto`) rather than cropping, so square and vertical renders keep their text in link previews. It's what the post page uses for `og:image`.
 - `eagerTransformsFor(meta)` → the `eager` array passed to the Cloudinary upload (materialized at upload).
 - `snapshotVariants(cloudName, publicId, meta)` → the `{variantId, surface, format, url, width, height}[]` written to `video.variants[]`.
